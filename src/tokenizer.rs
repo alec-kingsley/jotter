@@ -12,6 +12,8 @@
 /// If not found, returns an error.
 /// If token is a nickname (such as ≤ for <=), replaces with the more accessible one to type. (in
 /// that case <= for example)
+/// If the token is a series of more than ten -'s in a row, it should return only 10
+/// (----------)
 ///
 /// # Errors
 /// * "Unterminated comment" - A comment (starting with '(*' ) had no ending ( ')' )
@@ -89,6 +91,13 @@ mod tests {
         assert_eq!(next_token(code, &mut i).unwrap(), "<=");
         assert_eq!(next_token(code, &mut i).unwrap(), ">=");
         assert_eq!(next_token(code, &mut i).unwrap(), "<>");
+    }
+
+    #[test]
+    fn next_token_test7() {
+        let code = "------------------------";
+
+        assert_eq!(next_token(code, &mut 0).unwrap(), "----------");
     }
 }
 
