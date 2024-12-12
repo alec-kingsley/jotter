@@ -100,5 +100,12 @@ mod tests {
 
         assert_eq!(next_token(code, &mut 0).unwrap(), "----------");
     }
+    
+    #[test]
+    fn next_token_test8() {
+        let code = "(* (* nested comment ) )";
+
+        assert_eq!(next_token(code, &mut 0).unwrap(), "(* (* nested comment ) )");
+    }
 }
 
