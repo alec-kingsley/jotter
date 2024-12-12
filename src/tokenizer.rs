@@ -35,6 +35,7 @@ mod tests {
         let code = "3x + 20\n";
 
         assert_eq!(next_token(code, &mut 0).unwrap(), "3");
+
         assert_eq!(next_token(code, &mut 1).unwrap(), "x");
 
         assert_eq!(next_token(code, &mut 2).unwrap(), "+");

@@ -4,6 +4,19 @@ NOTE: This is a work in progress. The below describes the planned documentation 
 Jotter is for throwing down math/physics and just figuring stuff out
 It handles all the heavy lifting for you, with syntax that matches real math.
 
+## Grammar
+
+```
+function    ::=   identifier '(' identifier ( ',' identifier ) * ')' '=' ( expression | '{' '\n' ( expression ',' 'if' relation '\n' ) + '}' )
+prompt      ::=   relation '?'
+relation    ::=   expression | relation ( '<' | '>' | '<=' | '≤' | '>=' | '≥' | '=' | '<>' | '≠'  ) expression
+expression  ::=   term | expression ( '+' | '-' ) term
+term        ::=   factor | term ( '*' | '/' ) ? factor
+factor      ::=   '(' expression ')' | number | identifier
+number      ::=   ( '0' | [1-9][0-9]* ) ( '.' [0-9]+ ) ?
+identifier  ::=   ( [a-zA-Zα-ωΑ-Ω] | '\'' [a-zA-Z0-9_]+ '\'' )
+```
+
 ## Basics
 
 Any syntactically invalid lines are assumed to just be comments.
@@ -70,13 +83,13 @@ g(x) = {
     2x,    if x > 3
 }
 
-x where f(x) = 3 ?
-
-Expected output:
-x: 0.5
 
 g(4) ? 
+```
+
 Expected output:
+```
 g(4): 8
 ```
+
 
