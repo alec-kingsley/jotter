@@ -33,13 +33,25 @@ pub struct Identifier {
 }
 
 impl Identifier {
+    /// Initializes an Identifier by checking it against a regex.
+    ///
+    /// # Arguments
+    /// * `value` - The string to represent an identifier.
+    ///
+    /// # Returns
+    /// An initialized identifier.
+    ///
+    /// # Errors
+    /// * "Invalid identifier" - identifier did not match regex.
+    /// '\''
+    ///
     pub fn new(value: &str) -> Result<Self, String> {
         if Regex::new(r"^([a-zA-Zα-ωΑ-Ω]|'[a-zA-Z0-9_ ]+')$").unwrap().is_match(value) {
             Ok(Self {
                 value: value.to_string(),
             })
         } else {
-            Err(format!("Invalid identifier: {}", value))
+            Err(String::from("Invalid identifier"))
         }
     }
 
