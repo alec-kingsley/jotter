@@ -1,4 +1,4 @@
-/// Retrieves the next token in `code` starting at index `i`.
+/// Retrieves the next token in `code` starting at index `i`, and updates `i` accordingly.
 ///
 /// # Arguments
 /// * `code` - A string representing the user program.
@@ -25,6 +25,7 @@ fn next_token(_code: &str, _i: &mut usize) -> Result<String, String> {
 
     // NOTE - since some of our characters are outside ascii range, use code.chars().count() to get
     // length of code, not code.len()
+    
     Err(String::from("Not implemented"))
 }
 

@@ -12,20 +12,48 @@
 use regex::Regex;
 
 
-// TODO - create structs for each above definition
-
+#[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
-        Prompt(Relation),
-        Equation(Relation),
-        FunctionDefinition(Identifier, Vec<Identifier>, Vec<(Expression, Relation)>),
+    Prompt(Relation),
+    Equation(Relation),
+    FunctionDefinition(Identifier, Vec<Identifier>, Vec<(Expression, Relation)>),
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Relation {
-        // TODO
+    pub operands: Vec<Expression>,
+    pub operators: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Expression {
-        // TODO
+    pub operands: Vec<Term>,
+    pub operators: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Term {
+    pub operands: Vec<Factor>,
+    pub operators: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Factor {
+    Parenthetical(Expression),
+    Number(Number),
+    Identifier(Identifier),
+    Call(Call),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Call {
+    pub name: Identifier,
+    pub arguments: Vec<Expression>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Number {
+    pub value: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
