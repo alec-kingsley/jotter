@@ -1,11 +1,13 @@
-// function    ::=   identifier '(' identifier ( ',' identifier ) * ')' '=' ( expression | '{' ( expression ',' relation ';' ) + '}' )
+// statement   ::=   function | prompt | relation
+// function    ::=   identifier '(' identifier ( ',' identifier ) * ')' '=' ( expression | '{' '\n' ( expression ',' 'if' relation '\n' ) + '}' )
 // prompt      ::=   relation '?'
 // relation    ::=   expression | relation ( '<' | '>' | '<=' | '≤' | '>=' | '≥' | '=' | '<>' | '≠'  ) expression
 // expression  ::=   term | expression ( '+' | '-' ) term
 // term        ::=   factor | term ( '*' | '/' ) ? factor
-// factor      ::=   '(' expression ')' | number | identifier
+// factor      ::=   '(' expression ')' | number | identifier | call
+// call        ::=   identifier '(' expression ( ',' expression ) * ')'
 // number      ::=   ( '0' | [1-9][0-9]* ) ( '.' [0-9]+ ) ?
-// identifier  ::=   [a-zA-Zα-ωΑ-Ω] | '\'' [a-zA-Z0-9_]+ '\''
+// identifier  ::=   ( [a-zA-Zα-ωΑ-Ω] | '\'' [a-zA-Z0-9_ ]+ '\'' )
 
 use regex::Regex;
 
@@ -16,7 +18,6 @@ pub enum Statement {
         Prompt(Relation),
         Equation(Relation),
         FunctionDefinition(Identifier, Vec<Identifier>, Vec<(Expression, Relation)>),
-        FunctionCall(Identifier, Vec<Identifier>),
 }
 
 pub struct Relation {
@@ -95,5 +96,6 @@ mod tests {
         let _ = Identifier::new("αβ").unwrap_err();
         let _ = Identifier::new("'unterminated").unwrap_err();
         let _ = Identifier::new("0").unwrap_err();
+        let _ = Identifier::new("-").unwrap_err();
     }
 }
