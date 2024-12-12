@@ -22,6 +22,9 @@
 ///
 fn next_token(_code: &str, _i: &mut usize) -> Result<String, String> {
     // TODO - implement function
+
+    // NOTE - since some of our characters are outside ascii range, use code.chars().count() to get
+    // length of code, not code.len()
     Err(String::from("Not implemented"))
 }
 

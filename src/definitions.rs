@@ -1,4 +1,4 @@
-// statement   ::=   function | prompt | relation
+// statement   ::=   prompt | function | relation
 // function    ::=   identifier '(' identifier ( ',' identifier ) * ')' '=' ( expression | '{' '\n' ( expression ',' 'if' relation '\n' ) + '}' )
 // prompt      ::=   relation '?'
 // relation    ::=   expression | relation ( '<' | '>' | '<=' | '≤' | '>=' | '≥' | '=' | '<>' | '≠'  ) expression
