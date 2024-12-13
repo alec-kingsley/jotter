@@ -26,6 +26,9 @@ fn next_token(_code: &str, _i: &mut usize) -> Result<String, String> {
     // NOTE - since some of our characters are outside ascii range, use code.chars().count() to get
     // length of code, not code.len()
     
+    // NOTE - since \n separates statements and is in the grammar, it is a token. No other
+    // whitespace is.
+    
     Err(String::from("Not implemented"))
 }
 
