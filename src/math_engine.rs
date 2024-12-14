@@ -30,3 +30,25 @@ pub fn process_equation(_equation: Statement) {
         
 }
 
+/// Model for program.
+///
+/// Includes matrix representing values of all variables.
+/// An individual model must be owned by each function call.
+/// Also stores 'call depth' to keep recursion safe.
+///
+#[derive(Debug, Clone, PartialEq)]
+struct ProgramModel {
+    // TODO - determine fields
+
+}
+
+impl ProgramModel {
+    /// Initializes the MathModel.
+    ///
+    pub fn new() -> Result<Self, String> {
+        // TODO - implement function
+
+        Err(String::from("Not implemented"))
+    }
+}
+
