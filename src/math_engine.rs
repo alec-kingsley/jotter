@@ -68,13 +68,16 @@ impl ProgramModel {
 
     /// Initializes the ProgramModel.
     ///
-    pub fn new() -> Result<Self, String> {
-        // TODO - implement function
-
-        Err(String::from("Not implemented"))
+    /// # Arguments
+    /// * `call_depth` - The depth of calls. Safety for recursion.
+    ///
+    pub fn new(call_depth: u16) -> Self {
+        ProgramModel {
+            variables: Vec::new(),
+            augmented_matrix: Vec::new(),
+            functions: Vec::new(),
+            call_depth,
+        }
     }
 }
-
-
-
 
