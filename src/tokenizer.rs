@@ -137,5 +137,45 @@ mod tests {
 
         assert_eq!(next_token(code, &mut 0).unwrap(), "(* (* nested comment ) )");
     }
+
+    #[test]
+    fn next_unit_token_test1() {
+        let code = "(* comment )";
+
+        assert_eq!(next_token(code, &mut 0).unwrap(), "(* comment )");
+    }
+
+    #[test]
+    fn next_unit_token_test2() {
+        let code = "(* bad comment";
+
+        assert_eq!(next_token(code, &mut 0).unwrap_err(), "Unterminated comment");
+    }
+
+    #[test]
+    fn next_unit_token_test3() {
+        let code = "kg m/s^2";
+        let mut i: usize = 0;
+
+        assert_eq!(next_token(code, &mut i).unwrap(), "kg");
+        assert_eq!(next_token(code, &mut i).unwrap(), "m");
+        assert_eq!(next_token(code, &mut i).unwrap(), "/");
+        assert_eq!(next_token(code, &mut i).unwrap(), "s");
+        assert_eq!(next_token(code, &mut i).unwrap(), "^");
+        assert_eq!(next_token(code, &mut i).unwrap(), "2");
+    }
+
+    #[test]
+    fn next_unit_token_test4() {
+        let code = "kilogram meter/second^2";
+        let mut i: usize = 0;
+
+        assert_eq!(next_token(code, &mut i).unwrap(), "kilogram");
+        assert_eq!(next_token(code, &mut i).unwrap(), "meter");
+        assert_eq!(next_token(code, &mut i).unwrap(), "/");
+        assert_eq!(next_token(code, &mut i).unwrap(), "second");
+        assert_eq!(next_token(code, &mut i).unwrap(), "^");
+        assert_eq!(next_token(code, &mut i).unwrap(), "2");
+    }
 }
 
