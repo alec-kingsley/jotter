@@ -70,7 +70,6 @@ pub struct Unit {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum BaseUnit {
-    Undefined,
     Meter,      // m
     Kilogram,   // kg
     Second,     // s

@@ -30,6 +30,12 @@ pub fn process_equation(_equation: Statement) {
         
 }
 
+#[derive(Debug, Clone, PartialEq)]
+struct Variable {
+    pub name: String,
+    pub unit: Unit,
+}
+
 /// Model for program.
 ///
 /// An individual model must be owned by each function call.
@@ -39,8 +45,7 @@ pub fn process_equation(_equation: Statement) {
 ///
 #[derive(Debug, Clone, PartialEq)]
 struct ProgramModel {
-    variable_names: Vec<String>,
-    variable_units: Vec<Unit>,
+    variables: Vec<Variable>,
     augmented_matrix: Vec<Vec<f64>>,
     functions: Vec<Statement>,
     call_depth: u16,
@@ -48,6 +53,19 @@ struct ProgramModel {
 }
 
 impl ProgramModel {
+    /// Add a variable with its unit to the model.
+    ///
+    /// # Arguments
+    /// * `name` - The name of the variable
+    /// * `unit` - The units of the variable
+    ///
+    fn add_variable(&mut self, name: String, unit: Unit) {
+        assert!(!self.variables.iter().any(|v| &v.name == &name), "Variable already exists");
+        self.variables.push(Variable {
+            name, unit
+        });
+    }
+
     /// Initializes the ProgramModel.
     ///
     pub fn new() -> Result<Self, String> {
