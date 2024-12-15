@@ -177,5 +177,19 @@ mod tests {
         assert_eq!(next_token(code, &mut i).unwrap(), "^");
         assert_eq!(next_token(code, &mut i).unwrap(), "2");
     }
+
+    #[test]
+    fn next_unit_token_test5() {
+        let code = "kg^2μm^3";
+        let mut i: usize = 0;
+
+        assert_eq!(next_token(code, &mut i).unwrap(), "kg");
+        assert_eq!(next_token(code, &mut i).unwrap(), "^");
+        assert_eq!(next_token(code, &mut i).unwrap(), "2");
+        assert_eq!(next_token(code, &mut i).unwrap(), "μm");
+        assert_eq!(next_token(code, &mut i).unwrap(), "^");
+        assert_eq!(next_token(code, &mut i).unwrap(), "3");
+    }
+
 }
 
