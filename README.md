@@ -1,8 +1,11 @@
 # Jotter interpreter
 
-NOTE: This is a work in progress. The below describes the planned documentation for the Jotter language.
-Jotter is for throwing down math/physics and just figuring stuff out
-It handles all the heavy lifting for you, with syntax that matches real math.
+DISCLAIMER: This is a work in progress. The below describes the planned documentation for the Jotter language.
+
+Jotter is for throwing down math/physics and just figuring stuff out.
+Its syntax is very familiar to real math.
+
+Jotter is not meant to be a full programming language. It won't support complex string manipulation or data structures. Its goal is just to make life easier and solve problems quickly.
 
 ## Grammar
 
