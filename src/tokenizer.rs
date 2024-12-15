@@ -32,6 +32,29 @@ fn next_token(_code: &str, _i: &mut usize) -> Result<String, String> {
     Err(String::from("Not implemented"))
 }
 
+/// Retrieves the next "unit" token in `code` starting at index `i`, and updates `i` accordingly.
+/// Since the grammar for units is so different, it requires its own tokenizer.
+///
+/// # Arguments
+/// * `code` - A string representing the user program.
+/// * `i` - An index in `code` representing where to start searching.
+///
+/// # Updates
+/// * `i` - Set to 1 past end of returned token. Only updated if Ok() returned.
+///
+/// # Returns
+/// Returns the token starting at index `i` in the string `code` (if found).
+/// If not found, returns an error.
+///
+/// # Errors
+/// * "Unterminated comment" - A comment (starting with '(*' ) had no ending ( ')' )
+/// * "Unexpected symbol" - A symbol was found that is unknown to the grammar
+///
+fn next_unit_token(_code: &str, _i: &mut usize) -> Result<String, String> {
+    // TODO - implement function
+
+    Err(String::from("Not implemented"))
+}
 
 #[cfg(test)]
 mod tests {
