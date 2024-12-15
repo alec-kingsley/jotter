@@ -32,18 +32,23 @@ pub fn process_equation(_equation: Statement) {
 
 /// Model for program.
 ///
-/// Includes matrix representing values of all variables.
 /// An individual model must be owned by each function call.
+/// Includes matrix representing values of all variables.
+/// Stores each function.
 /// Also stores 'call depth' to keep recursion safe.
 ///
 #[derive(Debug, Clone, PartialEq)]
 struct ProgramModel {
-    // TODO - determine fields
+    variable_names: Vec<String>,
+    variable_units: Vec<Unit>,
+    augmented_matrix: Vec<Vec<f64>>,
+    functions: Vec<Statement>,
+    call_depth: u16,
 
 }
 
 impl ProgramModel {
-    /// Initializes the MathModel.
+    /// Initializes the ProgramModel.
     ///
     pub fn new() -> Result<Self, String> {
         // TODO - implement function

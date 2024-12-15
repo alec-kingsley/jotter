@@ -44,20 +44,20 @@ y: -1
 
 Another feature of Jotter is how it handles units:
 ```
-t = 3 ns
-v = 200 km/s
+t = 3 [ns]
+v = 200 [km/s]
 tv ?
 ```
 
 Expected output:
 ```
-tv: 0.6 mm
+tv: 0.6 [mm]
 ```
 
 
 Another comment format is by using parentheses with a star at the start.
 ```
-k = 5 s (*set k to 5 seconds)
+k = 5 [s] (*set k to 5 seconds)
 ```
 
 This is great for inline comments, or if a comment would be otherwise valid syntax.

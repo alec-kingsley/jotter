@@ -51,15 +51,37 @@ pub struct Call {
     pub arguments: Vec<Expression>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Number {
     pub value: f64,
+    pub unit: Unit,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Unit {
+    // power of 10 unit is multiplied by
+    pub exponent: i8,
+    pub numerator: Vec<BaseUnit>,
+    pub denominator: Vec<BaseUnit>,
+
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum BaseUnit {
+    Meter,      // m
+    Kilogram,   // kg
+    Second,     // s
+    Ampere,     // A
+    Kelvin,     // K
+    Mole,       // mol
+    Candela,    // cd
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Identifier {
     value: String,
 }
+
 
 impl Identifier {
     /// Initializes an Identifier by checking it against a regex.
