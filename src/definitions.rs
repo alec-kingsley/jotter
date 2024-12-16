@@ -31,6 +31,7 @@ pub struct Relation {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Expression {
     pub operands: Vec<Term>,
+    // can be + or -
     pub operators: Vec<String>,
 }
 
@@ -159,6 +160,7 @@ impl DivAssign for Expression {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Term {
     pub operands: Vec<Factor>,
+    // can be *, /
     pub operators: Vec<String>,
 }
 
