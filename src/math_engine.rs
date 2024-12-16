@@ -1,4 +1,5 @@
 use crate::definitions::*;
+use std::cmp;
 
 /// Process the AST of a prompt.
 ///
@@ -32,8 +33,19 @@ pub fn process_equation(_equation: Statement) {
 
 #[derive(Debug, Clone, PartialEq)]
 struct Variable {
-    pub name: String,
+    pub name: Identifier,
     pub unit: Unit,
+}
+
+/// Evaluate the given `Expression` assuming all constant values.
+///
+/// # Arguments
+/// * `expression` - The `Expression` to evaluate.
+///
+fn evaluate_constant_expression(_expression: &Expression) -> Result<Number, String> {
+    // TODO - implement function
+
+    Err(String::from("Not implemented"))
 }
 
 /// Model for program.
@@ -46,20 +58,84 @@ struct Variable {
 #[derive(Debug, Clone, PartialEq)]
 struct ProgramModel {
     variables: Vec<Variable>,
-    augmented_matrix: Vec<Vec<f64>>,
+    augmented_matrix: Vec<Vec<Expression>>,
     functions: Vec<Statement>,
     call_depth: u16,
 
 }
 
 impl ProgramModel {
+    /// Update `self.augmented_matrix` to reduced echelon form.
+    ///
+    fn reduce(&mut self) {
+        assert!(self.augmented_matrix.len() > 0 
+            && self.augmented_matrix[0].len() > 0, 
+            "Empty augmented matrix");
+
+        let row_ct = self.augmented_matrix.len();
+        let col_ct = self.augmented_matrix[0].len();
+
+        for col in 0..cmp::min(row_ct, col_ct) {
+            // the goal is to get a 1 at each [row, col]
+            let row = col;
+
+            // the row to switch row out for
+            let mut switcher = row;
+            while switcher < row_ct && 
+                match evaluate_constant_expression(&self.augmented_matrix[switcher][col]) {
+                    Ok(number) => number.value == 0f64,
+                    Err(_) => true,
+                } {
+                switcher += 1;
+            }
+
+            // if a row can safely exist here
+            if switcher < row_ct {
+                if row < switcher {
+                    // swap the rows
+                    self.augmented_matrix.swap(row, switcher);
+                }
+                
+                // TODO - divide the row by the `col` element
+
+                // TODO - subtract that row from rows below until they're all 0 at that pos
+            }
+
+            // TODO - go back up and subtract the 1s from rows above
+            
+        }
+
+    }
+
+    /// Retrieve an expression for the value of the given identifier from `self.augmented_matrix`.
+    ///
+    /// # Arguments
+    /// * `name` - The identifier to search for.
+    ///
+    fn retrieve_value(&self, _name: Identifier) -> Result<Expression, String> {
+        // TODO - implement function
+        
+        Err(String::from("Not implemented"))    
+    }
+
+    /// Add a row to `self.augmented_matrix` based on the provided equality.
+    ///
+    /// # Arguments
+    /// * `left` - The left-hand side of the equality.
+    /// * `right` - The right-hand side of the equality.
+    ///
+    fn add_matrix_row(&mut self, _left: Expression, _right: Expression) {
+        // TODO - implement function
+
+    }
+
     /// Add a variable with its unit to the model.
     ///
     /// # Arguments
     /// * `name` - The name of the variable
     /// * `unit` - The units of the variable
     ///
-    fn add_variable(&mut self, name: String, unit: Unit) {
+    fn add_variable(&mut self, name: Identifier, unit: Unit) {
         assert!(!self.variables.iter().any(|v| &v.name == &name), "Variable already exists");
         self.variables.push(Variable {
             name, unit

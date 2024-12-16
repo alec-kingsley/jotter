@@ -12,6 +12,8 @@
 // identifier  ::=   ( [a-zA-Zα-ωΑ-Ω] | '\'' [a-zA-Z0-9_ ]+ '\'' )
 
 use regex::Regex;
+use std::ops::*;
+use std::collections::HashMap;
 
 
 #[derive(Debug, Clone, PartialEq)]
@@ -59,16 +61,30 @@ pub struct Number {
     pub unit: Unit,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Unit {
     // power of 10 unit is multiplied by
     pub exponent: i8,
-    pub numerator: Vec<BaseUnit>,
-    pub denominator: Vec<BaseUnit>,
+    // map of base units to the power they're multiplied by
+    // if map is missing a key, it's assumed to be to power of 0
+    pub constituents: HashMap<BaseUnit, i8>,
 
 }
 
-#[derive(Debug, Clone, PartialEq)]
+// Implement PartialEq for Unit
+impl PartialEq for Unit {
+    fn eq(&self, other: &Self) -> bool {
+        let mut result = false;
+        if self.exponent == other.exponent && self.constituents.len() == other.constituents.len() {
+            for key in self.constituents.keys() {
+                result &= self.constituents.get(&key) == other.constituents.get(&key);
+            }
+        }
+        result
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum BaseUnit {
     Meter,      // m
     Kilogram,   // kg
@@ -79,14 +95,81 @@ pub enum BaseUnit {
     Candela,    // cd
 }
 
+impl Add for Number {
+    type Output = Self;
+
+    /// Operator overload for +.
+    ///
+    fn add(self, other: Self) -> Self {
+        assert!(self.unit == other.unit, "Mismatched types");
+        Self {
+            value: self.value + other.value,
+            unit: self.unit,
+        }
+    }
+}
+
+impl Sub for Number {
+    type Output = Self;
+
+    /// Operator overload for -.
+    ///
+    fn sub(self, other: Self) -> Self {
+        assert!(self.unit == other.unit, "Mismatched types");
+        Self {
+            value: self.value - other.value,
+            unit: self.unit,
+        }
+    }
+}
+
+impl Mul for Number {
+    type Output = Self;
+
+    /// Operator overload for *.
+    ///
+    fn mul(self, other: Self) -> Self {
+        let mut constituents = self.unit.constituents;
+        for (base_unit, power) in other.unit.constituents {
+            *constituents.entry(base_unit).or_insert(0) += power;
+        }
+        Self {
+            value: self.value * other.value,
+            unit: Unit {
+                exponent: self.unit.exponent + other.unit.exponent,
+                constituents,
+            },
+        }
+    }
+}
+
+impl Div for Number {
+    type Output = Self;
+
+    /// Operator overload for /.
+    ///
+    fn div(self, other: Self) -> Self {
+        let mut constituents = self.unit.constituents;
+        for (base_unit, power) in other.unit.constituents {
+            *constituents.entry(base_unit).or_insert(0) -= power;
+        }
+        Self {
+            value: self.value / other.value,
+            unit: Unit {
+                exponent: self.unit.exponent - other.unit.exponent,
+                constituents,
+            },
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Identifier {
     value: String,
 }
 
-
 impl Identifier {
-    /// Initializes an Identifier by checking it against a regex.
+    /// Initializes an `Identifier` by checking it against a regex.
     ///
     /// # Arguments
     /// * `value` - The string to represent an identifier.
@@ -96,7 +179,6 @@ impl Identifier {
     ///
     /// # Errors
     /// * "Invalid identifier" - identifier did not match regex.
-    /// '\''
     ///
     pub fn new(value: &str) -> Result<Self, String> {
         if Regex::new(r"^([a-zA-Zα-ωΑ-Ω]|'[a-zA-Z0-9_ ]+')$").unwrap().is_match(value) {
