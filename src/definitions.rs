@@ -186,7 +186,7 @@ pub struct Number {
 pub struct Unit {
     // power of 10 unit is multiplied by
     pub exponent: i8,
-    // map of base units to the power they're multiplied by
+    // map of base units to the power they're raised to
     // if map is missing a key, it's assumed to be to power of 0
     pub constituents: HashMap<BaseUnit, i8>,
 }

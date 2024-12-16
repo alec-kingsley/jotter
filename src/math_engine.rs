@@ -45,6 +45,17 @@ fn evaluate_constant_expression(_expression: &Expression) -> Result<Number, Stri
     Err(String::from("Not implemented"))
 }
 
+/// Simplify the given `Expression`.
+///
+/// # Arguments
+/// * `expression` - The `Expression` to simplify.
+///
+fn simplify_expression(_expression: &Expression) -> Result<Expression, String> {
+    // TODO - implement function
+
+    Err(String::from("Not implemented"))
+}
+
 /// Model for program.
 ///
 /// An individual model must be owned by each function call.
@@ -114,22 +125,25 @@ fn setup_pivot(&mut self, row: usize, col: usize) {
         }
     }
 
-    // subtract that row from rows below until they're all 0 or undetermined at that pos
-    for row_update in (row + 1)..row_ct {
-        let factor = &self.augmented_matrix[row_update][col].clone();
-        if match evaluate_constant_expression(factor) {
-            // don't subtract anything if it's already 0
-            Ok(number) => number.value != 0f64,
-            // don't subtract anything if there's an equation there
-            Err(_) => false,
-        } {
-            // only update row if we have a known factor
-            // start at 0 not col since there could be equations
-            for col_update in 0..col_ct {
-                let pivot_row_element =
-                    &self.augmented_matrix[row][col_update].clone();
-                self.augmented_matrix[row_update][col_update] -=
-                    factor.clone() * pivot_row_element.clone();
+    // subtract that row from rows above and below until they're all 0 or undetermined at that pos
+    for row_update in 0..row_ct {
+        // skip the current row
+        if row_update != row {
+            let factor = &self.augmented_matrix[row_update][col].clone();
+            if match evaluate_constant_expression(factor) {
+                // don't subtract anything if it's already 0
+                Ok(number) => number.value != 0f64,
+                // don't subtract anything if there's an equation there
+                Err(_) => false,
+            } {
+                // only update row if we have a known factor
+                // start at 0 not col since there could be equations
+                for col_update in 0..col_ct {
+                    let pivot_row_element =
+                        &self.augmented_matrix[row][col_update].clone();
+                    self.augmented_matrix[row_update][col_update] -=
+                        factor.clone() * pivot_row_element.clone();
+                }
             }
         }
     }
@@ -160,8 +174,6 @@ fn reduce(&mut self) {
                 self.setup_pivot(row, col);
 
                 // at this point, we have all 1's as the pivot points, but not reduced above
-
-                // TODO - go back up and subtract the 1s from rows above
 
                 // TODO - go through and simplify all expressions
 
