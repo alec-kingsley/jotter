@@ -97,11 +97,9 @@ impl ProgramModel {
                 }
                 
                 // divide the row by the `col` element to get a 1
-                let factor = evaluate_constant_expression(&self.augmented_matrix[row][col]).unwrap();
+                let factor = &self.augmented_matrix[row][col].clone();
                 for col_update in col..col_ct {
-                    let original = &self.augmented_matrix[row][col_update];
-
-                    self.augmented_matrix[row][col_update] /= &self.augmented_matrix[row][col];
+                    self.augmented_matrix[row][col_update] /= factor.clone();
                 }
 
                 // TODO - subtract that row from rows below until they're all 0 at that pos
