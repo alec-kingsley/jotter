@@ -62,6 +62,7 @@ struct ProgramModel {
 
 impl ProgramModel {
     /// Simplify the given `Expression`, using known variable values.
+    /// Resulting `Expression` should have no `Factor::Parenthetical`s
     ///
     /// # Arguments
     /// * `expression` - The `Expression` to simplify.
@@ -81,10 +82,10 @@ impl ProgramModel {
     /// * `row` - The row to start at
     /// * `col` - The column of the pivot point
     ///
-    fn get_switcher(&self, row: usize, col: usize) -> Result<usize, ()> {
+    fn get_switcher(&self, row: usize, col: usize) -> Option<usize> {
         let row_ct = self.augmented_matrix.len();
 
-        let mut result: Result<usize, ()> = Err(());
+        let mut result: Option<usize> = None;
         for switcher in row..row_ct {
             if match evaluate_constant_expression(&self.augmented_matrix[switcher][col]) {
                 Ok(number) => number.value != 0f64,
@@ -96,8 +97,8 @@ impl ProgramModel {
                     .all(|expr| evaluate_constant_expression(expr).is_ok());
 
                 // start at 0 not col+1 since there could be equations
-                if all_constants_in_row || result.is_err() {
-                    result = Ok(switcher);
+                if all_constants_in_row || result.is_none() {
+                    result = Some(switcher);
                 }
                 if all_constants_in_row {
                     // we've found prioritized type!
@@ -166,7 +167,7 @@ impl ProgramModel {
             let row = col;
 
             match self.get_switcher(row, col) {
-                Ok(switcher) => {
+                Some(switcher) => {
                     if row < switcher {
                         // swap the rows if they're different
                         self.augmented_matrix.swap(row, switcher);
@@ -174,7 +175,7 @@ impl ProgramModel {
 
                     self.setup_pivot(row, col);
                 }
-                Err(()) => {}
+                None => {}
             }
         }
 
