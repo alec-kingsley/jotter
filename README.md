@@ -62,9 +62,9 @@ tv: 0.6 [mm]
 ```
 
 
-Another comment format is by using parentheses with a star at the start.
+Another comment format is by using parentheses with a stars on the inside.
 ```
-k = 5 [s] (*set k to 5 seconds)
+k = 5 [s] (*set k to 5 seconds*)
 ```
 
 This is great for inline comments, or if a comment would be otherwise valid syntax.
@@ -82,7 +82,7 @@ y = 4
 ## Functions
 
 ```
-f(x) = 3x + 2 (* example function )
+f(x) = 3x + 2 (* example function *)
 
 g(x) = {
     x / 2, if x ≤ 1
