@@ -65,8 +65,9 @@ impl ProgramModel {
     ///
     /// # Arguments
     /// * `expression` - The `Expression` to simplify.
+    /// * `make_substitutions` - True iff it should substitute known variables.
     ///
-    fn simplify_expression(&self, _expression: &Expression) -> Result<Expression, String> {
+    fn simplify_expression(&self, _expression: &Expression, _make_substitutions: bool) -> Result<Expression, String> {
         // TODO - implement function
 
         Err(String::from("Not implemented"))
@@ -181,7 +182,7 @@ impl ProgramModel {
         for row in 0..row_ct {
             for col in 0..col_ct {
                 self.augmented_matrix[row][col] = self
-                    .simplify_expression(&self.augmented_matrix[row][col])
+                    .simplify_expression(&self.augmented_matrix[row][col], true)
                     .unwrap();
             }
         }
@@ -201,14 +202,55 @@ impl ProgramModel {
     }
 
     /// Retrieve an expression for the value of the given identifier from `self.augmented_matrix`.
+    /// Finds the expression in the most simplified form. That is, a non-zero multiplier with
+    /// minimum other non-constant terms.
     ///
     /// # Arguments
     /// * `name` - The identifier to search for.
     ///
-    fn retrieve_value(&self, _name: Identifier) -> Result<Expression, String> {
-        // TODO - implement function
+    fn retrieve_value(&self, name: Identifier) -> Result<Expression, String> {
+        // find index of identifier
+        let value_col = self.variables.iter().position(|v| v.name == name).unwrap();
+        let row_ct = self.augmented_matrix.len();
+        let col_ct = self.augmented_matrix[0].len();
 
-        Err(String::from("Not implemented"))
+        let mut best_row: Option<usize> = None;
+        let mut min_expressions_plus_values = 0;
+
+        // find the best row
+        for row in 0..row_ct {
+            if match evaluate_constant_expression(&self.augmented_matrix[row][value_col]) {
+                Ok(number) => number.value != 0f64,
+                Err(_) => true,
+            } {
+                // possible row. Evaluate for goodness
+                let expressions_plus_values = self.augmented_matrix[row].iter().fold(0, |acc, expr| 
+                    acc + match evaluate_constant_expression(&expr) {
+                        Ok(number) => if number.value == 0f64 { 0 } else { 1 },
+                        Err(_) => 2,
+                    }
+
+                );
+                if best_row == None || expressions_plus_values < min_expressions_plus_values {
+                        best_row = Some(row);
+                        min_expressions_plus_values = expressions_plus_values;
+                }
+            }
+        }
+
+        if best_row == None {
+            return Err(String::from("No formula found for {name.value}"));
+        }
+
+        // build resulting formula
+        let mut result = self.augmented_matrix[best_row.unwrap()][col_ct - 1].clone();
+        for col in 0..(col_ct - 1) {
+            if col != value_col {
+                result -= self.augmented_matrix[best_row.unwrap()][col].clone();
+            }
+        }
+        result /= self.augmented_matrix[best_row.unwrap()][value_col].clone();
+        Ok(self.simplify_expression(&result, false).unwrap())
     }
 
     /// Add a row to `self.augmented_matrix` based on the provided equality.
@@ -219,6 +261,7 @@ impl ProgramModel {
     ///
     fn add_matrix_row(&mut self, _left: Expression, _right: Expression) {
         // TODO - implement function
+
     }
 
     /// Add a variable with its unit to the model.
