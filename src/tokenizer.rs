@@ -18,7 +18,7 @@ use regex::Regex;
 /// (----------)
 ///
 /// # Errors
-/// * "Unterminated comment" - A comment (starting with '(*' ) had no ending ( ')' )
+/// * "Unterminated comment" - A comment (starting with '(*' ) had no ending ( '*)' )
 /// * "Unterminated named identifier" - A named identifier (starting with '\'') had no matching
 /// '\''
 ///
@@ -64,7 +64,7 @@ fn next_token(_code: &str, _i: &mut usize) -> Result<String, String> {
 /// If not found, returns an error.
 ///
 /// # Errors
-/// * "Unterminated comment" - A comment (starting with '(*' ) had no ending ( ')' )
+/// * "Unterminated comment" - A comment (starting with '(*' ) had no ending ( '*)' )
 /// * "Unexpected symbol" - A symbol was found that is unknown to the grammar
 ///
 fn next_unit_token(_code: &str, _i: &mut usize) -> Result<String, String> {
@@ -95,9 +95,9 @@ mod tests {
 
     #[test]
     fn next_token_test2() {
-        let code = "(* comment )";
+        let code = "(* comment *) 1";
 
-        assert_eq!(next_token(code, &mut 0).unwrap(), "(* comment )");
+        assert_eq!(next_token(code, &mut 0).unwrap(), "1");
     }
 
     #[test]
@@ -150,16 +150,23 @@ mod tests {
     
     #[test]
     fn next_token_test8() {
-        let code = "(* (* nested comment ) )";
+        let code = "(* (* nested comment *) *) 5";
 
-        assert_eq!(next_token(code, &mut 0).unwrap(), "(* (* nested comment ) )");
+        assert_eq!(next_token(code, &mut 0).unwrap(), "5");
+    }
+
+    #[test]
+    fn next_token_test8() {
+        let code = "(* comment1 *) (* comment2 *) 5";
+
+        assert_eq!(next_token(code, &mut 0).unwrap(), "5");
     }
 
     #[test]
     fn next_unit_token_test1() {
-        let code = "(* comment )";
+        let code = "(* comment *) kg";
 
-        assert_eq!(next_token(code, &mut 0).unwrap(), "(* comment )");
+        assert_eq!(next_token(code, &mut 0).unwrap(), "kg");
     }
 
     #[test]
