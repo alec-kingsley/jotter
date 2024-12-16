@@ -1,20 +1,27 @@
 # Jotter interpreter
 
-NOTE: This is a work in progress. The below describes the planned documentation for the Jotter language.
-Jotter is for throwing down math/physics and just figuring stuff out
-It handles all the heavy lifting for you, with syntax that matches real math.
+DISCLAIMER: This is a work in progress. The below describes the planned documentation for the Jotter language.
+
+Jotter is for throwing down math/physics and just figuring stuff out.
+Its syntax is very familiar to real math.
+
+Jotter is not meant to be a full programming language. It won't support complex string manipulation or data structures. Its goal is just to make life easier and solve problems quickly.
 
 ## Grammar
 
 ```
+statement   ::=   prompt | function | relation
 function    ::=   identifier '(' identifier ( ',' identifier ) * ')' '=' ( expression | '{' '\n' ( expression ',' 'if' relation '\n' ) + '}' )
 prompt      ::=   relation '?'
 relation    ::=   expression | relation ( '<' | '>' | '<=' | '≤' | '>=' | '≥' | '=' | '<>' | '≠'  ) expression
 expression  ::=   term | expression ( '+' | '-' ) term
 term        ::=   factor | term ( '*' | '/' ) ? factor
-factor      ::=   '(' expression ')' | number | identifier
-number      ::=   ( '0' | [1-9][0-9]* ) ( '.' [0-9]+ ) ?
-identifier  ::=   ( [a-zA-Zα-ωΑ-Ω] | '\'' [a-zA-Z0-9_]+ '\'' )
+factor      ::=   '(' expression ')' | number | identifier | call
+call        ::=   identifier '(' expression ( ',' expression ) * ')'
+number      ::=   ( '0' | [1-9][0-9]* ) ( '.' [0-9]+ ) ? ( '[' unit ']' ) ?
+unit        ::=   ( baseunit ( '^' [1-9][0-9]* ) ? )+ ( '/' ( baseunit ( '^' [1-9][0-9]* ) ? )+ ) ?
+baseunit    ::=   [a-zA-Zα-ωΑ-Ω]+
+identifier  ::=   ( [a-zA-Zα-ωΑ-Ω] | '\'' [a-zA-Z0-9_ ]+ '\'' )
 ```
 
 ## Basics
