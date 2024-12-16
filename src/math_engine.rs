@@ -84,7 +84,7 @@ impl ProgramModel {
             while switcher < row_ct && 
                 match evaluate_constant_expression(&self.augmented_matrix[switcher][col]) {
                     Ok(number) => number.value == 0f64,
-                    Err(_) => true,
+                    Err(_) => true, // skip non-constants
                 } {
                 switcher += 1;
             }
@@ -96,7 +96,13 @@ impl ProgramModel {
                     self.augmented_matrix.swap(row, switcher);
                 }
                 
-                // TODO - divide the row by the `col` element
+                // divide the row by the `col` element to get a 1
+                let factor = evaluate_constant_expression(&self.augmented_matrix[row][col]).unwrap();
+                for col_update in col..col_ct {
+                    let original = &self.augmented_matrix[row][col_update];
+
+                    self.augmented_matrix[row][col_update] /= &self.augmented_matrix[row][col];
+                }
 
                 // TODO - subtract that row from rows below until they're all 0 at that pos
             }
