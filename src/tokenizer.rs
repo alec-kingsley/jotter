@@ -1,3 +1,5 @@
+use regex::Regex;
+
 /// Retrieves the next token in `code` starting at index `i`, and updates `i` accordingly.
 ///
 /// # Arguments
@@ -22,13 +24,28 @@
 ///
 fn next_token(_code: &str, _i: &mut usize) -> Result<String, String> {
     // TODO - implement function
-
+    
     // NOTE - since some of our characters are outside ascii range, use code.chars().count() to get
     // length of code, not code.len()
     
     // NOTE - since \n separates statements and is in the grammar, it is a token. No other
-    // whitespace is.
+    // whitespace
     
+    let characters = Regex::new(r"[a-zA-Zα-ωΑ-Ω0-9_ \n()*]").unwrap();
+
+    let mut next_token = String::new();
+
+    // find first character starting at i
+    
+    // if its a digit, continue looking for more digits
+    // if its a ''' - apostrophe, then look for a identifier, must also end with '''
+    // if its a equality opperator, if its nickname, change to more accessible form
+    // if its a '(' look for "(*", then its a comment, make sure it is terminated
+    // other tokens are all single characters 
+
+    // increment i by the length of next_token
+
+
     Err(String::from("Not implemented"))
 }
 
