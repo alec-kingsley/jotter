@@ -229,7 +229,15 @@ impl AddAssign for Number {
     /// Operator overload for +=.
     ///
     fn add_assign(&mut self, other: Self) {
-        self.clone_from(&(self.clone() + other));
+        // only add if the other is not equal to 0
+        // reason for this is that 0m/s + 3m would sensibly be 3m, even though
+        // (m/s + m) is not a valid unit.
+        //
+        // this does not apply to plus by itself since it's not obvious which should
+        // be prioritized.
+        if other.value != 0f64 {
+            self.clone_from(&(self.clone() + other));
+        }
     }
 }
 
@@ -251,7 +259,15 @@ impl SubAssign for Number {
     /// Operator overload for -=.
     ///
     fn sub_assign(&mut self, other: Self) {
-        self.clone_from(&(self.clone() - other));
+        // only subtract if the other is not equal to 0
+        // reason for this is that 3m/s - 0m would sensibly be 3m/s, even though
+        // (m/s - m) is not a valid unit.
+        //
+        // this does not apply to minus by itself since it's not obvious which should
+        // be prioritized.
+        if other.value != 0f64 {
+            self.clone_from(&(self.clone() - other));
+        }
     }
 }
 
