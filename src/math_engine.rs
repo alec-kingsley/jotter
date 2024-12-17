@@ -1,4 +1,5 @@
 use crate::definitions::*;
+use std::collections::HashMap;
 use std::cmp;
 
 /// Process the AST of a prompt.
@@ -67,7 +68,11 @@ impl ProgramModel {
     /// * `factor` - The `Factor` to simplify.
     /// * `make_substitutions` - True iff it should substitute known variables.
     ///
-    fn simplify_factor(&self, _factor: &Factor, _make_substitutions: bool) -> Result<Factor, String> {
+    fn simplify_factor(
+        &self,
+        _factor: &Factor,
+        _make_substitutions: bool,
+    ) -> Result<Factor, String> {
         // TODO - implement function
 
         Err(String::from("Not implemented"))
@@ -89,10 +94,50 @@ impl ProgramModel {
                 .operands
                 .push(self.simplify_factor(operand, make_substitutions)?)
         }
-        // TODO - implement function similarly to simplify_expression
-        // NOTE - order DOES matter here for the constants, unlike in expressions
+        let mut value: Option<Number> = None;
+        let original_op_ct = new_term.operands.len();
+        for i in 0..original_op_ct {
+            let idx = original_op_ct - i - 1;
+            match evaluate_constant_expression(&Expression {
+                operands: vec![
+                    Term {
+                        operands: vec![new_term.operands[idx].clone()],
+                        operators: Vec::new(),
+                    }
+                ],
+                operators: Vec::new(),
+            }) {
+                Ok(number) => {
+                    if value.is_none() {
+                        value = Some(Number {
+                            value: 1f64,
+                            unit: Unit {
+                                exponent: 0,
+                                constituents: HashMap::new(),
+                            }
+                        })
+                    }
+                    value = if idx > 0 && new_term.operators[idx - 1] == "/" {
+                        Some(value.unwrap() / number)
+                    } else {
+                        Some(value.unwrap() * number)
+                    };
+                    new_term.operands.remove(idx);
+                    if idx > 0 {
+                        new_term.operators.remove(idx - 1);
+                    }
+                }
+                Err(_) => {}
+            }
+        }
+        if value.is_some() {
+            new_term.operands.push(Factor::Number(value.unwrap()));
+            if new_term.operands.len() > 1 {
+                new_term.operators.push(String::from("*"));
+            }
+        }
 
-        Err(String::from("Not implemented"))
+        Ok(new_term)
     }
 
     /// Simplify the given `Expression`, using known variable values.
