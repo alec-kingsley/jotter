@@ -2,8 +2,8 @@
 // function    ::=   identifier '(' identifier ( ',' identifier ) * ')' '=' ( expression | '{' '\n' ( expression ',' 'if' relation '\n' ) + '}' )
 // prompt      ::=   relation '?'
 // relation    ::=   expression | relation ( '<' | '>' | '<=' | '≤' | '>=' | '≥' | '=' | '<>' | '≠'  ) expression
-// expression  ::=   term | expression ( '+' | '-' ) term
-// term        ::=   factor | term ( '*' | '/' ) ? factor
+// expression  ::=   term (( '+' | '-' ) term ) *
+// term        ::=   factor (( '*' | '/' ) ? factor ) *
 // factor      ::=   '(' expression ')' | number | identifier | call
 // call        ::=   identifier '(' expression ( ',' expression ) * ')'
 // number      ::=   ( '0' | [1-9][0-9]* ) ( '.' [0-9]+ ) ? ( '[' unit ']' ) ?

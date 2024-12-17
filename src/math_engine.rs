@@ -194,7 +194,6 @@ impl ProgramModel {
                 Err(_) => {}
             }
         }
-        // TODO - expand all parentheticals in term (multiply out)
         if value.is_some() {
             new_term.operands.push(Factor::Number(value.unwrap()));
             if new_term.operands.len() > 1 {
@@ -251,6 +250,7 @@ impl ProgramModel {
                 Err(_) => {}
             }
         }
+        // TODO - expand all parentheticals in each term (multiply out)
         // TODO - combine like terms
         if value.is_some() {
             new_expression.operands.push(Term {
