@@ -309,7 +309,7 @@ impl ProgramModel {
         }
 
         if best_row == None {
-            return Err(String::from("No formula found for {name.value}"));
+            return Err(format!("No formula found for {name}"));
         }
 
         // build resulting formula
