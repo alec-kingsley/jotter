@@ -13,6 +13,8 @@
 
 use regex::Regex;
 use std::collections::HashMap;
+use std::fmt::Display;
+use std::fmt;
 use std::ops::*;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -44,15 +46,11 @@ impl Add for Expression {
         Self {
             operands: vec![
                 Term {
-                    operands: vec![
-                        Factor::Parenthetical(self.clone()),
-                    ],
+                    operands: vec![Factor::Parenthetical(self.clone())],
                     operators: Vec::new(),
                 },
                 Term {
-                    operands: vec![
-                        Factor::Parenthetical(other.clone()),
-                    ],
+                    operands: vec![Factor::Parenthetical(other.clone())],
                     operators: Vec::new(),
                 },
             ],
@@ -78,15 +76,11 @@ impl Sub for Expression {
         Self {
             operands: vec![
                 Term {
-                    operands: vec![
-                        Factor::Parenthetical(self.clone()),
-                    ],
+                    operands: vec![Factor::Parenthetical(self.clone())],
                     operators: Vec::new(),
                 },
                 Term {
-                    operands: vec![
-                        Factor::Parenthetical(other.clone()),
-                    ],
+                    operands: vec![Factor::Parenthetical(other.clone())],
                     operators: Vec::new(),
                 },
             ],
@@ -320,6 +314,12 @@ impl DivAssign for Number {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Identifier {
     value: String,
+}
+
+impl Display for Identifier {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.value)
+    }
 }
 
 impl Identifier {

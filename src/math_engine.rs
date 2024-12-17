@@ -1,6 +1,6 @@
 use crate::definitions::*;
-use std::collections::HashMap;
 use std::cmp;
+use std::collections::HashMap;
 
 /// Process the AST of a prompt.
 ///
@@ -35,16 +35,6 @@ struct Variable {
     pub unit: Unit,
 }
 
-/// Evaluate the given `Expression` assuming all constant values.
-///
-/// # Arguments
-/// * `expression` - The `Expression` to evaluate.
-///
-fn evaluate_constant_expression(_expression: &Expression) -> Result<Number, String> {
-    // TODO - implement function
-
-    Err(String::from("Not implemented"))
-}
 
 /// Model for program.
 ///
@@ -62,20 +52,96 @@ struct ProgramModel {
 }
 
 impl ProgramModel {
+    /// Make the call in `call`.
+    ///
+    /// # Arguments
+    /// * `call` - The `Call` to make.
+    ///
+    fn make_call(&self, _call: &Call) -> Result<Expression, String> {
+        // TODO - implement function
+
+        Err(String::from("Not implemented"))
+    }
+
+    /// Evaluate the given `Factor` assuming all constant values.
+    ///
+    /// # Arguments
+    /// * `factor` - The `Factor` to evaluate.
+    ///
+    fn evaluate_constant_factor(&self, factor: &Factor) -> Result<Number, String> {
+        match factor {
+            Factor::Parenthetical(expression) => 
+                self.evaluate_constant_expression(expression),
+            Factor::Number(number) => Ok(number.clone()),
+            Factor::Identifier(identifier) => {
+                Err(format!("Identifier found: {identifier}"))
+            }
+            Factor::Call(call) =>
+                self.evaluate_constant_expression(&self.make_call(call)?),
+        }
+
+    }
+
+    /// Evaluate the given `Term` assuming all constant values.
+    ///
+    /// # Arguments
+    /// * `term` - The `Term` to evaluate.
+    ///
+    fn evaluate_constant_term(&self, term: &Term) -> Result<Number, String> {
+        let mut value = self.evaluate_constant_factor(&term.operands[0])?;
+        for idx in 1..term.operands.len() {
+            if term.operators[idx - 1] == "/" {
+                value /= self.evaluate_constant_factor(&term.operands[idx])?;
+            } else {
+                value *= self.evaluate_constant_factor(&term.operands[idx])?;
+            }
+        }
+        Ok(value)
+    }
+
+    /// Evaluate the given `Expression` assuming all constant values.
+    ///
+    /// # Arguments
+    /// * `expression` - The `Expression` to evaluate.
+    ///
+    fn evaluate_constant_expression(&self, expression: &Expression) -> Result<Number, String> {
+        let mut value = self.evaluate_constant_term(&expression.operands[0])?;
+        for idx in 1..expression.operands.len() {
+            if expression.operators[idx - 1] == "-" {
+                value -= self.evaluate_constant_term(&expression.operands[idx])?;
+            } else {
+                value += self.evaluate_constant_term(&expression.operands[idx])?;
+            }
+        }
+        Ok(value)
+    }
+
     /// Simplify the given `Factor`.
     ///
     /// # Arguments
     /// * `factor` - The `Factor` to simplify.
     /// * `make_substitutions` - True iff it should substitute known variables.
     ///
-    fn simplify_factor(
-        &self,
-        _factor: &Factor,
-        _make_substitutions: bool,
-    ) -> Result<Factor, String> {
-        // TODO - implement function
-
-        Err(String::from("Not implemented"))
+    fn simplify_factor(&self, factor: &Factor, make_substitutions: bool) -> Result<Factor, String> {
+        Ok(match factor {
+            Factor::Parenthetical(expression) => Factor::Parenthetical(
+                self.simplify_expression(expression, make_substitutions)?,
+            ),
+            Factor::Number(number) => Factor::Number(number.clone()),
+            Factor::Identifier(identifier) => {
+                if make_substitutions {
+                    match self.retrieve_value(identifier.clone()) {
+                        Ok(value) => Factor::Parenthetical(value),
+                        Err(_) => Factor::Identifier(identifier.clone()),
+                    }
+                } else {
+                    Factor::Identifier(identifier.clone())
+                }
+            }
+            Factor::Call(call) => Factor::Parenthetical(
+                self.simplify_expression(&self.make_call(call)?, make_substitutions)?,
+            ),
+        })
     }
 
     /// Simplify the given `Term`.
@@ -98,13 +164,11 @@ impl ProgramModel {
         let original_op_ct = new_term.operands.len();
         for i in 0..original_op_ct {
             let idx = original_op_ct - i - 1;
-            match evaluate_constant_expression(&Expression {
-                operands: vec![
-                    Term {
-                        operands: vec![new_term.operands[idx].clone()],
-                        operators: Vec::new(),
-                    }
-                ],
+            match self.evaluate_constant_expression(&Expression {
+                operands: vec![Term {
+                    operands: vec![new_term.operands[idx].clone()],
+                    operators: Vec::new(),
+                }],
                 operators: Vec::new(),
             }) {
                 Ok(number) => {
@@ -114,7 +178,7 @@ impl ProgramModel {
                             unit: Unit {
                                 exponent: 0,
                                 constituents: HashMap::new(),
-                            }
+                            },
                         })
                     }
                     value = if idx > 0 && new_term.operators[idx - 1] == "/" {
@@ -130,6 +194,7 @@ impl ProgramModel {
                 Err(_) => {}
             }
         }
+        // TODO - expand all parentheticals in term (multiply out)
         if value.is_some() {
             new_term.operands.push(Factor::Number(value.unwrap()));
             if new_term.operands.len() > 1 {
@@ -141,7 +206,6 @@ impl ProgramModel {
     }
 
     /// Simplify the given `Expression`, using known variable values.
-    /// Resulting `Expression` should have no `Factor::Parenthetical`s except for denominators.
     ///
     /// # Arguments
     /// * `expression` - The `Expression` to simplify.
@@ -167,7 +231,7 @@ impl ProgramModel {
         let original_op_ct = new_expression.operands.len();
         for i in 0..original_op_ct {
             let idx = original_op_ct - i - 1;
-            match evaluate_constant_expression(&Expression {
+            match self.evaluate_constant_expression(&Expression {
                 operands: vec![new_expression.operands[idx].clone()],
                 operators: Vec::new(),
             }) {
@@ -187,6 +251,7 @@ impl ProgramModel {
                 Err(_) => {}
             }
         }
+        // TODO - combine like terms
         if value.is_some() {
             new_expression.operands.push(Term {
                 operands: vec![Factor::Number(value.unwrap())],
@@ -218,14 +283,14 @@ impl ProgramModel {
 
         // find the best row
         for row in 0..row_ct {
-            if match evaluate_constant_expression(&self.augmented_matrix[row][value_col]) {
+            if match self.evaluate_constant_expression(&self.augmented_matrix[row][value_col]) {
                 Ok(number) => number.value != 0f64,
                 Err(_) => true,
             } {
                 // possible row. Evaluate for goodness
                 let expressions_plus_values =
                     self.augmented_matrix[row].iter().fold(0, |acc, expr| {
-                        acc + match evaluate_constant_expression(&expr) {
+                        acc + match self.evaluate_constant_expression(&expr) {
                             Ok(number) => {
                                 if number.value == 0f64 {
                                     0
@@ -271,14 +336,14 @@ impl ProgramModel {
 
         let mut result: Option<usize> = None;
         for switcher in row..row_ct {
-            if match evaluate_constant_expression(&self.augmented_matrix[switcher][col]) {
+            if match self.evaluate_constant_expression(&self.augmented_matrix[switcher][col]) {
                 Ok(number) => number.value != 0f64,
                 Err(_) => false,
             } {
                 // we want to prioritize getting a row with all constants
                 let all_constants_in_row = self.augmented_matrix[switcher]
                     .iter()
-                    .all(|expr| evaluate_constant_expression(expr).is_ok());
+                    .all(|expr| self.evaluate_constant_expression(expr).is_ok());
 
                 // start at 0 not col+1 since there could be equations
                 if all_constants_in_row || result.is_none() {
@@ -317,7 +382,7 @@ impl ProgramModel {
             // skip the current row
             if row_update != row {
                 let factor = &self.augmented_matrix[row_update][col].clone();
-                if match evaluate_constant_expression(factor) {
+                if match self.evaluate_constant_expression(factor) {
                     // don't subtract anything if it's already 0
                     Ok(number) => number.value != 0f64,
                     // don't subtract anything if there's an equation there
@@ -376,7 +441,7 @@ impl ProgramModel {
         for row in 0..row_ct {
             let idx = row_ct - row - 1;
             if self.augmented_matrix[idx].iter().all(|expr| {
-                match evaluate_constant_expression(&expr) {
+                match self.evaluate_constant_expression(&expr) {
                     Ok(number) => number.value == 0f64,
                     Err(_) => false,
                 }
