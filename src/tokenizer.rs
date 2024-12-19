@@ -1,4 +1,41 @@
-use regex::Regex;
+/// Returns true if the substring is at pos i
+///
+/// # Arguments
+/// * `code` - String to look in
+/// * `i` - Index to start at
+/// * `substring` - Substring to compare against
+///
+/// # Returns
+/// True if the substring is at position i in code
+///
+fn substring_at_pos(code: &str,i: usize, substring: &str) -> bool {
+   let mut result = false;
+    
+   if substring.chars().count() <= code.chars().count() - i {
+      
+       result = true;
+       for c in 0..substring.chars().count() {
+       
+        if code.chars().nth(i + c) != substring.chars().nth(c) {
+                result = false;
+        }
+      }
+   }
+   result
+}
+
+///
+/// Returns true if there is whitespace that is not in the language at pos 
+///
+/// # Arguments
+/// * `code` - Code to look in
+/// * `i` - Index to observe
+///
+/// # Returns 
+/// True if there is irrelevant whitespace at i
+fn whitespace_at_pos(code: &str, i: usize) -> bool {
+    code.chars().nth(i).unwrap() == ' ' || code.chars().nth(i).unwrap() == '\t' 
+}
 
 /// Retrieves the next token in `code` starting at index `i`, and updates `i` accordingly.
 ///
@@ -22,7 +59,7 @@ use regex::Regex;
 /// * "Unterminated named identifier" - A named identifier (starting with '\'') had no matching
 /// '\''
 ///
-fn next_token(_code: &str, _i: &mut usize) -> Result<String, String> {
+fn next_token(code: &str, i: &mut usize) -> Result<String, String> {
     // TODO - implement function
     
     // NOTE - since some of our characters are outside ascii range, use code.chars().count() to get
@@ -31,22 +68,85 @@ fn next_token(_code: &str, _i: &mut usize) -> Result<String, String> {
     // NOTE - since \n separates statements and is in the grammar, it is a token. No other
     // whitespace
     
-    let characters = Regex::new(r"[a-zA-Zα-ωΑ-Ω0-9_ \n()*]").unwrap();
+    let code_length = code.chars().count();
 
-    let mut next_token = String::new();
+    if *i >= code_length {
+        return Err(String::from("Not found"));
+    }
+    while whitespace_at_pos(code, *i) || substring_at_pos(code, *i, "(*") {
+        if whitespace_at_pos(code,*i) {
+            *i += 1;
+        } else {    
+            let mut bal = 1;
+            *i += 1;
+            while bal != 0 {
+                *i+=1;
 
-    // find first character starting at i
+                if *i >= code_length {
+                    return Err(String::from("Unterminated comment"));
+                }
+
+                if substring_at_pos(code, *i, "(*") {
+                    bal += 1;
+                    *i +=1;
+                } else if substring_at_pos(code, *i, "*)") {
+                    bal -= 1;
+                    *i += 1;
+                }
+            }
+            *i += 1;
+        }
+
     
-    // if its a digit, continue looking for more digits
-    // if its a ''' - apostrophe, then look for a identifier, must also end with '''
-    // if its a equality opperator, if its nickname, change to more accessible form
-    // if its a '(' look for "(*", then its a comment, make sure it is terminated
-    // other tokens are all single characters 
+        if *i >= code_length {
+            return Err(String::from("Not found"));
+        }
+    }
 
-    // increment i by the length of next_token
+    let start_pos = *i;
 
-
-    Err(String::from("Not implemented"))
+    if code.chars().nth(*i).unwrap().is_digit(10) {
+        *i += 1;
+        while *i < code_length && code.chars().nth(*i).unwrap().is_digit(10) {
+            *i += 1;
+        }
+        Ok(code.chars().skip(start_pos).take(*i - start_pos).collect())
+    } else if code.chars().nth(*i).unwrap() == '\'' {
+        *i += 1;
+        
+        let mut terminated = false;
+        while *i < code_length && !terminated {
+            terminated |= code.chars().nth(*i).unwrap() == '\'';
+            *i += 1;
+        }
+        if !terminated {
+            return Err(String::from("Unterminated named identifier"));
+        }
+        Ok(code.chars().skip(start_pos).take(*i - start_pos).collect())
+    } else if substring_at_pos(code, *i, "<=") || substring_at_pos(code, *i, ">=") || substring_at_pos(code, *i, "<>") {
+        *i += 2;
+        Ok(code.chars().skip(start_pos).take(*i - start_pos).collect())
+    } else if substring_at_pos(code, *i, "≤") {
+        
+        *i += 1;
+        Ok(String::from("<="))
+    } else if substring_at_pos(code, *i, "≥") {
+        *i += 1;
+        Ok(String::from(">="))
+    } else if substring_at_pos(code, *i, "≠") {
+        *i += 1;
+        Ok(String::from("<>"))
+    } else if substring_at_pos(code, *i, "----------") {
+        *i += 10;
+        while *i < code_length && code.chars().nth(*i).unwrap() == '-' {
+            *i += 1;
+        }
+        Ok(String::from("----------"))
+    }
+    else {
+        *i += 1;
+        Ok(code.chars().skip(start_pos).take(*i - start_pos).collect())
+    }
 }
 
 /// Retrieves the next "unit" token in `code` starting at index `i`, and updates `i` accordingly.
@@ -121,6 +221,7 @@ mod tests {
 
         assert_eq!(next_token(code, &mut i).unwrap(), "3");
         assert_eq!(next_token(code, &mut i).unwrap(), "x");
+        assert_eq!(next_token(code, &mut i).unwrap(), "+");
         assert_eq!(next_token(code, &mut i).unwrap(), "'myNamedVar'");
         assert_eq!(next_token(code, &mut i).unwrap(), "-");
         assert_eq!(next_token(code, &mut i).unwrap(), "801");
@@ -156,7 +257,7 @@ mod tests {
     }
 
     #[test]
-    fn next_token_test8() {
+    fn next_token_test9() {
         let code = "(* comment1 *) (* comment2 *) 5";
 
         assert_eq!(next_token(code, &mut 0).unwrap(), "5");
