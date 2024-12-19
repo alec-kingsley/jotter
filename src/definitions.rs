@@ -166,6 +166,31 @@ pub enum Factor {
     Call(Call),
 }
 
+impl Mul for Factor {
+    type Output = Self;
+
+    /// Operator overload for *.
+    ///
+    fn mul(self, other: Self) -> Self {
+        // TODO - implement function
+
+        // NOTE - leave Number, Identifier, and Call alone
+        // distribute parentheticals
+        // return Number if both inputs are Numbers
+        // else return Parenthetical
+
+        let mut result: Option<Factor> = None;
+        if let Factor::Number(number) = self {
+            if let Factor::Number(other_number) = other {
+                result = Some(Factor::Number(number * other_number));
+            }
+        }
+
+        result.expect("Failed to multiply factors")
+
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Call {
     pub name: Identifier,
@@ -406,3 +431,4 @@ mod tests {
         let _ = Identifier::new("-").unwrap_err();
     }
 }
+
