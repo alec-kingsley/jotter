@@ -1,4 +1,5 @@
 use crate::definitions::*;
+
 use crate::tokenizer::*;
 
 /// Parse statement into ast.
@@ -79,7 +80,7 @@ pub fn parse_function(code: &str, i: &mut usize) -> Result<Statement, String> {
         arguments.push(Identifier::new(token.as_str())?);
         // each identifier must have , or ) after it
         if ![",", ")"].contains(&next_token(code, i)?.as_str()) {
-            return Err(String::from("Expected ','"));
+            return Err(String::from("Expected ',' or ')'"));
         }
         token = next_token(code, i)?;
     }
