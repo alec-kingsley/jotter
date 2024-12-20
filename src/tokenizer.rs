@@ -63,7 +63,7 @@ fn whitespace_at_pos(code: &str, i: usize) -> bool {
 /// * "Unterminated named identifier" - A named identifier (starting with '\'') had no matching
 /// '\''
 ///
-fn next_token(code: &str, i: &mut usize) -> Result<String, String> {
+pub fn next_token(code: &str, i: &mut usize) -> Result<String, String> {
     // NOTE - since some of our characters are outside ascii range, functions like
     // code.len() are not allowed. Nor is indexing directly with things like code[i]
 
@@ -175,10 +175,15 @@ fn next_token(code: &str, i: &mut usize) -> Result<String, String> {
 /// * "Unterminated comment" - A comment (starting with '(*' ) had no ending ( '*)' )
 /// * "Unexpected symbol" - A symbol was found that is unknown to the grammar
 ///
+ 
 fn next_unit_token(code: &str, i: &mut usize) -> Result<String, String> {
     // TODO - implement function 
     
      let code_length = code.chars().count();
+
+pub fn next_unit_token(_code: &str, _i: &mut usize) -> Result<String, String> {
+    // TODO - implement function
+
 
       if *i >= code_length {
           return Err(String::from("Not found"));

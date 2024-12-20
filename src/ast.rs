@@ -1,5 +1,6 @@
 use crate::definitions::*;
-// use crate::tokenizer::*;
+
+use crate::tokenizer::*;
 
 /// Parse statement into ast.
 ///
@@ -26,21 +27,21 @@ pub fn parse_statement(_code: &str, _i: &mut usize) -> Result<Statement, String>
     // TODO - check if it's a function definiton
 
     // TODO - if so, return Statement::Function(Identifier, Vec<Identifier>, Vec<(Expression, Relation)>)
-    
+
     // TODO - else, assume relation
 
     // TODO - after parsing relation, check if next token is '?'
-    
+
     // TODO - if so, return Statement::Prompt(Relation)
 
     // TODO - else, return Statement::Equation(Relation)
-    
+
     Err(String::from("Not implemented"))
 }
 
 /// Parse function into ast.
 ///
-/// function ::= identifier '(' identifier ( ',' identifier ) * ')' '=' ( expression | '{' '\n' ( expression ',' 'if' relation '\n' ) + '}' )
+/// function ::= identifier '(' identifier ( ',' identifier ) * ')' '=' ( expression | '{' '\n' ( expression ',' relation '\n' ) + '}' )
 ///
 /// # Arguments
 /// * `code` - A string representing the user program.
@@ -63,10 +64,59 @@ pub fn parse_statement(_code: &str, _i: &mut usize) -> Result<Statement, String>
 /// let _ = parse_function(code, &mut i).unwrap();
 /// ```
 ///
-pub fn parse_function(_code: &str, _i: &mut usize) -> Result<Statement, String> {
-    // TODO - implement function
-    
-    Err(String::from("Not implemented"))
+pub fn parse_function(code: &str, i: &mut usize) -> Result<Statement, String> {
+    let mut token = next_token(code, i)?;
+
+    let name = Identifier::new(token.as_str())?;
+
+    if next_token(code, i)? != "(" {
+        return Err(String::from("Expected '('"));
+    }
+
+    // parse arguments
+    let mut arguments: Vec<Identifier> = Vec::new();
+    token = next_token(code, i)?;
+    while token != ")" {
+        arguments.push(Identifier::new(token.as_str())?);
+        // each identifier must have , or ) after it
+        if ![",", ")"].contains(&next_token(code, i)?.as_str()) {
+            return Err(String::from("Expected ',' or ')'"));
+        }
+        token = next_token(code, i)?;
+    }
+    if next_token(code, i)? != "=" {
+        return Err(String::from("Expected '='"));
+    }
+
+    // parse definition
+    let mut definition: Vec<(Expression, Relation)> = Vec::new();
+    token = next_token(code, i)?;
+    if token == "{" {
+        // need to consume one token since while loop back-tracks once
+        token = next_token(code, i)?;
+        while token != "}" {
+            // back-track since it's not a }
+            *i -= token.chars().count();
+
+            // parse expression with comma after
+            let expression = parse_expression(code, i)?;
+            if next_token(code, i)? != "," {
+                return Err(String::from("Expected ','"));
+            }
+
+            // parse relation with new line after
+            let relation = parse_relation(code, i)?;
+            definition.push((expression, relation));
+            if next_token(code, i)? != "\n" {
+                return Err(String::from("Expected new line"));
+            }
+            token = next_token(code, i)?;
+        }
+    } else {
+        definition.push((parse_expression(code, i)?, get_true_relation()));
+    }
+
+    Ok(Statement::FunctionDefinition(name, arguments, definition))
 }
 
 /// Parse relation into ast.
@@ -87,7 +137,7 @@ pub fn parse_function(_code: &str, _i: &mut usize) -> Result<Statement, String> 
 ///
 pub fn parse_relation(_code: &str, _i: &mut usize) -> Result<Relation, String> {
     // TODO - implement function
-    
+
     Err(String::from("Not implemented"))
 }
 
@@ -109,7 +159,7 @@ pub fn parse_relation(_code: &str, _i: &mut usize) -> Result<Relation, String> {
 ///
 pub fn parse_expression(_code: &str, _i: &mut usize) -> Result<Expression, String> {
     // TODO - implement function
-    
+
     Err(String::from("Not implemented"))
 }
 
@@ -133,10 +183,9 @@ pub fn parse_expression(_code: &str, _i: &mut usize) -> Result<Expression, Strin
 ///
 pub fn parse_term(_code: &str, _i: &mut usize) -> Result<Term, String> {
     // TODO - implement function
-    
+
     Err(String::from("Not implemented"))
 }
-
 
 /// Parse factor into ast.
 ///
@@ -177,16 +226,20 @@ pub fn parse_term(_code: &str, _i: &mut usize) -> Result<Term, String> {
 /// assert!(if let Factor::Call(_) = parse_factor(code, &mut i, false).unwrap() { true } else { false });
 /// ```
 ///
-pub fn parse_factor(_code: &str, _i: &mut usize, _preceding_identifier: bool) -> Result<Factor, String> {
+pub fn parse_factor(
+    _code: &str,
+    _i: &mut usize,
+    _preceding_identifier: bool,
+) -> Result<Factor, String> {
     // TODO - implement function
 
     // NOTE - a call with one argument is hard to parse, since f(x) could be
     // parsed as f*x. To resolve this, only check for it if preceding_identifier
-    // is false. (in that, only the current identifier would be the name of the 
+    // is false. (in that, only the current identifier would be the name of the
     // function)
-    // 
+    //
     // If this is an issue for the user, they can insert a * to be explicit.
-    
+
     Err(String::from("Not implemented"))
 }
 
@@ -249,7 +302,13 @@ mod tests {
     fn parse_factor_test1() {
         let code = "(3x + 2)";
         let mut i: usize = 0;
-        assert!(if let Factor::Parenthetical(_) = parse_factor(code, &mut i, false).unwrap() { true } else { false });
+        assert!(
+            if let Factor::Parenthetical(_) = parse_factor(code, &mut i, false).unwrap() {
+                true
+            } else {
+                false
+            }
+        );
         assert!(i == code.chars().count())
     }
 
@@ -257,7 +316,13 @@ mod tests {
     fn parse_factor_test2() {
         let code = "3";
         let mut i: usize = 0;
-        assert!(if let Factor::Number(_) = parse_factor(code, &mut i, false).unwrap() { true } else { false });
+        assert!(
+            if let Factor::Number(_) = parse_factor(code, &mut i, false).unwrap() {
+                true
+            } else {
+                false
+            }
+        );
         assert!(i == code.chars().count())
     }
 
@@ -265,7 +330,13 @@ mod tests {
     fn parse_factor_test3() {
         let code = "a";
         let mut i: usize = 0;
-        assert!(if let Factor::Identifier(_) = parse_factor(code, &mut i, false).unwrap() { true } else { false });
+        assert!(
+            if let Factor::Identifier(_) = parse_factor(code, &mut i, false).unwrap() {
+                true
+            } else {
+                false
+            }
+        );
         assert!(i == code.chars().count())
     }
 
@@ -273,7 +344,13 @@ mod tests {
     fn parse_factor_test4() {
         let code = "f(x)";
         let mut i: usize = 0;
-        assert!(if let Factor::Call(_) = parse_factor(code, &mut i, false).unwrap() { true } else { false });
+        assert!(
+            if let Factor::Call(_) = parse_factor(code, &mut i, false).unwrap() {
+                true
+            } else {
+                false
+            }
+        );
         assert!(i == code.chars().count())
     }
 
@@ -281,11 +358,13 @@ mod tests {
     fn parse_factor_test5() {
         let code = "af(x)";
         let mut i: usize = 1;
-        assert!(if let Factor::Identifier(_) = parse_factor(code, &mut i, true).unwrap() { true } else { false });
+        assert!(
+            if let Factor::Identifier(_) = parse_factor(code, &mut i, true).unwrap() {
+                true
+            } else {
+                false
+            }
+        );
         assert!(i == 2)
     }
-
 }
-
-
-
