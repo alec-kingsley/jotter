@@ -175,10 +175,55 @@ fn next_token(code: &str, i: &mut usize) -> Result<String, String> {
 /// * "Unterminated comment" - A comment (starting with '(*' ) had no ending ( '*)' )
 /// * "Unexpected symbol" - A symbol was found that is unknown to the grammar
 ///
-fn next_unit_token(_code: &str, _i: &mut usize) -> Result<String, String> {
-    // TODO - implement function
+fn next_unit_token(code: &str, i: &mut usize) -> Result<String, String> {
+    // TODO - implement function 
+    
+     let code_length = code.chars().count();
 
-    Err(String::from("Not implemented"))
+      if *i >= code_length {
+          return Err(String::from("Not found"));
+      }
+      // skip all comments and irrelevant whitespace
+      while whitespace_at_pos(code, *i) || substring_at_pos(code, *i, "(*") {
+          *i += 1;
+          if !whitespace_at_pos(code, *i - 1) {
+              // skip comment
+              let mut bal = 1;
+              while bal != 0 {
+                  *i += 1;
+                  if *i >= code_length {
+                      return Err(String::from("Unterminated comment"));
+                  }
+                  if substring_at_pos(code, *i, "(*") {
+                      bal += 1;
+                      *i += 1;
+                  } else if substring_at_pos(code, *i, "*)") {
+                      bal -= 1;
+                      *i += 1;
+                  }
+              }
+              *i += 1;
+          }
+          if *i >= code_length {
+              return Err(String::from("Not found"));
+          }
+      }
+
+    let start_pos = *i;
+    
+    let special_characters = ['*', '/', ']', '^'];
+
+    // special characters
+    if special_characters.contains(&code.chars().nth(*i).unwrap()) {
+        *i += 1;
+        Ok(code.chars().skip(start_pos).take(*i - start_pos).collect())
+    } else { 
+
+        // unit component
+    }
+    
+        
+    //Err(String::from("Not implemented"))
 }
 
 #[cfg(test)]
