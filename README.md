@@ -11,7 +11,7 @@ Jotter is not meant to be a full programming language. It won't support complex 
 
 ```
 statement   ::=   prompt | function | relation
-function    ::=   identifier '(' identifier ( ',' identifier ) * ')' '=' ( expression | '{' '\n' ( expression ',' 'if' relation '\n' ) + '}' )
+function    ::=   identifier '(' identifier ( ',' identifier ) * ')' '=' ( expression | '{' '\n' ( expression ',' relation '\n' ) + '}' )
 prompt      ::=   relation '?'
 relation    ::=   expression | relation ( '<' | '>' | '<=' | '≤' | '>=' | '≥' | '=' | '<>' | '≠'  ) expression
 expression  ::=   term (( '+' | '-' ) term ) *
@@ -85,9 +85,9 @@ y = 4
 f(x) = 3x + 2 (* example function *)
 
 g(x) = {
-    x / 2, if x ≤ 1
-    x,     if 1 < x ≤ 3
-    2x,    if x > 3
+    x / 2,  x ≤ 1
+    x,      1 < x ≤ 3
+    2x,     x > 3
 }
 
 

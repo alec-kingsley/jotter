@@ -1,5 +1,5 @@
 // statement   ::=   prompt | function | relation
-// function    ::=   identifier '(' identifier ( ',' identifier ) * ')' '=' ( expression | '{' '\n' ( expression ',' 'if' relation '\n' ) + '}' )
+// function    ::=   identifier '(' identifier ( ',' identifier ) * ')' '=' ( expression | '{' '\n' ( expression ',' relation '\n' ) + '}' )
 // prompt      ::=   relation '?'
 // relation    ::=   expression | relation ( '<' | '>' | '<=' | '≤' | '>=' | '≥' | '=' | '<>' | '≠'  ) expression
 // expression  ::=   term (( '+' | '-' ) term ) *
@@ -555,6 +555,8 @@ impl AddAssign for Number {
         //
         // this does not apply to plus by itself since it's not obvious which should
         // be prioritized.
+        //
+        // also the initial unit is prioritized for +=
         if !other.clone().is_zero() {
             self.clone_from(&(self.clone() + other));
         }
@@ -585,6 +587,8 @@ impl SubAssign for Number {
         //
         // this does not apply to minus by itself since it's not obvious which should
         // be prioritized.
+        //
+        // also the initial unit is prioritized for -=
         if !other.clone().is_zero() {
             self.clone_from(&(self.clone() - other));
         }
