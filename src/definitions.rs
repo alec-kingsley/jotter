@@ -1,7 +1,7 @@
 // statement   ::=   prompt | function | relation
 // function    ::=   identifier '(' identifier ( ',' identifier ) * ')' '=' ( expression | '{' '\n' ( expression ',' relation '\n' ) + '}' )
 // prompt      ::=   relation '?'
-// relation    ::=   expression | relation ( '<' | '>' | '<=' | '≤' | '>=' | '≥' | '=' | '<>' | '≠'  ) expression
+// relation    ::=   expression (( '<' | '>' | '<=' | '≤' | '>=' | '≥' | '=' | '<>' | '≠'  ) expression) +
 // expression  ::=   term (( '+' | '-' ) term ) *
 // term        ::=   factor (( '*' | '/' ) ? factor ) *
 // factor      ::=   '(' expression ')' | number | identifier | call
@@ -21,6 +21,7 @@ use std::ops::*;
 pub enum Statement {
     Prompt(Relation),
     Equation(Relation),
+    /// name, arguments, actual function, and their relations.
     FunctionDefinition(Identifier, Vec<Identifier>, Vec<(Expression, Relation)>),
 }
 
@@ -28,6 +29,30 @@ pub enum Statement {
 pub struct Relation {
     pub operands: Vec<Expression>,
     pub operators: Vec<String>,
+}
+
+/// get a general true relation
+///
+pub fn get_true_relation() -> Relation {
+    let zero = Expression {
+        operands: vec![
+            Term {
+                operands: vec![Factor::Number(Number {
+                    value: 0f64,
+                    unit: Unit {
+                        exponent: 0,
+                        constituents: HashMap::new(),
+                    },
+                })],
+                operators: Vec::new(),
+            }
+        ],
+        operators: Vec::new(),
+    };
+    Relation {
+        operands: vec![zero.clone(), zero.clone()],
+        operators: vec![String::from("=")],
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -51,28 +76,37 @@ impl Expression {
         for self_i in 0..self.operands.len() {
             self.operands[self_i].flatten();
 
-            if let Factor::Parenthetical(mut child_expression) = self.operands[self_i].operands[0].clone() {
+            if let Factor::Parenthetical(mut child_expression) =
+                self.operands[self_i].operands[0].clone()
+            {
                 child_expression.flatten();
                 let negated = self_i > 0 && self.operators[self_i - 1] == "-";
                 for child_i in 0..child_expression.operands.len() {
                     // add flattened paranthetical contents to father expression
-                    father_expression.operands.push(child_expression.operands[child_i].clone());
+                    father_expression
+                        .operands
+                        .push(child_expression.operands[child_i].clone());
                     if father_expression.operands.len() > 0 {
                         father_expression.operators.push(
-                            if negated ^ (child_i > 0 && child_expression.operators[child_i - 1] == "-") {
+                            if negated
+                                ^ (child_i > 0 && child_expression.operators[child_i - 1] == "-")
+                            {
                                 String::from("-")
                             } else {
                                 String::from("+")
-                            }
+                            },
                         );
                     }
                 }
-
             } else {
                 // add this term to the new replacement expression
-                father_expression.operands.push(self.operands[self_i].clone());
+                father_expression
+                    .operands
+                    .push(self.operands[self_i].clone());
                 if father_expression.operands.len() > 0 {
-                    father_expression.operators.push(self.operators[self_i - 1].clone());
+                    father_expression
+                        .operators
+                        .push(self.operators[self_i - 1].clone());
                 }
             }
         }
@@ -251,7 +285,6 @@ impl Term {
             operands: vec![numerator / denominator],
             operators: Vec::new(),
         });
-
     }
 }
 
@@ -441,13 +474,13 @@ impl Div for Factor {
                     }
                 } else if let Factor::Parenthetical(other_expression) = other.clone() {
                     Factor::Parenthetical(
-                            Expression {
-                                operands: vec![Term {
-                                    operands: vec![other],
-                                    operators: Vec::new(),
-                                }],
+                        Expression {
+                            operands: vec![Term {
+                                operands: vec![other],
                                 operators: Vec::new(),
-                            } / other_expression,
+                            }],
+                            operators: Vec::new(),
+                        } / other_expression,
                     )
                 } else {
                     Factor::Parenthetical(Expression {
@@ -495,6 +528,58 @@ impl Number {
     ///
     pub fn is_zero(self) -> bool {
         self.value == 0f64
+    }
+}
+
+impl Display for Number {
+    /// Format Number appropriately.
+    ///
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO - implement function
+        let mut this_value = self.value;
+        let mut this_exponent = self.unit.exponent;
+        if this_exponent > 0 {
+            while this_exponent % 3 != 0 {
+                this_value /= 10f64;
+                this_exponent -= 1;
+            }
+        } else {
+            while this_exponent % 3 != 0 {
+                this_value /= 10f64;
+                this_exponent += 1;
+            }
+        }
+
+        let _si_prefixes = HashMap::from([
+            (30, "Q"), // quetta
+            (27, "R"), // ronna
+            (24, "Y"), // yotta
+            (21, "Z"), // zotta
+            (18, "E"), // exa
+            (15, "P"), // peta
+            (12, "T"), // tera
+            (9, "G"),  // giga
+            (6, "M"),  // mega
+            (3, "k"),  // kilo
+            (2, "h"),  // hecto
+            (1, "da"), // deka
+            (0, ""),
+            (-1, "d"),  // deci
+            (-2, "c"),  // centi
+            (-3, "m"),  // milli
+            (-6, "μ"),  // micro
+            (-9, "n"),  // nano
+            (-12, "p"), // pico
+            (-15, "f"), // femto
+            (-18, "a"), // atto
+            (-21, "z"), // zepto
+            (-24, "y"), // yocto
+            (-27, "r"), // ronto
+            (-30, "q"), // quecto
+        ]);
+
+        // TODO - actually print smth
+        write!(f, "{}", this_value)
     }
 }
 
