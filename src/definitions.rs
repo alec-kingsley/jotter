@@ -44,21 +44,39 @@ impl Expression {
     /// combine like terms.
     ///
     fn flatten(&mut self) {
-        for _self_i in 0..self.operands.len() {
-            // TODO - multiply/divide through the factors in the term
+        let mut father_expression = Expression {
+            operands: Vec::new(),
+            operators: Vec::new(),
+        };
+        for self_i in 0..self.operands.len() {
+            self.operands[self_i].flatten();
 
-            // TODO - if it's a singular parenthetical {
+            if let Factor::Parenthetical(mut child_expression) = self.operands[self_i].operands[0].clone() {
+                child_expression.flatten();
+                let negated = self_i > 0 && self.operators[self_i - 1] == "-";
+                for child_i in 0..child_expression.operands.len() {
+                    // add flattened paranthetical contents to father expression
+                    father_expression.operands.push(child_expression.operands[child_i].clone());
+                    if father_expression.operands.len() > 0 {
+                        father_expression.operators.push(
+                            if negated ^ (child_i > 0 && child_expression.operators[child_i - 1] == "-") {
+                                String::from("-")
+                            } else {
+                                String::from("+")
+                            }
+                        );
+                    }
+                }
 
-            // TODO - flatten contents of parenthetical
-
-            // TODO - add flattened paranthetical contents to father expression
-
-            // } TODO - else if it has a parenthetical denominator {
-            
-            // TODO - flatten contents of parenthetical denominator
-
-            // }
+            } else {
+                // add this term to the new replacement expression
+                father_expression.operands.push(self.operands[self_i].clone());
+                if father_expression.operands.len() > 0 {
+                    father_expression.operators.push(self.operators[self_i - 1].clone());
+                }
+            }
         }
+        self.clone_from(&father_expression);
     }
 }
 
@@ -202,6 +220,41 @@ pub struct Term {
     pub operators: Vec<String>,
 }
 
+impl Term {
+    /// "flatten" the `Term`.
+    ///
+    /// remove a many parentheticals as possible, such that it's just a sum of terms.
+    /// combine like terms.
+    ///
+    pub fn flatten(&mut self) {
+        let mut numerator = Factor::Number(Number {
+            value: 1f64,
+            unit: Unit {
+                exponent: 0i8,
+                constituents: HashMap::new(),
+            },
+        });
+        let mut denominator = numerator.clone();
+        for self_i in 0..self.operands.len() {
+            if let Factor::Parenthetical(mut self_expression) = self.operands[self_i].clone() {
+                self_expression.flatten();
+                self.operands[self_i].clone_from(&Factor::Parenthetical(self_expression));
+            }
+            // multiply/divide through each factor in the term
+            if self_i == 0 || self.operators[self_i - 1] == "*" {
+                numerator *= self.operands[self_i].clone();
+            } else {
+                denominator *= self.operands[self_i].clone();
+            }
+        }
+        self.clone_from(&Term {
+            operands: vec![numerator / denominator],
+            operators: Vec::new(),
+        });
+
+    }
+}
+
 impl Neg for Term {
     type Output = Self;
 
@@ -256,6 +309,28 @@ pub enum Factor {
     Call(Call),
 }
 
+impl Factor {
+    /// Returns true iff the factor is a number with value 1
+    ///
+    pub fn is_one(self) -> bool {
+        if let Factor::Number(number) = self {
+            number.is_one()
+        } else {
+            false
+        }
+    }
+
+    /// Returns true iff the factor is a number with value 0
+    ///
+    pub fn is_zero(self) -> bool {
+        if let Factor::Number(number) = self {
+            number.is_zero()
+        } else {
+            false
+        }
+    }
+}
+
 impl Mul for Factor {
     type Output = Self;
 
@@ -263,7 +338,11 @@ impl Mul for Factor {
     ///
     fn mul(self, other: Self) -> Self {
         let mut result: Option<Factor> = None;
-        if let Factor::Number(self_number) = self.clone() {
+        if self.clone().is_one() {
+            result = Some(other.clone());
+        } else if other.clone().is_one() {
+            result = Some(self.clone());
+        } else if let Factor::Number(self_number) = self.clone() {
             if let Factor::Number(other_number) = other.clone() {
                 result = Some(Factor::Number(self_number * other_number));
             }
@@ -311,6 +390,88 @@ impl Mul for Factor {
     }
 }
 
+impl MulAssign for Factor {
+    /// Operator overload for *=.
+    ///
+    fn mul_assign(&mut self, other: Self) {
+        self.clone_from(&(self.clone() * other));
+    }
+}
+
+impl Div for Factor {
+    type Output = Self;
+
+    /// Operator overload for /.
+    ///
+    fn div(self, other: Self) -> Self {
+        let mut result: Option<Factor> = None;
+        if self.clone().is_one() {
+            result = Some(
+                (Factor::Number(Number {
+                    value: 1f64,
+                    unit: Unit {
+                        exponent: 0i8,
+                        constituents: HashMap::new(),
+                    },
+                })) / other.clone(),
+            );
+        } else if other.clone().is_one() {
+            result = Some(self.clone());
+        } else if let Factor::Number(self_number) = self.clone() {
+            if let Factor::Number(other_number) = other.clone() {
+                result = Some(Factor::Number(self_number / other_number));
+            }
+        }
+        if result == None {
+            result = Some(
+                if let Factor::Parenthetical(self_expression) = self.clone() {
+                    if let Factor::Parenthetical(other_expression) = other.clone() {
+                        Factor::Parenthetical(self_expression / other_expression)
+                    } else {
+                        Factor::Parenthetical(
+                            self_expression
+                                / Expression {
+                                    operands: vec![Term {
+                                        operands: vec![other],
+                                        operators: Vec::new(),
+                                    }],
+                                    operators: Vec::new(),
+                                },
+                        )
+                    }
+                } else if let Factor::Parenthetical(other_expression) = other.clone() {
+                    Factor::Parenthetical(
+                            Expression {
+                                operands: vec![Term {
+                                    operands: vec![other],
+                                    operators: Vec::new(),
+                                }],
+                                operators: Vec::new(),
+                            } / other_expression,
+                    )
+                } else {
+                    Factor::Parenthetical(Expression {
+                        operands: vec![Term {
+                            operands: vec![self, other],
+                            operators: vec![String::from("/")],
+                        }],
+                        operators: Vec::new(),
+                    })
+                },
+            );
+        }
+        result.unwrap()
+    }
+}
+
+impl DivAssign for Factor {
+    /// Operator overload for *=.
+    ///
+    fn div_assign(&mut self, other: Self) {
+        self.clone_from(&(self.clone() / other));
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Call {
     pub name: Identifier,
@@ -321,6 +482,20 @@ pub struct Call {
 pub struct Number {
     pub value: f64,
     pub unit: Unit,
+}
+
+impl Number {
+    /// Returns true iff the number has a value of 1
+    ///
+    pub fn is_one(self) -> bool {
+        self.value * 10f64.powi(self.unit.exponent as i32) as f64 == 1f64
+    }
+
+    /// Returns true iff the number has a value of 0
+    ///
+    pub fn is_zero(self) -> bool {
+        self.value == 0f64
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -380,7 +555,7 @@ impl AddAssign for Number {
         //
         // this does not apply to plus by itself since it's not obvious which should
         // be prioritized.
-        if other.value != 0f64 {
+        if !other.clone().is_zero() {
             self.clone_from(&(self.clone() + other));
         }
     }
@@ -410,7 +585,7 @@ impl SubAssign for Number {
         //
         // this does not apply to minus by itself since it's not obvious which should
         // be prioritized.
-        if other.value != 0f64 {
+        if !other.clone().is_zero() {
             self.clone_from(&(self.clone() - other));
         }
     }

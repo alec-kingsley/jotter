@@ -284,7 +284,7 @@ impl ProgramModel {
         // find the best row
         for row in 0..row_ct {
             if match self.evaluate_constant_expression(&self.augmented_matrix[row][value_col]) {
-                Ok(number) => number.value != 0f64,
+                Ok(number) => !number.is_zero(),
                 Err(_) => true,
             } {
                 // possible row. Evaluate for goodness
@@ -292,7 +292,7 @@ impl ProgramModel {
                     self.augmented_matrix[row].iter().fold(0, |acc, expr| {
                         acc + match self.evaluate_constant_expression(&expr) {
                             Ok(number) => {
-                                if number.value == 0f64 {
+                                if number.is_zero() {
                                     0
                                 } else {
                                     1
@@ -337,7 +337,7 @@ impl ProgramModel {
         let mut result: Option<usize> = None;
         for switcher in row..row_ct {
             if match self.evaluate_constant_expression(&self.augmented_matrix[switcher][col]) {
-                Ok(number) => number.value != 0f64,
+                Ok(number) => !number.is_zero(),
                 Err(_) => false,
             } {
                 // we want to prioritize getting a row with all constants
@@ -384,7 +384,7 @@ impl ProgramModel {
                 let factor = &self.augmented_matrix[row_update][col].clone();
                 if match self.evaluate_constant_expression(factor) {
                     // don't subtract anything if it's already 0
-                    Ok(number) => number.value != 0f64,
+                    Ok(number) => !number.is_zero(),
                     // don't subtract anything if there's an equation there
                     Err(_) => false,
                 } {
@@ -442,7 +442,7 @@ impl ProgramModel {
             let idx = row_ct - row - 1;
             if self.augmented_matrix[idx].iter().all(|expr| {
                 match self.evaluate_constant_expression(&expr) {
-                    Ok(number) => number.value == 0f64,
+                    Ok(number) => number.is_zero(),
                     Err(_) => false,
                 }
             }) {
