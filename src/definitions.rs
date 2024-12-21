@@ -107,14 +107,13 @@ pub struct Expression {
 }
 
 impl PartialEq for Expression {
-    /// Test for equality.
+    /// Operator overload for ==.
     ///
     fn eq(&self, _other: &Self) -> bool {
         // TODO - implement function
 
         panic!("Not implemented")
     }
-
 }
 
 impl Display for Expression {
@@ -182,6 +181,15 @@ impl Expression {
             }
         }
         self.clone_from(&father_expression);
+    }
+
+
+    /// Combine like terms in `Expression`.
+    ///
+    pub fn combine_like_terms(&mut self) {
+        // TODO - implement function
+
+        panic!("Not implemented");
     }
 }
 
@@ -326,14 +334,13 @@ pub struct Term {
 }
 
 impl PartialEq for Term {
-    /// Test for equality.
+    /// Operator overload for ==.
     ///
     fn eq(&self, _other: &Self) -> bool {
         // TODO - implement function
 
         panic!("Not implemented")
     }
-
 }
 impl Display for Term {
     /// Format Term appropriately.
@@ -382,6 +389,16 @@ impl Term {
             operands: vec![numerator / denominator],
             operators: Vec::new(),
         });
+    }
+
+    /// Extract the numeric factor of the `Term`.
+    ///
+    /// This can be called before comparing terms when combining like terms.
+    ///
+    pub fn extract_number(&mut self) -> Number {
+        // TODO - implement function
+
+        panic!("Not implemented");
     }
 }
 
@@ -440,37 +457,28 @@ pub enum Factor {
 }
 
 impl PartialEq for Factor {
-    /// Test for equality.
+    /// Operator overload for ==.
     ///
     fn eq(&self, other: &Self) -> bool {
         match self {
-            Factor::Parenthetical(self_expression) => {
-                match other {
-                    Factor::Parenthetical(other_expression) => self_expression == other_expression,
-                    _ => false,
-                }
+            Factor::Parenthetical(self_expression) => match other {
+                Factor::Parenthetical(other_expression) => self_expression == other_expression,
+                _ => false,
             },
-            Factor::Number(self_number) => {
-                match other {
-                    Factor::Number(other_number) => self_number == other_number,
-                    _ => false,
-                }
+            Factor::Number(self_number) => match other {
+                Factor::Number(other_number) => self_number == other_number,
+                _ => false,
             },
-            Factor::Identifier(self_identifier) => {
-                match other {
-                    Factor::Identifier(other_identifier) => self_identifier == other_identifier,
-                    _ => false,
-                }
+            Factor::Identifier(self_identifier) => match other {
+                Factor::Identifier(other_identifier) => self_identifier == other_identifier,
+                _ => false,
             },
-            Factor::Call(self_call) => {
-                match other {
-                    Factor::Call(other_call) => self_call == other_call,
-                    _ => false,
-                }
+            Factor::Call(self_call) => match other {
+                Factor::Call(other_call) => self_call == other_call,
+                _ => false,
             },
         }
     }
-
 }
 
 impl Display for Factor {
@@ -656,7 +664,7 @@ pub struct Call {
 }
 
 impl PartialEq for Call {
-    /// Test for equality.
+    /// Operator overload for ==.
     ///
     fn eq(&self, other: &Self) -> bool {
         let mut equal = false;
@@ -694,7 +702,7 @@ pub struct Number {
 }
 
 impl PartialEq for Number {
-    /// Test for equality.
+    /// Operator overload for ==.
     ///
     fn eq(&self, _other: &Self) -> bool {
         // TODO - implement function
@@ -1223,11 +1231,7 @@ mod tests {
                     Factor::Number(two),
                     Factor::Number(five),
                 ],
-                operators: vec![
-                    String::from("-"),
-                    String::from("+"),
-                    String::from("-"),
-                ],
+                operators: vec![String::from("-"), String::from("+"), String::from("-")],
             }],
             operators: Vec::new(),
         };

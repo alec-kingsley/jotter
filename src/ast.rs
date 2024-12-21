@@ -19,12 +19,20 @@ use crate::tokenizer::*;
 /// assert!(i == code.chars().count())
 /// ```
 ///
-pub fn parse_statement(_code: &str, _i: &mut usize) -> Result<Statement, String> {
+pub fn parse_statement(code: &str, i: &mut usize) -> Result<Statement, String> {
     // TODO - implement function
 
     // NOTE - any calls to parse_<thing> should consider using ? operator for early return
 
     // TODO - check if it's a function definiton
+    let mut j = i.clone();
+    let function_result = parse_function(code, &mut j);
+    if function_result.is_ok() {
+        *i = j;
+        // yay it's a function definition
+    } else {
+        // keep i how it is, not a function definition
+    }
 
     // TODO - if so, return Statement::Function(Identifier, Vec<Identifier>, Vec<(Expression, Relation)>)
 
