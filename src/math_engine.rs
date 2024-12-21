@@ -35,7 +35,6 @@ struct Variable {
     pub unit: Unit,
 }
 
-
 /// Model for program.
 ///
 /// An individual model must be owned by each function call.
@@ -264,6 +263,7 @@ impl ProgramModel {
 
         Ok(new_expression)
     }
+
 
     /// Retrieve an expression for the value of the given identifier from `self.augmented_matrix`.
     /// Finds the expression in the most simplified form. That is, a non-zero multiplier with

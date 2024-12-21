@@ -99,11 +99,22 @@ pub fn get_true_relation() -> Relation {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Expression {
     pub operands: Vec<Term>,
     // can be + or -
     pub operators: Vec<String>,
+}
+
+impl PartialEq for Expression {
+    /// Test for equality.
+    ///
+    fn eq(&self, _other: &Self) -> bool {
+        // TODO - implement function
+
+        panic!("Not implemented")
+    }
+
 }
 
 impl Display for Expression {
@@ -307,13 +318,23 @@ impl DivAssign for Expression {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Term {
     pub operands: Vec<Factor>,
     // can be *, /
     pub operators: Vec<String>,
 }
 
+impl PartialEq for Term {
+    /// Test for equality.
+    ///
+    fn eq(&self, _other: &Self) -> bool {
+        // TODO - implement function
+
+        panic!("Not implemented")
+    }
+
+}
 impl Display for Term {
     /// Format Term appropriately.
     ///
@@ -410,12 +431,46 @@ impl MulAssign for Term {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Factor {
     Parenthetical(Expression),
     Number(Number),
     Identifier(Identifier),
     Call(Call),
+}
+
+impl PartialEq for Factor {
+    /// Test for equality.
+    ///
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            Factor::Parenthetical(self_expression) => {
+                match other {
+                    Factor::Parenthetical(other_expression) => self_expression == other_expression,
+                    _ => false,
+                }
+            },
+            Factor::Number(self_number) => {
+                match other {
+                    Factor::Number(other_number) => self_number == other_number,
+                    _ => false,
+                }
+            },
+            Factor::Identifier(self_identifier) => {
+                match other {
+                    Factor::Identifier(other_identifier) => self_identifier == other_identifier,
+                    _ => false,
+                }
+            },
+            Factor::Call(self_call) => {
+                match other {
+                    Factor::Call(other_call) => self_call == other_call,
+                    _ => false,
+                }
+            },
+        }
+    }
+
 }
 
 impl Display for Factor {
@@ -594,10 +649,25 @@ impl DivAssign for Factor {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Call {
     pub name: Identifier,
     pub arguments: Vec<Expression>,
+}
+
+impl PartialEq for Call {
+    /// Test for equality.
+    ///
+    fn eq(&self, other: &Self) -> bool {
+        let mut equal = false;
+        if self.name == other.name && self.arguments.len() == other.arguments.len() {
+            equal = true;
+            for i in 0..self.arguments.len() {
+                equal &= self.arguments[i] == other.arguments[i];
+            }
+        }
+        equal
+    }
 }
 
 impl Display for Call {
@@ -617,10 +687,20 @@ impl Display for Call {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Number {
     pub value: f64,
     pub unit: Unit,
+}
+
+impl PartialEq for Number {
+    /// Test for equality.
+    ///
+    fn eq(&self, _other: &Self) -> bool {
+        // TODO - implement function
+
+        panic!("Not implemented")
+    }
 }
 
 impl Number {
@@ -783,6 +863,7 @@ impl PartialEq for Unit {
     fn eq(&self, other: &Self) -> bool {
         let mut result = false;
         // TODO - exponent should be resolved elsewhere ; the units can still add if it's different
+        // TODO - the constituents don't have to be the same ; one unit could be to the power of 0
         if self.exponent == other.exponent && self.constituents.len() == other.constituents.len() {
             result = true;
             for key in self.constituents.keys() {
