@@ -20,31 +20,25 @@ use crate::tokenizer::*;
 /// ```
 ///
 pub fn parse_statement(code: &str, i: &mut usize) -> Result<Statement, String> {
-    // TODO - implement function
-
-    // NOTE - any calls to parse_<thing> should consider using ? operator for early return
-
-    // TODO - check if it's a function definiton
+    // check if it's a function definiton
     let mut j = i.clone();
     let function_result = parse_function(code, &mut j);
     if function_result.is_ok() {
         *i = j;
-        // yay it's a function definition
+        function_result
     } else {
         // keep i how it is, not a function definition
+        let relation = parse_relation(code, i)?;
+        // since it could be end of input, an Err could happen. In that case,
+        // a default string won't be "?" so it's fine.
+        if next_token(code, i).unwrap_or_default() == "?" {
+            Ok(Statement::Prompt(relation))
+        } else {
+            *i -= "?".chars().count();
+            Ok(Statement::Equation(relation))
+        }
+
     }
-
-    // TODO - if so, return Statement::Function(Identifier, Vec<Identifier>, Vec<(Expression, Relation)>)
-
-    // TODO - else, assume relation
-
-    // TODO - after parsing relation, check if next token is '?'
-
-    // TODO - if so, return Statement::Prompt(Relation)
-
-    // TODO - else, return Statement::Equation(Relation)
-
-    Err(String::from("Not implemented"))
 }
 
 /// Parse function into ast.
