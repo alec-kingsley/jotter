@@ -41,7 +41,9 @@ impl Display for Statement {
                         name,
                         arguments
                             .iter()
-                            .fold(String::new(), |acc, e| format!("{}, {}", acc, e))
+                            .map(|e| e.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
                     ),
                     |acc, (expression, relation)| format!(
                         "{}\n\t{},\t{}",
@@ -66,7 +68,7 @@ impl Display for Relation {
         let mut result = String::new();
         for i in 0..self.operands.len() {
             if i > 0 {
-                result = format!(" {} {}", self.operators[i - 1], self.operands[i]);
+                result = format!("{} {} {}", result, self.operators[i - 1], self.operands[i]);
             } else {
                 result = format!("{}", self.operands[0]);
             }
@@ -111,7 +113,7 @@ impl Display for Expression {
         let mut result = String::new();
         for i in 0..self.operands.len() {
             if i > 0 {
-                result = format!(" {} {}", self.operators[i - 1], self.operands[i]);
+                result = format!("{} {} {}", result, self.operators[i - 1], self.operands[i]);
             } else {
                 result = format!("{}", self.operands[0]);
             }
@@ -319,7 +321,7 @@ impl Display for Term {
         let mut result = String::new();
         for i in 0..self.operands.len() {
             if i > 0 {
-                result = format!(" {} {}", self.operators[i - 1], self.operands[i]);
+                result = format!("{} {} {}", result, self.operators[i - 1], self.operands[i]);
             } else {
                 result = format!("{}", self.operands[0]);
             }
@@ -608,7 +610,9 @@ impl Display for Call {
             self.name,
             self.arguments
                 .iter()
-                .fold(String::new(), |acc, e| format!("{}, {}", acc, e))
+                .map(|e| e.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
         )
     }
 }
@@ -641,12 +645,12 @@ impl Number {
         let mut new_value = self.value;
         let mut new_exponent = self.unit.exponent;
         if new_exponent > 0 {
-            while new_exponent > 30 && new_exponent % (3 * subunit_exponent) != 0 {
+            while new_exponent > 30 || new_exponent % (3 * subunit_exponent) != 0 {
                 new_value *= 10f64;
                 new_exponent -= 1;
             }
         } else {
-            while new_exponent < -30 && new_exponent % (3 * subunit_exponent) != 0 {
+            while new_exponent < -30 || new_exponent % (3 * subunit_exponent) != 0 {
                 new_value /= 10f64;
                 new_exponent += 1;
             }
@@ -716,7 +720,7 @@ impl Display for Number {
             if !processed_prefix {
                 self_clone.refactor_exponent(unit_power);
                 unit_name = if unit_name == "kg" {
-                    format!("{}g", get_si_prefix(self.unit.exponent - 3, unit_power))
+                    format!("{}g", get_si_prefix(self.unit.exponent + 3, unit_power))
                 } else {
                     format!(
                         "{}{unit_name}",
@@ -778,7 +782,9 @@ pub struct Unit {
 impl PartialEq for Unit {
     fn eq(&self, other: &Self) -> bool {
         let mut result = false;
+        // TODO - exponent should be resolved elsewhere ; the units can still add if it's different
         if self.exponent == other.exponent && self.constituents.len() == other.constituents.len() {
+            result = true;
             for key in self.constituents.keys() {
                 result &= self.constituents.get(&key) == other.constituents.get(&key);
             }
@@ -805,8 +811,10 @@ impl Add for Number {
     ///
     fn add(self, other: Self) -> Self {
         assert!(self.unit == other.unit, "Mismatched types");
+        let mut other_clone = other.clone();
+        other_clone.value *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
         Self {
-            value: self.value + other.value,
+            value: self.value + other_clone.value,
             unit: self.unit,
         }
     }
@@ -837,8 +845,10 @@ impl Sub for Number {
     ///
     fn sub(self, other: Self) -> Self {
         assert!(self.unit == other.unit, "Mismatched types");
+        let mut other_clone = other.clone();
+        other_clone.value *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
         Self {
-            value: self.value - other.value,
+            value: self.value - other_clone.value,
             unit: self.unit,
         }
     }
@@ -995,5 +1005,151 @@ mod tests {
         let _ = Identifier::new("'unterminated").unwrap_err();
         let _ = Identifier::new("0").unwrap_err();
         let _ = Identifier::new("-").unwrap_err();
+    }
+
+    fn get_number_1() -> Number {
+        Number {
+            value: 1f64,
+            unit: Unit {
+                exponent: 0,
+                constituents: HashMap::new(),
+            },
+        }
+    }
+
+    #[test]
+    fn number_display_test1() {
+        assert_eq!(format!("{}", get_number_1()), "1");
+    }
+
+    #[test]
+    fn number_display_test2() {
+        let mut number = get_number_1();
+        number.unit.constituents.insert(BaseUnit::Kilogram, 1);
+        assert_eq!(format!("{}", number), "1 [kg]");
+    }
+
+    #[test]
+    fn number_display_test3() {
+        let mut number = get_number_1();
+        number.unit.constituents.insert(BaseUnit::Ampere, 1);
+        assert_eq!(format!("{}", number), "1 [A]");
+    }
+
+    #[test]
+    fn number_display_test4() {
+        let mut number = get_number_1();
+        number.unit.constituents.insert(BaseUnit::Second, 1);
+        number.unit.exponent = -3;
+        assert_eq!(format!("{}", number), "1 [ms]");
+    }
+
+    #[test]
+    fn number_display_test5() {
+        let mut number = get_number_1();
+        number.unit.constituents.insert(BaseUnit::Second, -1);
+        number.unit.exponent = 3;
+        assert_eq!(format!("{}", number), "1 [1 / ms]");
+    }
+
+    #[test]
+    fn number_display_test6() {
+        let mut number = get_number_1();
+        number.unit.constituents.insert(BaseUnit::Second, -2);
+        number.unit.constituents.insert(BaseUnit::Kilogram, 1);
+        assert_eq!(format!("{}", number), "1 [kg / s^2]");
+    }
+
+    #[test]
+    fn number_display_test7() {
+        let mut number = get_number_1();
+        number.unit.constituents.insert(BaseUnit::Meter, -2);
+        number.unit.exponent = 7;
+        assert_eq!(format!("{}", number), "10 [1 / mm^2]");
+    }
+
+    #[test]
+    fn factor_number_display_test1() {
+        assert_eq!(format!("{}", Factor::Number(get_number_1())), "1");
+    }
+
+    #[test]
+    fn factor_identifier_display_test1() {
+        assert_eq!(
+            format!("{}", Factor::Identifier(Identifier::new("a").unwrap())),
+            "a"
+        );
+    }
+
+    #[test]
+    fn factor_identifier_display_test2() {
+        assert_eq!(
+            format!("{}", Factor::Identifier(Identifier::new("'test'").unwrap())),
+            "'test'"
+        );
+    }
+
+    #[test]
+    fn factor_call_display_test1() {
+        let call = Call {
+            name: Identifier::new("f").unwrap(),
+            arguments: vec![Expression {
+                operands: vec![Term {
+                    operands: vec![Factor::Number(get_number_1())],
+                    operators: Vec::new(),
+                }],
+                operators: Vec::new(),
+            }],
+        };
+        assert_eq!(format!("{}", call), "f(1)");
+    }
+
+    #[test]
+    fn factor_call_display_test2() {
+        let call = Call {
+            name: Identifier::new("g").unwrap(),
+            arguments: vec![
+                Expression {
+                    operands: vec![Term {
+                        operands: vec![Factor::Identifier(Identifier::new("a").unwrap())],
+                        operators: Vec::new(),
+                    }],
+                    operators: Vec::new(),
+                },
+                Expression {
+                    operands: vec![Term {
+                        operands: vec![Factor::Number(get_number_1())],
+                        operators: Vec::new(),
+                    }],
+                    operators: Vec::new(),
+                },
+            ],
+        };
+        assert_eq!(format!("{}", call), "g(a, 1)");
+    }
+
+    #[test]
+    fn expression_display_test1() {
+        let one = get_number_1();
+        let two = one.clone() + one.clone();
+        let four = two.clone() * two.clone();
+        let five = four.clone() + one.clone();
+        let expression = Expression {
+            operands: vec![Term {
+                operands: vec![
+                    Factor::Number(one),
+                    Factor::Number(four),
+                    Factor::Number(two),
+                    Factor::Number(five),
+                ],
+                operators: vec![
+                    String::from("-"),
+                    String::from("+"),
+                    String::from("-"),
+                ],
+            }],
+            operators: Vec::new(),
+        };
+        assert_eq!(format!("{}", expression), "1 - 4 + 2 - 5");
     }
 }
