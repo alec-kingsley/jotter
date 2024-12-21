@@ -25,28 +25,70 @@ pub enum Statement {
     FunctionDefinition(Identifier, Vec<Identifier>, Vec<(Expression, Relation)>),
 }
 
+impl Display for Statement {
+    /// Format Statement appropriately.
+    ///
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Statement::Prompt(relation) => write!(f, "{} ?", relation),
+            Statement::Equation(relation) => write!(f, "{} ?", relation),
+            Statement::FunctionDefinition(name, arguments, details) => write!(
+                f,
+                "{}\n}}",
+                details.iter().fold(
+                    format!(
+                        "{}({}) = {{",
+                        name,
+                        arguments
+                            .iter()
+                            .fold(String::new(), |acc, e| format!("{}, {}", acc, e))
+                    ),
+                    |acc, (expression, relation)| format!(
+                        "{}\n\t{},\t{}",
+                        acc, expression, relation
+                    )
+                )
+            ),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Relation {
     pub operands: Vec<Expression>,
     pub operators: Vec<String>,
 }
 
+impl Display for Relation {
+    /// Format Relation appropriately.
+    ///
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut result = String::new();
+        for i in 0..self.operands.len() {
+            if i > 0 {
+                result = format!(" {} {}", self.operators[i - 1], self.operands[i]);
+            } else {
+                result = format!("{}", self.operands[0]);
+            }
+        }
+        write!(f, "{}", result)
+    }
+}
+
 /// get a general true relation
 ///
 pub fn get_true_relation() -> Relation {
     let zero = Expression {
-        operands: vec![
-            Term {
-                operands: vec![Factor::Number(Number {
-                    value: 0f64,
-                    unit: Unit {
-                        exponent: 0,
-                        constituents: HashMap::new(),
-                    },
-                })],
-                operators: Vec::new(),
-            }
-        ],
+        operands: vec![Term {
+            operands: vec![Factor::Number(Number {
+                value: 0f64,
+                unit: Unit {
+                    exponent: 0,
+                    constituents: HashMap::new(),
+                },
+            })],
+            operators: Vec::new(),
+        }],
         operators: Vec::new(),
     };
     Relation {
@@ -60,6 +102,22 @@ pub struct Expression {
     pub operands: Vec<Term>,
     // can be + or -
     pub operators: Vec<String>,
+}
+
+impl Display for Expression {
+    /// Format Expression appropriately.
+    ///
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut result = String::new();
+        for i in 0..self.operands.len() {
+            if i > 0 {
+                result = format!(" {} {}", self.operators[i - 1], self.operands[i]);
+            } else {
+                result = format!("{}", self.operands[0]);
+            }
+        }
+        write!(f, "{}", result)
+    }
 }
 
 impl Expression {
@@ -254,6 +312,22 @@ pub struct Term {
     pub operators: Vec<String>,
 }
 
+impl Display for Term {
+    /// Format Term appropriately.
+    ///
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut result = String::new();
+        for i in 0..self.operands.len() {
+            if i > 0 {
+                result = format!(" {} {}", self.operators[i - 1], self.operands[i]);
+            } else {
+                result = format!("{}", self.operands[0]);
+            }
+        }
+        write!(f, "{}", result)
+    }
+}
+
 impl Term {
     /// "flatten" the `Term`.
     ///
@@ -340,6 +414,19 @@ pub enum Factor {
     Number(Number),
     Identifier(Identifier),
     Call(Call),
+}
+
+impl Display for Factor {
+    /// Format Factor appropriately.
+    ///
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Factor::Parenthetical(expression) => write!(f, "({})", expression),
+            Factor::Number(number) => write!(f, "{}", number),
+            Factor::Identifier(identifier) => write!(f, "{}", identifier),
+            Factor::Call(call) => write!(f, "{}", call),
+        }
+    }
 }
 
 impl Factor {
@@ -511,6 +598,21 @@ pub struct Call {
     pub arguments: Vec<Expression>,
 }
 
+impl Display for Call {
+    /// Format Call appropriately.
+    ///
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}({})",
+            self.name,
+            self.arguments
+                .iter()
+                .fold(String::new(), |acc, e| format!("{}, {}", acc, e))
+        )
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Number {
     pub value: f64,
@@ -529,57 +631,137 @@ impl Number {
     pub fn is_zero(self) -> bool {
         self.value == 0f64
     }
+
+    /// Refactor the unit such that its `unit.exponent` is divisible by `subunit_exponent`.
+    /// It must also either be divisible by 3 or have a magnitude less than 3.
+    ///
+    /// # Arguments
+    /// * `subunit_exponent` - thing to be divisible by.
+    pub fn refactor_exponent(&mut self, subunit_exponent: i8) {
+        let mut new_value = self.value;
+        let mut new_exponent = self.unit.exponent;
+        if new_exponent > 0 {
+            while new_exponent > 30 && new_exponent % (3 * subunit_exponent) != 0 {
+                new_value *= 10f64;
+                new_exponent -= 1;
+            }
+        } else {
+            while new_exponent < -30 && new_exponent % (3 * subunit_exponent) != 0 {
+                new_value /= 10f64;
+                new_exponent += 1;
+            }
+        }
+        self.value = new_value;
+        self.unit.exponent = new_exponent;
+    }
+}
+
+/// get appropriate SI prefix for a given power of 10
+/// and power on the unit.
+///
+fn get_si_prefix(exponent: i8, unit_power: i8) -> String {
+    HashMap::from([
+        (30, "Q"), // quetta
+        (27, "R"), // ronna
+        (24, "Y"), // yotta
+        (21, "Z"), // zotta
+        (18, "E"), // exa
+        (15, "P"), // peta
+        (12, "T"), // tera
+        (9, "G"),  // giga
+        (6, "M"),  // mega
+        (3, "k"),  // kilo
+        (2, "h"),  // hecto
+        (1, "da"), // deka
+        (0, ""),
+        (-1, "d"),  // deci
+        (-2, "c"),  // centi
+        (-3, "m"),  // milli
+        (-6, "μ"),  // micro
+        (-9, "n"),  // nano
+        (-12, "p"), // pico
+        (-15, "f"), // femto
+        (-18, "a"), // atto
+        (-21, "z"), // zepto
+        (-24, "y"), // yocto
+        (-27, "r"), // ronto
+        (-30, "q"), // quecto
+    ])
+    .get(&(exponent / unit_power))
+    .expect("No SI prefix for power")
+    .to_string()
 }
 
 impl Display for Number {
     /// Format Number appropriately.
     ///
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // TODO - implement function
-        let mut this_value = self.value;
-        let mut this_exponent = self.unit.exponent;
-        if this_exponent > 0 {
-            while this_exponent % 3 != 0 {
-                this_value /= 10f64;
-                this_exponent -= 1;
+        let mut self_clone = self.clone();
+        let unit_abbreviations = HashMap::from([
+            (BaseUnit::Meter, "m"),     // m
+            (BaseUnit::Kilogram, "kg"), // kg
+            (BaseUnit::Second, "s"),    // s
+            (BaseUnit::Ampere, "A"),    // A
+            (BaseUnit::Kelvin, "K"),    // K
+            (BaseUnit::Mole, "mol"),    // mol
+            (BaseUnit::Candela, "cd"),  // cd
+        ]);
+
+        let mut numerator = String::new();
+        let mut denominator = String::new();
+        let mut processed_prefix = false;
+        for (base_unit, unit_power) in self_clone.unit.constituents.clone() {
+            let mut unit_name = unit_abbreviations.get(&base_unit).unwrap().to_string();
+            // assign power on first iteration
+            if !processed_prefix {
+                self_clone.refactor_exponent(unit_power);
+                unit_name = if unit_name == "kg" {
+                    format!("{}g", get_si_prefix(self.unit.exponent - 3, unit_power))
+                } else {
+                    format!(
+                        "{}{unit_name}",
+                        get_si_prefix(self.unit.exponent, unit_power)
+                    )
+                }
             }
-        } else {
-            while this_exponent % 3 != 0 {
-                this_value /= 10f64;
-                this_exponent += 1;
+            processed_prefix = true;
+
+            // build units
+            if unit_power > 0i8 {
+                numerator = if numerator.is_empty() {
+                    unit_name
+                } else {
+                    format!("{numerator} {}", unit_name)
+                };
+                if unit_power > 1i8 {
+                    numerator = format!("{numerator}^{}", unit_power);
+                }
+            } else if unit_power < 0i8 {
+                denominator = if denominator.is_empty() {
+                    unit_name
+                } else {
+                    format!("{denominator} {}", unit_name)
+                };
+                if unit_power < -1i8 {
+                    denominator = format!("{denominator}^{}", -unit_power);
+                }
             }
         }
 
-        let _si_prefixes = HashMap::from([
-            (30, "Q"), // quetta
-            (27, "R"), // ronna
-            (24, "Y"), // yotta
-            (21, "Z"), // zotta
-            (18, "E"), // exa
-            (15, "P"), // peta
-            (12, "T"), // tera
-            (9, "G"),  // giga
-            (6, "M"),  // mega
-            (3, "k"),  // kilo
-            (2, "h"),  // hecto
-            (1, "da"), // deka
-            (0, ""),
-            (-1, "d"),  // deci
-            (-2, "c"),  // centi
-            (-3, "m"),  // milli
-            (-6, "μ"),  // micro
-            (-9, "n"),  // nano
-            (-12, "p"), // pico
-            (-15, "f"), // femto
-            (-18, "a"), // atto
-            (-21, "z"), // zepto
-            (-24, "y"), // yocto
-            (-27, "r"), // ronto
-            (-30, "q"), // quecto
-        ]);
-
-        // TODO - actually print smth
-        write!(f, "{}", this_value)
+        // write final result depending on numerator/denominator contents
+        if numerator.is_empty() {
+            if denominator.is_empty() {
+                write!(f, "{}", self_clone.value)
+            } else {
+                write!(f, "{} [1 / {}]", self_clone.value, denominator)
+            }
+        } else {
+            if denominator.is_empty() {
+                write!(f, "{} [{}]", self_clone.value, numerator)
+            } else {
+                write!(f, "{} [{} / {}]", self_clone.value, numerator, denominator)
+            }
+        }
     }
 }
 

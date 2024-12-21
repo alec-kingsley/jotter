@@ -6,7 +6,6 @@ use std::fs;
 mod ast;
 mod definitions;
 mod tokenizer;
-mod pretty_printer;
 mod math_engine;
 
 fn main() {
