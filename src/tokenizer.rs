@@ -176,14 +176,12 @@ pub fn next_token(code: &str, i: &mut usize) -> Result<String, String> {
 /// * "Unexpected symbol" - A symbol was found that is unknown to the grammar
 ///
 pub fn next_unit_token(code: &str, i: &mut usize) -> Result<String, String> {
-    // TODO - implement function
-
-    let code_length = code.chars().count(); 
+    let code_length = code.chars().count();
     if *i >= code_length {
         return Err(String::from("Not found"));
     }
     // skip all comments and irrelevant whitespace
-        while whitespace_at_pos(code, *i) || substring_at_pos(code, *i, "(*") {
+    while whitespace_at_pos(code, *i) || substring_at_pos(code, *i, "(*") {
         *i += 1;
         if !whitespace_at_pos(code, *i - 1) {
             // skip comment
@@ -204,41 +202,37 @@ pub fn next_unit_token(code: &str, i: &mut usize) -> Result<String, String> {
             *i += 1;
         }
         if *i >= code_length {
-           return Err(String::from("Not found"));
+            return Err(String::from("Not found"));
         }
     }
 
     let start_pos = *i;
-    
-    let special_characters = ['/', '*', ']', '^', ' '];
 
-    // special characters 
-    if special_characters.contains(&code.chars().nth(*i).unwrap())  {
-        *i += 1; 
+    let special_characters = ['/', '*', ']', '^'];
+
+    // special characters
+    if special_characters.contains(&code.chars().nth(*i).unwrap()) {
+        *i += 1;
         Ok(code.chars().skip(start_pos).take(*i - start_pos).collect())
     } else if code.chars().nth(*i).unwrap().is_digit(10) {
-        
-        // number 
+        // number
         while *i < code_length && code.chars().nth(*i).unwrap().is_digit(10) {
             *i += 1;
         }
 
         Ok(code.chars().skip(start_pos).take(*i - start_pos).collect())
-    }
-    else {
-        
+    } else {
         // units
-        while *i < code_length && !special_characters.contains(&code.chars().nth(*i).unwrap()) && !code.chars().nth(*i).unwrap().is_digit(10) {
+        while *i < code_length
+            && !special_characters.contains(&code.chars().nth(*i).unwrap())
+            && !whitespace_at_pos(code, *i)
+            && !code.chars().nth(*i).unwrap().is_digit(10)
+        {
             *i += 1;
         }
-        
-        
+
         Ok(code.chars().skip(start_pos).take(*i - start_pos).collect())
-    
     }
-
-
-
 }
 
 #[cfg(test)]
