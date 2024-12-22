@@ -175,55 +175,70 @@ pub fn next_token(code: &str, i: &mut usize) -> Result<String, String> {
 /// * "Unterminated comment" - A comment (starting with '(*' ) had no ending ( '*)' )
 /// * "Unexpected symbol" - A symbol was found that is unknown to the grammar
 ///
-pub fn next_unit_token(_code: &str, _i: &mut usize) -> Result<String, String> {
+pub fn next_unit_token(code: &str, i: &mut usize) -> Result<String, String> {
     // TODO - implement function
 
-/*
-      if *i >= code_length {
-          return Err(String::from("Not found"));
-      }
-      // skip all comments and irrelevant whitespace
-      while whitespace_at_pos(code, *i) || substring_at_pos(code, *i, "(*") {
-          *i += 1;
-          if !whitespace_at_pos(code, *i - 1) {
-              // skip comment
-              let mut bal = 1;
-              while bal != 0 {
-                  *i += 1;
-                  if *i >= code_length {
-                      return Err(String::from("Unterminated comment"));
-                  }
-                  if substring_at_pos(code, *i, "(*") {
-                      bal += 1;
-                      *i += 1;
-                  } else if substring_at_pos(code, *i, "*)") {
-                      bal -= 1;
-                      *i += 1;
-                  }
-              }
-              *i += 1;
-          }
-          if *i >= code_length {
-              return Err(String::from("Not found"));
-          }
-      }
+    let code_length = code.chars().count(); 
+    if *i >= code_length {
+        return Err(String::from("Not found"));
+    }
+    // skip all comments and irrelevant whitespace
+        while whitespace_at_pos(code, *i) || substring_at_pos(code, *i, "(*") {
+        *i += 1;
+        if !whitespace_at_pos(code, *i - 1) {
+            // skip comment
+            let mut bal = 1;
+            while bal != 0 {
+                *i += 1;
+                if *i >= code_length {
+                    return Err(String::from("Unterminated comment"));
+                }
+                if substring_at_pos(code, *i, "(*") {
+                    bal += 1;
+                    *i += 1;
+                } else if substring_at_pos(code, *i, "*)") {
+                    bal -= 1;
+                    *i += 1;
+                }
+            }
+            *i += 1;
+        }
+        if *i >= code_length {
+           return Err(String::from("Not found"));
+        }
+    }
 
     let start_pos = *i;
     
-    let special_characters = ['*', '/', ']', '^'];
+    let special_characters = ['/', '*', ']', '^', ' '];
 
-    // special characters
-    if special_characters.contains(&code.chars().nth(*i).unwrap()) {
-        *i += 1;
+    // special characters 
+    if special_characters.contains(&code.chars().nth(*i).unwrap())  {
+        *i += 1; 
         Ok(code.chars().skip(start_pos).take(*i - start_pos).collect())
-    } else { 
-
-        // unit component
-    }
-    
+    } else if code.chars().nth(*i).unwrap().is_digit(10) {
         
-    */
-    Err(String::from("Not implemented"))
+        // number 
+        while *i < code_length && code.chars().nth(*i).unwrap().is_digit(10) {
+            *i += 1;
+        }
+
+        Ok(code.chars().skip(start_pos).take(*i - start_pos).collect())
+    }
+    else {
+        
+        // units
+        while *i < code_length && !special_characters.contains(&code.chars().nth(*i).unwrap()) && !code.chars().nth(*i).unwrap().is_digit(10) {
+            *i += 1;
+        }
+        
+        
+        Ok(code.chars().skip(start_pos).take(*i - start_pos).collect())
+    
+    }
+
+
+
 }
 
 #[cfg(test)]
@@ -342,7 +357,7 @@ mod tests {
     fn next_unit_token_test1() {
         let code = "(* comment *) kg";
 
-        assert_eq!(next_token(code, &mut 0).unwrap(), "kg");
+        assert_eq!(next_unit_token(code, &mut 0).unwrap(), "kg");
     }
 
     #[test]
@@ -350,7 +365,7 @@ mod tests {
         let code = "(* bad comment";
 
         assert_eq!(
-            next_token(code, &mut 0).unwrap_err(),
+            next_unit_token(code, &mut 0).unwrap_err(),
             "Unterminated comment"
         );
     }
@@ -360,12 +375,12 @@ mod tests {
         let code = "kg m/s^2";
         let mut i: usize = 0;
 
-        assert_eq!(next_token(code, &mut i).unwrap(), "kg");
-        assert_eq!(next_token(code, &mut i).unwrap(), "m");
-        assert_eq!(next_token(code, &mut i).unwrap(), "/");
-        assert_eq!(next_token(code, &mut i).unwrap(), "s");
-        assert_eq!(next_token(code, &mut i).unwrap(), "^");
-        assert_eq!(next_token(code, &mut i).unwrap(), "2");
+        assert_eq!(next_unit_token(code, &mut i).unwrap(), "kg");
+        assert_eq!(next_unit_token(code, &mut i).unwrap(), "m");
+        assert_eq!(next_unit_token(code, &mut i).unwrap(), "/");
+        assert_eq!(next_unit_token(code, &mut i).unwrap(), "s");
+        assert_eq!(next_unit_token(code, &mut i).unwrap(), "^");
+        assert_eq!(next_unit_token(code, &mut i).unwrap(), "2");
     }
 
     #[test]
@@ -373,12 +388,12 @@ mod tests {
         let code = "kilogram meter/second^2";
         let mut i: usize = 0;
 
-        assert_eq!(next_token(code, &mut i).unwrap(), "kilogram");
-        assert_eq!(next_token(code, &mut i).unwrap(), "meter");
-        assert_eq!(next_token(code, &mut i).unwrap(), "/");
-        assert_eq!(next_token(code, &mut i).unwrap(), "second");
-        assert_eq!(next_token(code, &mut i).unwrap(), "^");
-        assert_eq!(next_token(code, &mut i).unwrap(), "2");
+        assert_eq!(next_unit_token(code, &mut i).unwrap(), "kilogram");
+        assert_eq!(next_unit_token(code, &mut i).unwrap(), "meter");
+        assert_eq!(next_unit_token(code, &mut i).unwrap(), "/");
+        assert_eq!(next_unit_token(code, &mut i).unwrap(), "second");
+        assert_eq!(next_unit_token(code, &mut i).unwrap(), "^");
+        assert_eq!(next_unit_token(code, &mut i).unwrap(), "2");
     }
 
     #[test]
@@ -386,11 +401,11 @@ mod tests {
         let code = "kg^2μm^3";
         let mut i: usize = 0;
 
-        assert_eq!(next_token(code, &mut i).unwrap(), "kg");
-        assert_eq!(next_token(code, &mut i).unwrap(), "^");
-        assert_eq!(next_token(code, &mut i).unwrap(), "2");
-        assert_eq!(next_token(code, &mut i).unwrap(), "μm");
-        assert_eq!(next_token(code, &mut i).unwrap(), "^");
-        assert_eq!(next_token(code, &mut i).unwrap(), "3");
+        assert_eq!(next_unit_token(code, &mut i).unwrap(), "kg");
+        assert_eq!(next_unit_token(code, &mut i).unwrap(), "^");
+        assert_eq!(next_unit_token(code, &mut i).unwrap(), "2");
+        assert_eq!(next_unit_token(code, &mut i).unwrap(), "μm");
+        assert_eq!(next_unit_token(code, &mut i).unwrap(), "^");
+        assert_eq!(next_unit_token(code, &mut i).unwrap(), "3");
     }
 }
