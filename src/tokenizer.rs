@@ -41,6 +41,58 @@ fn whitespace_at_pos(code: &str, i: usize) -> bool {
     char_test == ' ' || char_test == '\t'
 }
 
+/// Moves forward the start index infront of any irrelevant whitespace or comments
+///
+/// # Arguments
+/// * `code` - Code to look in
+/// * `i` - Index to move
+///
+/// # Updates
+/// `i` - Set infront of any whitespace or comments in `code`
+///
+/// # Returns
+/// Ok if there are no syntax errors while handling comments
+/// Err if there are errors or if method is called where no tokens present
+///
+/// # Errors
+/// "Unterminated comment" - - A comment (starting with '(*' ) had no ending ( '*)' )
+/// "Not found" - The next token does not exist
+///
+fn skip_whitespace_and_comments(code: &str, i: &mut usize) -> Result<String, String> {
+    let code_length = code.chars().count();
+
+    if *i >= code_length {
+        return Err(String::from("Not found"));
+    }
+    // skip all comments and irrelevant whitespace
+    while whitespace_at_pos(code, *i) || substring_at_pos(code, *i, "(*") {
+        *i += 1;
+        if !whitespace_at_pos(code, *i - 1) {
+            // skip comment
+            let mut bal = 1;
+            while bal != 0 {
+                *i += 1;
+                if *i >= code_length {
+                    return Err(String::from("Unterminated comment"));
+                }
+                if substring_at_pos(code, *i, "(*") {
+                    bal += 1;
+                    *i += 1;
+                } else if substring_at_pos(code, *i, "*)") {
+                    bal -= 1;
+                    *i += 1;
+                }
+            }
+            *i += 1;
+        }
+        if *i >= code_length {
+            return Err(String::from("Not found"));
+        }
+    }
+
+    Ok(String::from("Skipped whitespace and comments"))
+}
+
 /// Retrieves the next token in `code` starting at index `i`, and updates `i` accordingly.
 ///
 /// # Arguments
@@ -72,31 +124,8 @@ pub fn next_token(code: &str, i: &mut usize) -> Result<String, String> {
     if *i >= code_length {
         return Err(String::from("Not found"));
     }
-    // skip all comments and irrelevant whitespace
-    while whitespace_at_pos(code, *i) || substring_at_pos(code, *i, "(*") {
-        *i += 1;
-        if !whitespace_at_pos(code, *i - 1) {
-            // skip comment
-            let mut bal = 1;
-            while bal != 0 {
-                *i += 1;
-                if *i >= code_length {
-                    return Err(String::from("Unterminated comment"));
-                }
-                if substring_at_pos(code, *i, "(*") {
-                    bal += 1;
-                    *i += 1;
-                } else if substring_at_pos(code, *i, "*)") {
-                    bal -= 1;
-                    *i += 1;
-                }
-            }
-            *i += 1;
-        }
-        if *i >= code_length {
-            return Err(String::from("Not found"));
-        }
-    }
+
+    skip_whitespace_and_comments(code, i)?;
 
     let start_pos = *i;
 
@@ -180,31 +209,8 @@ pub fn next_unit_token(code: &str, i: &mut usize) -> Result<String, String> {
     if *i >= code_length {
         return Err(String::from("Not found"));
     }
-    // skip all comments and irrelevant whitespace
-    while whitespace_at_pos(code, *i) || substring_at_pos(code, *i, "(*") {
-        *i += 1;
-        if !whitespace_at_pos(code, *i - 1) {
-            // skip comment
-            let mut bal = 1;
-            while bal != 0 {
-                *i += 1;
-                if *i >= code_length {
-                    return Err(String::from("Unterminated comment"));
-                }
-                if substring_at_pos(code, *i, "(*") {
-                    bal += 1;
-                    *i += 1;
-                } else if substring_at_pos(code, *i, "*)") {
-                    bal -= 1;
-                    *i += 1;
-                }
-            }
-            *i += 1;
-        }
-        if *i >= code_length {
-            return Err(String::from("Not found"));
-        }
-    }
+
+    skip_whitespace_and_comments(code, i)?;
 
     let start_pos = *i;
 
