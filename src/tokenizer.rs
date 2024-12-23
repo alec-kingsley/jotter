@@ -55,7 +55,7 @@ fn whitespace_at_pos(code: &str, i: usize) -> bool {
 /// Err if there are errors or if method is called where no tokens present
 ///
 /// # Errors
-/// "Unterminated commenl" - A comment (starting with '(*' ) had no ending ( '*)' )
+/// "Unterminated comment" - A comment (starting with '(*' ) had no ending ( '*)' )
 /// "Not found" - The next token does not exist
 ///
 fn skip_whitespace_and_comments(code: &str, i: &mut usize) -> Result<String, String> {

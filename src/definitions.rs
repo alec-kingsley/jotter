@@ -472,9 +472,13 @@ impl MulAssign for Term {
 
 #[derive(Debug, Clone)]
 pub enum Factor {
+    /// Expression within a parenthetical.
     Parenthetical(Expression),
+    /// Numeric literal.
     Number(Number),
+    /// Identifier (variable / constant name).
     Identifier(Identifier),
+    /// Call to a function.
     Call(Call),
 }
 
@@ -681,7 +685,9 @@ impl DivAssign for Factor {
 
 #[derive(Debug, Clone)]
 pub struct Call {
+    /// Name of the function.
     pub name: Identifier,
+    /// Ordered arguments for the function call.
     pub arguments: Vec<Expression>,
 }
 
@@ -719,7 +725,9 @@ impl Display for Call {
 
 #[derive(Debug, Clone)]
 pub struct Number {
+    /// Value of the numeric literal.
     pub value: f64,
+    /// Unit of the numeric literal.
     pub unit: Unit,
 }
 
@@ -881,10 +889,12 @@ impl Display for Number {
 
 #[derive(Debug, Clone)]
 pub struct Unit {
-    // power of 10 unit is multiplied by
+    /// Power of 10 unit is multiplied by
     pub exponent: i8,
-    // map of base units to the power they're raised to
-    // if map is missing a key, it's assumed to be to power of 0
+    /// Map of base units to the power they're raised to.
+    /// If map is missing a key, it's assumed to be to power of 0.
+    ///
+    /// Unitless: Unit { exponent: 0i8, constituents: HashMap::new(), }
     pub constituents: HashMap<BaseUnit, i8>,
 }
 
@@ -1041,6 +1051,7 @@ impl DivAssign for Number {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Identifier {
+    /// The String representing the identifier.
     value: String,
 }
 
