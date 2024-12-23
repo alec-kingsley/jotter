@@ -26,7 +26,7 @@ pub enum Statement {
 }
 
 impl Display for Statement {
-    /// Format Statement appropriately.
+    /// Format `Statement` appropriately.
     ///
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -57,12 +57,20 @@ impl Display for Statement {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Relation {
+    /// operands in relation.
+    ///
+    /// |operands| > 0
     pub operands: Vec<Expression>,
+
+    /// operators which go between operands.
+    ///
+    /// |operators| = |operands| - 1
+    /// must be one of: ( '<' | '>' | '<=' | '>=' | '=' | '<>' )
     pub operators: Vec<String>,
 }
 
 impl Display for Relation {
-    /// Format Relation appropriately.
+    /// Format `Relation` appropriately.
     ///
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
@@ -101,8 +109,15 @@ pub fn get_true_relation() -> Relation {
 
 #[derive(Debug, Clone)]
 pub struct Expression {
+    /// operands in expression.
+    ///
+    /// |operands| > 0
     pub operands: Vec<Term>,
-    // can be + or -
+
+    /// operators which go between operands.
+    ///
+    /// |operators| = |operands| - 1
+    /// must be one of: ( '+' | '-' )
     pub operators: Vec<String>,
 }
 
@@ -117,7 +132,7 @@ impl PartialEq for Expression {
 }
 
 impl Display for Expression {
-    /// Format Expression appropriately.
+    /// Format `Expression` appropriately.
     ///
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
@@ -328,8 +343,15 @@ impl DivAssign for Expression {
 
 #[derive(Debug, Clone)]
 pub struct Term {
+    /// operands in term.
+    ///
+    /// |operands| > 0
     pub operands: Vec<Factor>,
-    // can be *, /
+
+    /// operators which go between operands.
+    ///
+    /// |operators| = |operands| - 1
+    /// must be one of: ( '*' | '/' )
     pub operators: Vec<String>,
 }
 
@@ -343,7 +365,7 @@ impl PartialEq for Term {
     }
 }
 impl Display for Term {
-    /// Format Term appropriately.
+    /// Format `Term` appropriately.
     ///
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
@@ -482,7 +504,7 @@ impl PartialEq for Factor {
 }
 
 impl Display for Factor {
-    /// Format Factor appropriately.
+    /// Format `Factor` appropriately.
     ///
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -679,7 +701,7 @@ impl PartialEq for Call {
 }
 
 impl Display for Call {
-    /// Format Call appropriately.
+    /// Format `Call` appropriately.
     ///
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -785,7 +807,7 @@ fn get_si_prefix(exponent: i8, unit_power: i8) -> String {
 }
 
 impl Display for Number {
-    /// Format Number appropriately.
+    /// Format `Number` appropriately.
     ///
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut self_clone = self.clone();
