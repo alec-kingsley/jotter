@@ -6,8 +6,9 @@ use std::collections::HashMap;
 ///
 /// # Arguments
 /// * `prompt` - A Statement::Prompt representing the prompt to evaluate.
+/// * `model` - The program model for the state of the program.
 ///
-pub fn process_prompt(_prompt: Statement) {
+pub fn process_prompt(_prompt: Statement, _model: &mut ProgramModel) {
     // TODO - implement function
 }
 
@@ -15,8 +16,9 @@ pub fn process_prompt(_prompt: Statement) {
 ///
 /// # Arguments
 /// * `function` - A Statement::FunctionDefinition representing the function to define.
+/// * `model` - The program model for the state of the program.
 ///
-pub fn process_function(_function: Statement) {
+pub fn process_function(_function: Statement, _model: &mut ProgramModel) {
     // TODO - implement function
 }
 
@@ -24,8 +26,9 @@ pub fn process_function(_function: Statement) {
 ///
 /// # Arguments
 /// * `equation` - A Statement::Equation representing the prompt to evaluate.
+/// * `model` - The program model for the state of the program.
 ///
-pub fn process_equation(_equation: Statement) {
+pub fn process_equation(_equation: Statement, _model: &mut ProgramModel) {
     // TODO - implement function
 }
 
@@ -43,7 +46,7 @@ struct Variable {
 /// Also stores 'call depth' to keep recursion safe.
 ///
 #[derive(Debug, Clone, PartialEq)]
-struct ProgramModel {
+pub struct ProgramModel {
     variables: Vec<Variable>,
     augmented_matrix: Vec<Vec<Expression>>,
     functions: Vec<Statement>,
