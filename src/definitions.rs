@@ -912,13 +912,11 @@ pub struct Unit {
 // Implement PartialEq for Unit
 impl PartialEq for Unit {
     fn eq(&self, other: &Self) -> bool {
-        let mut result = false;
-        // TODO - exponent should be resolved elsewhere ; the units can still add if it's different
-        // TODO - the constituents don't have to be the same ; one unit could be to the power of 0
-        if self.exponent == other.exponent && self.constituents.len() == other.constituents.len() {
-            result = true;
-            for key in self.constituents.keys() {
-                result &= self.constituents.get(&key) == other.constituents.get(&key);
+        let mut result = true;
+        for (key, value) in &self.constituents {
+            if *value != 0 {
+                result &= other.constituents.contains_key(&key)
+                    && value == other.constituents.get(&key).unwrap();
             }
         }
         result
@@ -944,6 +942,9 @@ impl Add for Number {
     fn add(self, other: Self) -> Self {
         assert!(self.unit == other.unit, "Mismatched types");
         let mut other_clone = other.clone();
+        let exp_diff = other_clone.unit.exponent - self.unit.exponent;
+        other_clone.unit.exponent -= exp_diff;
+        other_clone.value = other_clone.value * (10 as u64).pow(exp_diff as u32) as f64;
         other_clone.value *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
         Self {
             value: self.value + other_clone.value,
@@ -978,6 +979,9 @@ impl Sub for Number {
     fn sub(self, other: Self) -> Self {
         assert!(self.unit == other.unit, "Mismatched types");
         let mut other_clone = other.clone();
+        let exp_diff = other_clone.unit.exponent - self.unit.exponent;
+        other_clone.unit.exponent -= exp_diff;
+        other_clone.value = other_clone.value * (10 as u64).pow(exp_diff as u32) as f64;
         other_clone.value *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
         Self {
             value: self.value - other_clone.value,
