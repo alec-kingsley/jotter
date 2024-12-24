@@ -19,20 +19,20 @@ fn main() {
     // read source file
     let src = &args[1];
 
+    // setup state variables
     let code = fs::read_to_string(src).expect("Failed to read from file.");
-
+    let mut i = 0;
     let mut model = ProgramModel::new(0);
 
-    let mut i = 0;
-
+    // main loop
     let mut eof = false;
     while !eof {
         let next_statement = parse_statement(code.as_str(), &mut i);
         match next_statement {
-            Ok(Statement::Prompt(_)) => process_prompt(next_statement.unwrap(), &mut model),
-            Ok(Statement::Equation(_)) => process_equation(next_statement.unwrap(), &mut model),
-            Ok(Statement::FunctionDefinition(_, _, _)) => {
-                process_function(next_statement.unwrap(), &mut model)
+            Ok(Statement::Prompt(relation)) => process_prompt(relation, &model),
+            Ok(Statement::Equation(relation)) => process_equation(relation, &mut model),
+            Ok(Statement::FunctionDefinition(name, arguments, definition)) => {
+                process_function(name, arguments, definition, &mut model)
             }
             Err(msg) => {
                 if msg == "Not found" {

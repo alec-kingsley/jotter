@@ -1,7 +1,7 @@
 // statement   ::=   prompt | function | relation
 // function    ::=   identifier '(' identifier ( ',' identifier ) * ')' '=' ( expression | '{' '\n' ( expression ',' relation '\n' ) + '}' )
 // prompt      ::=   relation '?'
-// relation    ::=   expression (( '<' | '>' | '<=' | '≤' | '>=' | '≥' | '=' | '<>' | '≠'  ) expression) +
+// relation    ::=   expression (( '<' | '>' | '<=' | '≤' | '>=' | '≥' | '=' | '<>' | '≠'  ) expression) *
 // expression  ::=   term (( '+' | '-' ) term ) *
 // term        ::=   factor (( '*' | '/' ) ? factor ) *
 // factor      ::=   '(' expression ')' | number | identifier | call
@@ -73,10 +73,22 @@ impl Display for Relation {
     /// Format `Relation` appropriately.
     ///
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let special_relational_ops_map = HashMap::from([
+            (String::from("<="), String::from("≤")),
+            (String::from(">="), String::from("≥")),
+            (String::from("<>"), String::from("≠")),
+        ]);
         let mut result = String::new();
         for i in 0..self.operands.len() {
             if i > 0 {
-                result = format!("{} {} {}", result, self.operators[i - 1], self.operands[i]);
+                let operator = if special_relational_ops_map.contains_key(&self.operators[i - 1]) {
+                    special_relational_ops_map
+                        .get(&self.operators[i - 1])
+                        .unwrap()
+                } else {
+                    &self.operators[i - 1]
+                };
+                result = format!("{} {} {}", result, operator, self.operands[i]);
             } else {
                 result = format!("{}", self.operands[0]);
             }
@@ -197,7 +209,6 @@ impl Expression {
         }
         self.clone_from(&father_expression);
     }
-
 
     /// Combine like terms in `Expression`.
     ///

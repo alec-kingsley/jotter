@@ -8,8 +8,13 @@ use std::collections::HashMap;
 /// * `prompt` - A Statement::Prompt representing the prompt to evaluate.
 /// * `model` - The program model for the state of the program.
 ///
-pub fn process_prompt(_prompt: Statement, _model: &mut ProgramModel) {
-    // TODO - implement function
+pub fn process_prompt(prompt: Relation, model: &ProgramModel) {
+    let simplified_result = model.simplify_relation(&prompt);
+    if simplified_result.is_ok() {
+        println!("{prompt} : {}", simplified_result.unwrap());
+    } else {
+        println!("{prompt} : ERROR - {}", simplified_result.unwrap_err());
+    }
 }
 
 /// Process the AST of a function.
@@ -18,18 +23,35 @@ pub fn process_prompt(_prompt: Statement, _model: &mut ProgramModel) {
 /// * `function` - A Statement::FunctionDefinition representing the function to define.
 /// * `model` - The program model for the state of the program.
 ///
-pub fn process_function(_function: Statement, _model: &mut ProgramModel) {
+pub fn process_function(
+    _name: Identifier,
+    _arguments: Vec<Identifier>,
+    _definition: Vec<(Expression, Relation)>,
+    _model: &mut ProgramModel,
+) {
     // TODO - implement function
+
+    panic!("Not implemented");
 }
 
-/// Process the AST of an equation.
+/// Process the AST of an equation / relation.
 ///
 /// # Arguments
-/// * `equation` - A Statement::Equation representing the prompt to evaluate.
+/// * `equation` - A `Relation` representing the relation to evaluate.
 /// * `model` - The program model for the state of the program.
 ///
-pub fn process_equation(_equation: Statement, _model: &mut ProgramModel) {
+pub fn process_equation(_relation: Relation, _model: &mut ProgramModel) {
     // TODO - implement function
+
+    // TODO - loop through operators
+
+    {
+        // TODO - extract each side of operator as clone
+
+        // TODO - if equality, simply call add_matrix_row
+    }
+
+    panic!("Not implemented");
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -72,16 +94,11 @@ impl ProgramModel {
     ///
     fn evaluate_constant_factor(&self, factor: &Factor) -> Result<Number, String> {
         match factor {
-            Factor::Parenthetical(expression) => 
-                self.evaluate_constant_expression(expression),
+            Factor::Parenthetical(expression) => self.evaluate_constant_expression(expression),
             Factor::Number(number) => Ok(number.clone()),
-            Factor::Identifier(identifier) => {
-                Err(format!("Identifier found: {identifier}"))
-            }
-            Factor::Call(call) =>
-                self.evaluate_constant_expression(&self.make_call(call)?),
+            Factor::Identifier(identifier) => Err(format!("Identifier found: {identifier}")),
+            Factor::Call(call) => self.evaluate_constant_expression(&self.make_call(call)?),
         }
-
     }
 
     /// Evaluate the given `Term` assuming all constant values.
@@ -126,9 +143,9 @@ impl ProgramModel {
     ///
     fn simplify_factor(&self, factor: &Factor, make_substitutions: bool) -> Result<Factor, String> {
         Ok(match factor {
-            Factor::Parenthetical(expression) => Factor::Parenthetical(
-                self.simplify_expression(expression, make_substitutions)?,
-            ),
+            Factor::Parenthetical(expression) => {
+                Factor::Parenthetical(self.simplify_expression(expression, make_substitutions)?)
+            }
             Factor::Number(number) => Factor::Number(number.clone()),
             Factor::Identifier(identifier) => {
                 if make_substitutions {
@@ -267,6 +284,18 @@ impl ProgramModel {
         Ok(new_expression)
     }
 
+    /// Simplify the given `Relation`, using known variable values.
+    /// Makes substitutions when possible. (This is since relation is not repeated in tree)
+    ///
+    /// # Arguments
+    /// * `expression` - The `Expression` to simplify.
+    /// * `make_substitutions` - True iff it should substitute known variables.
+    ///
+    pub fn simplify_relation(&self, _relation: &Relation) -> Result<Expression, String> {
+        // TODO - implement function
+
+        panic!("Not implemented");
+    }
 
     /// Retrieve an expression for the value of the given identifier from `self.augmented_matrix`.
     /// Finds the expression in the most simplified form. That is, a non-zero multiplier with
@@ -462,6 +491,8 @@ impl ProgramModel {
     ///
     fn add_matrix_row(&mut self, _left: Expression, _right: Expression) {
         // TODO - implement function
+
+        panic!("Not implemented");
     }
 
     /// Add a variable with its unit to the model.

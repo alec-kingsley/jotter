@@ -13,7 +13,7 @@ Jotter is not meant to be a full programming language. It won't support complex 
 statement   ::=   prompt | function | relation
 function    ::=   identifier '(' identifier ( ',' identifier ) * ')' '=' ( expression | '{' '\n' ( expression ',' relation '\n' ) + '}' )
 prompt      ::=   relation '?'
-relation    ::=   expression (( '<' | '>' | '<=' | '≤' | '>=' | '≥' | '=' | '<>' | '≠'  ) expression ) +
+relation    ::=   expression (( '<' | '>' | '<=' | '≤' | '>=' | '≥' | '=' | '<>' | '≠'  ) expression ) *
 expression  ::=   term (( '+' | '-' ) term ) *
 term        ::=   factor (( '*' | '/' ) ? factor ) *
 factor      ::=   '(' expression ')' | number | identifier | call
@@ -62,7 +62,7 @@ tv: 0.6 [mm]
 ```
 
 
-Another comment format is by using parentheses with a stars on the inside.
+Another comment format is by using parentheses with stars on the inside.
 ```
 k = 5 [s] (*set k to 5 seconds*)
 ```
