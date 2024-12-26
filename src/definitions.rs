@@ -40,10 +40,10 @@ impl Display for Statement {
                         "{}({}) = {{",
                         name,
                         arguments
-                            .iter()
-                            .map(|e| e.to_string())
-                            .collect::<Vec<_>>()
-                            .join(", ")
+                        .iter()
+                        .map(|e| e.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
                     ),
                     |acc, (expression, relation)| format!(
                         "{}\n\t{},\t{}",
@@ -136,10 +136,33 @@ pub struct Expression {
 impl PartialEq for Expression {
     /// Operator overload for ==.
     ///
-    fn eq(&self, _other: &Self) -> bool {
-        // TODO - implement function
+    fn eq(&self, other: &Self) -> bool {
+        let mut accounted_for = self.clone();
+        let mut result = true;
 
-        panic!("Not implemented")
+        // check each term of `other`
+        for other_i in 0..other.operands.len() {
+            let other_positive = other_i == 0 || other.operators[other_i - 1] == "+";
+            // if the same term exists in `accounted_for`, remove exactly one of it
+            let mut removed = false;
+            for accounted_for_i in (0..accounted_for.operands.len()).rev() {
+                let accounted_for_positive = accounted_for_i == 0 || accounted_for.operators[accounted_for_i - 1] == "+";
+                // remove the term if needed
+                if other_positive == accounted_for_positive && other.operands[other_i] == accounted_for.operands[accounted_for_i] {
+                    accounted_for.operands.remove(accounted_for_i);
+                    if accounted_for_i > 0 {
+                        accounted_for.operators.remove(accounted_for_i - 1);
+                    }
+                    removed = true;
+                    break;
+                }
+            }
+            if !removed {
+                result = false;
+            }
+        }
+        result &= accounted_for.operands.len() == 0;
+        result
     }
 }
 
@@ -186,7 +209,7 @@ impl Expression {
                     if father_expression.operands.len() > 0 {
                         father_expression.operators.push(
                             if negated
-                                ^ (child_i > 0 && child_expression.operators[child_i - 1] == "-")
+                            ^ (child_i > 0 && child_expression.operators[child_i - 1] == "-")
                             {
                                 String::from("-")
                             } else {
@@ -369,10 +392,33 @@ pub struct Term {
 impl PartialEq for Term {
     /// Operator overload for ==.
     ///
-    fn eq(&self, _other: &Self) -> bool {
-        // TODO - implement function
+    fn eq(&self, other: &Self) -> bool {
+        let mut accounted_for = self.clone();
+        let mut result = true;
 
-        panic!("Not implemented")
+        // check each factor of `other`
+        for other_i in 0..other.operands.len() {
+            let other_numerator = other_i == 0 || other.operators[other_i - 1] == "*";
+            // if the same factor exists in `accounted_for`, remove exactly one of it
+            let mut removed = false;
+            for accounted_for_i in (0..accounted_for.operands.len()).rev() {
+                let accounted_for_numerator = accounted_for_i == 0 || accounted_for.operators[accounted_for_i - 1] == "/";
+                // remove the factor if needed
+                if other_numerator == accounted_for_numerator && other.operands[other_i] == accounted_for.operands[accounted_for_i] {
+                    accounted_for.operands.remove(accounted_for_i);
+                    if accounted_for_i > 0 {
+                        accounted_for.operators.remove(accounted_for_i - 1);
+                    }
+                    removed = true;
+                    break;
+                }
+            }
+            if !removed {
+                result = false;
+            }
+        }
+        result &= accounted_for.operands.len() == 0;
+        result
     }
 }
 impl Display for Term {
@@ -577,18 +623,6 @@ impl Mul for Factor {
                     } else {
                         Factor::Parenthetical(
                             self_expression
-                                * Expression {
-                                    operands: vec![Term {
-                                        operands: vec![other],
-                                        operators: Vec::new(),
-                                    }],
-                                    operators: Vec::new(),
-                                },
-                        )
-                    }
-                } else if let Factor::Parenthetical(other_expression) = other.clone() {
-                    Factor::Parenthetical(
-                        other_expression
                             * Expression {
                                 operands: vec![Term {
                                     operands: vec![other],
@@ -596,6 +630,18 @@ impl Mul for Factor {
                                 }],
                                 operators: Vec::new(),
                             },
+                        )
+                    }
+                } else if let Factor::Parenthetical(other_expression) = other.clone() {
+                    Factor::Parenthetical(
+                        other_expression
+                        * Expression {
+                            operands: vec![Term {
+                                operands: vec![other],
+                                operators: Vec::new(),
+                            }],
+                            operators: Vec::new(),
+                        },
                     )
                 } else {
                     Factor::Parenthetical(Expression {
@@ -606,7 +652,7 @@ impl Mul for Factor {
                         operators: Vec::new(),
                     })
                 },
-            );
+                    );
         }
         result.unwrap()
     }
@@ -652,13 +698,13 @@ impl Div for Factor {
                     } else {
                         Factor::Parenthetical(
                             self_expression
-                                / Expression {
-                                    operands: vec![Term {
-                                        operands: vec![other],
-                                        operators: Vec::new(),
-                                    }],
+                            / Expression {
+                                operands: vec![Term {
+                                    operands: vec![other],
                                     operators: Vec::new(),
-                                },
+                                }],
+                                operators: Vec::new(),
+                            },
                         )
                     }
                 } else if let Factor::Parenthetical(other_expression) = other.clone() {
@@ -680,7 +726,7 @@ impl Div for Factor {
                         operators: Vec::new(),
                     })
                 },
-            );
+                    );
         }
         result.unwrap()
     }
@@ -726,10 +772,10 @@ impl Display for Call {
             "{}({})",
             self.name,
             self.arguments
-                .iter()
-                .map(|e| e.to_string())
-                .collect::<Vec<_>>()
-                .join(", ")
+            .iter()
+            .map(|e| e.to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
         )
     }
 }
@@ -745,10 +791,15 @@ pub struct Number {
 impl PartialEq for Number {
     /// Operator overload for ==.
     ///
-    fn eq(&self, _other: &Self) -> bool {
-        // TODO - implement function
-
-        panic!("Not implemented")
+    fn eq(&self, other: &Self) -> bool {
+        self.unit == other.unit && {
+            let mut other_clone = other.clone();
+            let exp_diff = other_clone.unit.exponent - self.unit.exponent;
+            other_clone.unit.exponent -= exp_diff;
+            other_clone.value = other_clone.value * (10 as u64).pow(exp_diff as u32) as f64;
+            other_clone.value *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
+            other_clone.value == self.value
+        }
     }
 }
 
@@ -819,10 +870,10 @@ fn get_si_prefix(exponent: i8, unit_power: i8) -> String {
         (-24, "y"), // yocto
         (-27, "r"), // ronto
         (-30, "q"), // quecto
-    ])
-    .get(&(exponent / unit_power))
-    .expect("No SI prefix for power")
-    .to_string()
+        ])
+            .get(&(exponent / unit_power))
+            .expect("No SI prefix for power")
+            .to_string()
 }
 
 impl Display for Number {
@@ -1091,7 +1142,7 @@ impl Identifier {
     pub fn new(value: &str) -> Result<Self, String> {
         if Regex::new(r"^([a-zA-Zα-ωΑ-Ω]|'[a-zA-Z0-9_ ]+')$")
             .unwrap()
-            .is_match(value)
+                .is_match(value)
         {
             Ok(Self {
                 value: value.to_string(),
