@@ -66,29 +66,36 @@ pub struct Relation {
     /// operators which go between operands.
     ///
     /// |operators| = |operands| - 1
-    /// must be one of: ( '<' | '>' | '<=' | '>=' | '=' | '<>' )
-    pub operators: Vec<String>,
+    pub operators: Vec<RelationOp>,
+}
+
+#[derive(Hash, Debug, Clone, PartialEq, Eq)]
+pub enum RelationOp {
+    Less,
+    Greater,
+    LessEqual,
+    GreaterEqual,
+    Equal,
+    NotEqual,
 }
 
 impl Display for Relation {
     /// Format `Relation` appropriately.
     ///
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let special_relational_ops_map = HashMap::from([
-            (String::from("<="), String::from("≤")),
-            (String::from(">="), String::from("≥")),
-            (String::from("<>"), String::from("≠")),
+        let relational_ops_map = HashMap::from([
+            (RelationOp::Less, String::from("<")),
+            (RelationOp::Greater, String::from(">")),
+            (RelationOp::LessEqual, String::from("≤")),
+            (RelationOp::GreaterEqual, String::from("≥")),
+            (RelationOp::Equal, String::from("=")),
+            (RelationOp::NotEqual, String::from("≠")),
         ]);
+
         let mut result = String::new();
         for i in 0..self.operands.len() {
             if i > 0 {
-                let operator = if special_relational_ops_map.contains_key(&self.operators[i - 1]) {
-                    special_relational_ops_map
-                        .get(&self.operators[i - 1])
-                        .unwrap()
-                } else {
-                    &self.operators[i - 1]
-                };
+                let operator = relational_ops_map.get(&self.operators[i - 1]).unwrap();
                 result = format!("{} {} {}", result, operator, self.operands[i]);
             } else {
                 result = format!("{}", self.operands[0]);
@@ -116,7 +123,7 @@ pub fn get_true_relation() -> Relation {
     };
     Relation {
         operands: vec![zero.clone(), zero.clone()],
-        operators: vec![String::from("=")],
+        operators: vec![RelationOp::Equal],
     }
 }
 
