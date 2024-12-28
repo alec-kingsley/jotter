@@ -12,6 +12,7 @@
 // identifier  ::=   ( [a-zA-Zα-ωΑ-Ω] | '\'' [a-zA-Z0-9_ ]+ '\'' )
 
 use regex::Regex;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
@@ -40,10 +41,10 @@ impl Display for Statement {
                         "{}({}) = {{",
                         name,
                         arguments
-                        .iter()
-                        .map(|e| e.to_string())
-                        .collect::<Vec<_>>()
-                        .join(", ")
+                            .iter()
+                            .map(|e| e.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
                     ),
                     |acc, (expression, relation)| format!(
                         "{}\n\t{},\t{}",
@@ -146,9 +147,12 @@ impl PartialEq for Expression {
             // if the same term exists in `accounted_for`, remove exactly one of it
             let mut removed = false;
             for accounted_for_i in (0..accounted_for.operands.len()).rev() {
-                let accounted_for_positive = accounted_for_i == 0 || accounted_for.operators[accounted_for_i - 1] == "+";
+                let accounted_for_positive =
+                    accounted_for_i == 0 || accounted_for.operators[accounted_for_i - 1] == "+";
                 // remove the term if needed
-                if other_positive == accounted_for_positive && other.operands[other_i] == accounted_for.operands[accounted_for_i] {
+                if other_positive == accounted_for_positive
+                    && other.operands[other_i] == accounted_for.operands[accounted_for_i]
+                {
                     accounted_for.operands.remove(accounted_for_i);
                     if accounted_for_i > 0 {
                         accounted_for.operators.remove(accounted_for_i - 1);
@@ -209,7 +213,7 @@ impl Expression {
                     if father_expression.operands.len() > 0 {
                         father_expression.operators.push(
                             if negated
-                            ^ (child_i > 0 && child_expression.operators[child_i - 1] == "-")
+                                ^ (child_i > 0 && child_expression.operators[child_i - 1] == "-")
                             {
                                 String::from("-")
                             } else {
@@ -236,9 +240,76 @@ impl Expression {
     /// Combine like terms in `Expression`.
     ///
     pub fn combine_like_terms(&mut self) {
-        // TODO - implement function
+        let mut numbers: Vec<Number> = Vec::new();
+        let mut terms: Vec<Term> = Vec::new();
 
-        panic!("Not implemented");
+        // extract all terms with their numeric factor
+        for self_i in 0..self.operands.len() {
+            let mut term = self.operands[self_i].clone();
+            let mut number = term.extract_number();
+            if self_i > 0 && self.operators[self_i - 1] == "-" {
+                number = -number;
+            }
+            numbers.push(number);
+            terms.push(term);
+        }
+
+        // combine like terms
+        for term_i in (0..numbers.len()).rev() {
+            for term_j in ((term_i + 1)..terms.len()).rev() {
+                if terms[term_i] == terms[term_j] {
+                    numbers[term_i] = numbers[term_i].clone() + numbers[term_j].clone();
+                    terms.remove(term_j);
+                    numbers.remove(term_j);
+                }
+            }
+        }
+
+        // restore self
+        let one = Number {
+            value: 1f64,
+            unit: Unit {
+                exponent: 0i8,
+                constituents: HashMap::new(),
+            },
+        };
+
+        let zero = one.clone() - one.clone();
+
+        self.operands.clear();
+        self.operators.clear();
+        for term_i in 0..numbers.len() {
+            let mut operand = terms[term_i].clone();
+            if term_i == 0 {
+                if numbers[term_i] != one {
+                    if operand.operands.len() > 0 {
+                        operand.operators.push(String::from("*"));
+                    }
+                    operand
+                        .operands
+                        .push(Factor::Number(numbers[term_i].clone()));
+                }
+            } else {
+                if numbers[term_i] != one && numbers[term_i] != -one.clone() {
+                    if operand.operands.len() > 0 {
+                        operand.operators.push(String::from("*"));
+                    }
+                    operand
+                        .operands
+                        .push(Factor::Number(if numbers[term_i] > zero.clone() {
+                            numbers[term_i].clone()
+                        } else {
+                            -numbers[term_i].clone()
+                        }));
+                }
+                self.operators.push(if numbers[term_i] > zero.clone() {
+                    String::from("+")
+                } else {
+                    String::from("-")
+                });
+            }
+            self.operands.push(operand);
+        }
     }
 }
 
@@ -402,9 +473,12 @@ impl PartialEq for Term {
             // if the same factor exists in `accounted_for`, remove exactly one of it
             let mut removed = false;
             for accounted_for_i in (0..accounted_for.operands.len()).rev() {
-                let accounted_for_numerator = accounted_for_i == 0 || accounted_for.operators[accounted_for_i - 1] == "/";
+                let accounted_for_numerator =
+                    accounted_for_i == 0 || accounted_for.operators[accounted_for_i - 1] == "/";
                 // remove the factor if needed
-                if other_numerator == accounted_for_numerator && other.operands[other_i] == accounted_for.operands[accounted_for_i] {
+                if other_numerator == accounted_for_numerator
+                    && other.operands[other_i] == accounted_for.operands[accounted_for_i]
+                {
                     accounted_for.operands.remove(accounted_for_i);
                     if accounted_for_i > 0 {
                         accounted_for.operators.remove(accounted_for_i - 1);
@@ -623,6 +697,18 @@ impl Mul for Factor {
                     } else {
                         Factor::Parenthetical(
                             self_expression
+                                * Expression {
+                                    operands: vec![Term {
+                                        operands: vec![other],
+                                        operators: Vec::new(),
+                                    }],
+                                    operators: Vec::new(),
+                                },
+                        )
+                    }
+                } else if let Factor::Parenthetical(other_expression) = other.clone() {
+                    Factor::Parenthetical(
+                        other_expression
                             * Expression {
                                 operands: vec![Term {
                                     operands: vec![other],
@@ -630,18 +716,6 @@ impl Mul for Factor {
                                 }],
                                 operators: Vec::new(),
                             },
-                        )
-                    }
-                } else if let Factor::Parenthetical(other_expression) = other.clone() {
-                    Factor::Parenthetical(
-                        other_expression
-                        * Expression {
-                            operands: vec![Term {
-                                operands: vec![other],
-                                operators: Vec::new(),
-                            }],
-                            operators: Vec::new(),
-                        },
                     )
                 } else {
                     Factor::Parenthetical(Expression {
@@ -652,7 +726,7 @@ impl Mul for Factor {
                         operators: Vec::new(),
                     })
                 },
-                    );
+            );
         }
         result.unwrap()
     }
@@ -698,13 +772,13 @@ impl Div for Factor {
                     } else {
                         Factor::Parenthetical(
                             self_expression
-                            / Expression {
-                                operands: vec![Term {
-                                    operands: vec![other],
+                                / Expression {
+                                    operands: vec![Term {
+                                        operands: vec![other],
+                                        operators: Vec::new(),
+                                    }],
                                     operators: Vec::new(),
-                                }],
-                                operators: Vec::new(),
-                            },
+                                },
                         )
                     }
                 } else if let Factor::Parenthetical(other_expression) = other.clone() {
@@ -726,7 +800,7 @@ impl Div for Factor {
                         operators: Vec::new(),
                     })
                 },
-                    );
+            );
         }
         result.unwrap()
     }
@@ -772,10 +846,10 @@ impl Display for Call {
             "{}({})",
             self.name,
             self.arguments
-            .iter()
-            .map(|e| e.to_string())
-            .collect::<Vec<_>>()
-            .join(", ")
+                .iter()
+                .map(|e| e.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
         )
     }
 }
@@ -798,7 +872,8 @@ impl PartialEq for Number {
             other_clone.unit.exponent -= exp_diff;
             other_clone.value = other_clone.value * (10 as u64).pow(exp_diff as u32) as f64;
             other_clone.value *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
-            other_clone.value == self.value
+            let epsilon = 1e-8;
+            other_clone.value < self.value + epsilon && other_clone.value > self.value - epsilon
         }
     }
 }
@@ -870,10 +945,10 @@ fn get_si_prefix(exponent: i8, unit_power: i8) -> String {
         (-24, "y"), // yocto
         (-27, "r"), // ronto
         (-30, "q"), // quecto
-        ])
-            .get(&(exponent / unit_power))
-            .expect("No SI prefix for power")
-            .to_string()
+    ])
+    .get(&(exponent / unit_power))
+    .expect("No SI prefix for power")
+    .to_string()
 }
 
 impl Display for Number {
@@ -1022,6 +1097,19 @@ impl AddAssign for Number {
     }
 }
 
+impl Neg for Number {
+    type Output = Self;
+
+    /// Operator overload for unary -.
+    ///
+    fn neg(self) -> Self {
+        Self {
+            value: -self.value,
+            unit: self.unit,
+        }
+    }
+}
+
 impl Sub for Number {
     type Output = Self;
 
@@ -1115,6 +1203,29 @@ impl DivAssign for Number {
     }
 }
 
+impl PartialOrd for Number {
+    /// Operator overload for <, >, <=, >=
+    ///
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        assert!(self.unit == other.unit, "Mismatched types");
+
+        if self == other {
+            Some(Ordering::Equal)
+        } else {
+            let mut other_clone = other.clone();
+            let exp_diff = other_clone.unit.exponent - self.unit.exponent;
+            other_clone.unit.exponent -= exp_diff;
+            other_clone.value = other_clone.value * (10 as u64).pow(exp_diff as u32) as f64;
+            other_clone.value *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
+            Some(if self.value < other_clone.value {
+                Ordering::Less
+            } else {
+                Ordering::Greater
+            })
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Identifier {
     /// The String representing the identifier.
@@ -1142,7 +1253,7 @@ impl Identifier {
     pub fn new(value: &str) -> Result<Self, String> {
         if Regex::new(r"^([a-zA-Zα-ωΑ-Ω]|'[a-zA-Z0-9_ ]+')$")
             .unwrap()
-                .is_match(value)
+            .is_match(value)
         {
             Ok(Self {
                 value: value.to_string(),
