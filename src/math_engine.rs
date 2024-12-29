@@ -113,7 +113,7 @@ impl ProgramModel {
             unit: Unit {
                 exponent: 0i8,
                 constituents: HashMap::new(),
-            }
+            },
         };
 
         for operand in term.numerator.clone() {
@@ -137,7 +137,7 @@ impl ProgramModel {
             unit: Unit {
                 exponent: 0i8,
                 constituents: HashMap::new(),
-            }
+            },
         };
 
         for operand in expression.minuend.clone() {
@@ -201,8 +201,12 @@ impl ProgramModel {
                 .insert(self.simplify_factor(operand, make_substitutions)?);
         }
 
-        // TODO - call extract number then put it back in as a standalone if not one
-
+        // combine all the numeric literals and return if not one
+        let number = new_term.extract_number();
+        if !number.clone().is_one() {
+            new_term.numerator.insert(Factor::Number(number));
+        }
+            
         Ok(new_term)
     }
 

@@ -16,8 +16,8 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::Display;
-use std::ops::*;
 use std::hash::{Hash, Hasher};
+use std::ops::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
@@ -535,7 +535,7 @@ impl Term {
             unit: Unit {
                 exponent: 0i8,
                 constituents: HashMap::new(),
-            }
+            },
         };
 
         let mut new_term = Term {
@@ -1440,7 +1440,9 @@ mod tests {
             arguments: vec![
                 Expression {
                     minuend: HashSet::from([Term {
-                        numerator: HashSet::from([Factor::Identifier(Identifier::new("a").unwrap())]),
+                        numerator: HashSet::from([Factor::Identifier(
+                            Identifier::new("a").unwrap(),
+                        )]),
                         denominator: HashSet::new(),
                     }]),
                     subtrahend: HashSet::new(),
