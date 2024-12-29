@@ -40,7 +40,9 @@ pub fn process_function(
 /// * `equation` - A `Relation` representing the relation to evaluate.
 /// * `model` - The program model for the state of the program.
 ///
-pub fn process_equation(_relation: Relation, _model: &mut ProgramModel) {
+pub fn process_equation(relation: Relation, _model: &mut ProgramModel) {
+    assert!(relation.operands.len() == relation.operators.len() + 1, "Invalid Relation");
+
     // TODO - implement function
 
     // TODO - loop through operators
@@ -48,7 +50,9 @@ pub fn process_equation(_relation: Relation, _model: &mut ProgramModel) {
     {
         // TODO - extract each side of operator as clone
 
-        // TODO - if equality, simply call add_matrix_row
+        // TODO - if equality, call add_matrix_row
+
+        // TODO - else, call add_relation
     }
 
     panic!("Not implemented");
@@ -71,6 +75,7 @@ struct Variable {
 pub struct ProgramModel {
     variables: Vec<Variable>,
     augmented_matrix: Vec<Vec<Expression>>,
+    relations: HashSet<Relation>,
     functions: HashSet<Statement>,
     call_depth: u16,
 }
@@ -469,6 +474,20 @@ impl ProgramModel {
         // TODO - for each other term, extract an identifier and place in augmented matrix
 
         panic!("Not implemented");
+    }
+
+
+    /// Add a relation to `self.relations`.
+    ///
+    /// # Arguments
+    /// * `left` - The left-hand side of the relation.
+    /// * `right` - The right-hand side of the relation.
+    /// * `operator` - The operator between the relation elements.
+    fn add_relation(&mut self, _left: Expression, _right: Expression, _operator: RelationOp) {
+        // TODO - implement function
+
+        panic!("Not implemented");
+
     }
 
     /// Add a variable with its unit to the model.
