@@ -109,17 +109,17 @@ impl Display for Relation {
 ///
 pub fn get_true_relation() -> Relation {
     let zero = Expression {
-        operands: vec![Term {
-            operands: vec![Factor::Number(Number {
+        minuend: vec![Term {
+            numerator: vec![Factor::Number(Number {
                 value: 0f64,
                 unit: Unit {
                     exponent: 0,
                     constituents: HashMap::new(),
                 },
             })],
-            operators: Vec::new(),
+            denominator: Vec::new(),
         }],
-        operators: Vec::new(),
+        subtrahend: Vec::new(),
     };
     Relation {
         operands: vec![zero.clone(), zero.clone()],
@@ -129,16 +129,13 @@ pub fn get_true_relation() -> Relation {
 
 #[derive(Debug, Clone)]
 pub struct Expression {
-    /// operands in expression.
+    /// operands to be added.
     ///
-    /// |operands| > 0
-    pub operands: Vec<Term>,
+    pub minuend: Vec<Term>,
 
-    /// operators which go between operands.
+    /// operands to be subtracted.
     ///
-    /// |operators| = |operands| - 1
-    /// must be one of: ( '+' | '-' )
-    pub operators: Vec<String>,
+    pub subtrahend: Vec<Term>,
 }
 
 impl PartialEq for Expression {
@@ -146,34 +143,29 @@ impl PartialEq for Expression {
     ///
     fn eq(&self, other: &Self) -> bool {
         let mut accounted_for = self.clone();
-        let mut result = true;
 
         // check each term of `other`
-        for other_i in 0..other.operands.len() {
-            let other_positive = other_i == 0 || other.operators[other_i - 1] == "+";
-            // if the same term exists in `accounted_for`, remove exactly one of it
-            let mut removed = false;
-            for accounted_for_i in (0..accounted_for.operands.len()).rev() {
-                let accounted_for_positive =
-                    accounted_for_i == 0 || accounted_for.operators[accounted_for_i - 1] == "+";
+        for other_term in other.minuend.clone() {
+            for accounted_for_i in (0..accounted_for.minuend.len()).rev() {
                 // remove the term if needed
-                if other_positive == accounted_for_positive
-                    && other.operands[other_i] == accounted_for.operands[accounted_for_i]
-                {
-                    accounted_for.operands.remove(accounted_for_i);
-                    if accounted_for_i > 0 {
-                        accounted_for.operators.remove(accounted_for_i - 1);
-                    }
-                    removed = true;
+                if other_term == accounted_for.minuend[accounted_for_i] {
+                    accounted_for.minuend.remove(accounted_for_i);
                     break;
                 }
             }
-            if !removed {
-                result = false;
+        }
+
+        // check each term of `other`
+        for other_term in other.subtrahend.clone() {
+            for accounted_for_i in (0..accounted_for.subtrahend.len()).rev() {
+                // remove the term if needed
+                if other_term == accounted_for.subtrahend[accounted_for_i] {
+                    accounted_for.minuend.remove(accounted_for_i);
+                    break;
+                }
             }
         }
-        result &= accounted_for.operands.len() == 0;
-        result
+        accounted_for.minuend.is_empty() && accounted_for.subtrahend.is_empty()
     }
 }
 
@@ -181,15 +173,30 @@ impl Display for Expression {
     /// Format `Expression` appropriately.
     ///
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut result = String::new();
-        for i in 0..self.operands.len() {
-            if i > 0 {
-                result = format!("{} {} {}", result, self.operators[i - 1], self.operands[i]);
-            } else {
-                result = format!("{}", self.operands[0]);
-            }
+        // Format minuend elements, joined by `+`
+        let minuend_str = self
+            .minuend
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<_>>()
+            .join(" + ");
+
+        // Format subtrahend elements, each preceded by `-`
+        let subtrahend_str = self
+            .subtrahend
+            .iter()
+            .map(|x| format!("-{}", x))
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        // Combine the two parts
+        if subtrahend_str.is_empty() {
+            write!(f, "{}", minuend_str)
+        } else if minuend_str.is_empty() {
+            write!(f, "{}", subtrahend_str)
+        } else {
+            write!(f, "{} {}", minuend_str, subtrahend_str)
         }
-        write!(f, "{}", result)
     }
 }
 
@@ -201,43 +208,32 @@ impl Expression {
     ///
     fn flatten(&mut self) {
         let mut father_expression = Expression {
-            operands: Vec::new(),
-            operators: Vec::new(),
+            minuend: Vec::new(),
+            subtrahend: Vec::new(),
         };
-        for self_i in 0..self.operands.len() {
-            self.operands[self_i].flatten();
 
-            if let Factor::Parenthetical(mut child_expression) =
-                self.operands[self_i].operands[0].clone()
-            {
+        for mut self_term in self.minuend.clone() {
+            self_term.flatten();
+            if let Factor::Parenthetical(mut child_expression) = self_term.numerator[0].clone() {
                 child_expression.flatten();
-                let negated = self_i > 0 && self.operators[self_i - 1] == "-";
-                for child_i in 0..child_expression.operands.len() {
-                    // add flattened paranthetical contents to father expression
-                    father_expression
-                        .operands
-                        .push(child_expression.operands[child_i].clone());
-                    if father_expression.operands.len() > 0 {
-                        father_expression.operators.push(
-                            if negated
-                                ^ (child_i > 0 && child_expression.operators[child_i - 1] == "-")
-                            {
-                                String::from("-")
-                            } else {
-                                String::from("+")
-                            },
-                        );
-                    }
+                for child_term in child_expression.minuend {
+                    father_expression.minuend.push(child_term.clone())
                 }
-            } else {
-                // add this term to the new replacement expression
-                father_expression
-                    .operands
-                    .push(self.operands[self_i].clone());
-                if father_expression.operands.len() > 0 {
-                    father_expression
-                        .operators
-                        .push(self.operators[self_i - 1].clone());
+                for child_term in child_expression.subtrahend {
+                    father_expression.subtrahend.push(child_term.clone())
+                }
+            }
+        }
+
+        for mut self_term in self.subtrahend.clone() {
+            self_term.flatten();
+            if let Factor::Parenthetical(mut child_expression) = self_term.numerator[0].clone() {
+                child_expression.flatten();
+                for child_term in child_expression.minuend {
+                    father_expression.subtrahend.push(child_term.clone())
+                }
+                for child_term in child_expression.subtrahend {
+                    father_expression.minuend.push(child_term.clone())
                 }
             }
         }
@@ -251,14 +247,16 @@ impl Expression {
         let mut terms: Vec<Term> = Vec::new();
 
         // extract all terms with their numeric factor
-        for self_i in 0..self.operands.len() {
-            let mut term = self.operands[self_i].clone();
-            let mut number = term.extract_number();
-            if self_i > 0 && self.operators[self_i - 1] == "-" {
-                number = -number;
-            }
+        for mut self_term in self.minuend.clone() {
+            let number = self_term.extract_number();
             numbers.push(number);
-            terms.push(term);
+            terms.push(self_term);
+        }
+
+        for mut self_term in self.subtrahend.clone() {
+            let number = self_term.extract_number();
+            numbers.push(-number);
+            terms.push(self_term);
         }
 
         // combine like terms
@@ -283,39 +281,25 @@ impl Expression {
 
         let zero = one.clone() - one.clone();
 
-        self.operands.clear();
-        self.operators.clear();
-        for term_i in 0..numbers.len() {
-            let mut operand = terms[term_i].clone();
-            if term_i == 0 {
-                if numbers[term_i] != one {
-                    if operand.operands.len() > 0 {
-                        operand.operators.push(String::from("*"));
-                    }
-                    operand
-                        .operands
-                        .push(Factor::Number(numbers[term_i].clone()));
-                }
-            } else {
-                if numbers[term_i] != one && numbers[term_i] != -one.clone() {
-                    if operand.operands.len() > 0 {
-                        operand.operators.push(String::from("*"));
-                    }
-                    operand
-                        .operands
-                        .push(Factor::Number(if numbers[term_i] > zero.clone() {
-                            numbers[term_i].clone()
-                        } else {
-                            -numbers[term_i].clone()
-                        }));
-                }
-                self.operators.push(if numbers[term_i] > zero.clone() {
-                    String::from("+")
-                } else {
-                    String::from("-")
-                });
+        self.minuend.clear();
+        self.subtrahend.clear();
+        for i in 0..numbers.len() {
+            let number = numbers[i].clone();
+            let mut operand = terms[i].clone();
+            if number != one && number != -one.clone() {
+                operand
+                    .numerator
+                    .push(Factor::Number(if number > zero.clone() {
+                        number.clone()
+                    } else {
+                        -number.clone()
+                    }));
             }
-            self.operands.push(operand);
+            if number > zero.clone() {
+                self.minuend.push(operand);
+            } else {
+                self.subtrahend.push(operand);
+            }
         }
     }
 }
@@ -326,15 +310,12 @@ impl Add for Expression {
     /// Operator overload for +.
     ///
     fn add(self, other: Self) -> Self {
-        assert!(self.operands.len() > 0);
-        assert!(other.operands.len() > 0);
         let mut result = self.clone();
-        for operand in &other.operands {
-            result.operands.push(operand.clone());
+        for operand in &other.minuend {
+            result.minuend.push(operand.clone());
         }
-        result.operators.push(String::from("+"));
-        for operator in &other.operators {
-            result.operators.push(operator.clone());
+        for operand in &other.subtrahend {
+            result.subtrahend.push(operand.clone());
         }
         result
     }
@@ -354,19 +335,12 @@ impl Sub for Expression {
     /// Operator overload for -.
     ///
     fn sub(self, other: Self) -> Self {
-        assert!(self.operands.len() > 0);
-        assert!(other.operands.len() > 0);
         let mut result = self.clone();
-        for operand in &other.operands {
-            result.operands.push(operand.clone());
+        for operand in &other.minuend {
+            result.subtrahend.push(operand.clone());
         }
-        result.operators.push(String::from("-"));
-        for operator in &other.operators {
-            result.operators.push(if operator == "-" {
-                String::from("+")
-            } else {
-                String::from("-")
-            });
+        for operand in &other.subtrahend {
+            result.minuend.push(operand.clone());
         }
         result
     }
@@ -387,30 +361,23 @@ impl Mul for Expression {
     ///
     fn mul(self, other: Self) -> Self {
         let mut result = Expression {
-            operands: Vec::new(),
-            operators: Vec::new(),
+            minuend: Vec::new(),
+            subtrahend: Vec::new(),
         };
-        for self_i in 0..self.operands.len() {
-            for other_i in 0..other.operands.len() {
-                result
-                    .operands
-                    .push(self.operands[self_i].clone() * other.operands[other_i].clone());
-                result.operators.push(
-                    // determine if it should be added or subtracted
-                    if (if self_i > 0 {
-                        self.operators[self_i - 1].clone()
-                    } else {
-                        String::from("+")
-                    }) == (if other_i > 0 {
-                        other.operators[other_i - 1].clone()
-                    } else {
-                        String::from("+")
-                    }) {
-                        String::from("+")
-                    } else {
-                        String::from("-")
-                    },
-                )
+        for self_term in self.minuend {
+            for other_term in other.minuend.clone() {
+                result.minuend.push(self_term.clone() * other_term);
+            }
+            for other_term in other.subtrahend.clone() {
+                result.subtrahend.push(self_term.clone() * other_term);
+            }
+        }
+        for self_term in self.subtrahend {
+            for other_term in other.minuend.clone() {
+                result.subtrahend.push(self_term.clone() * other_term);
+            }
+            for other_term in other.subtrahend.clone() {
+                result.minuend.push(self_term.clone() * other_term);
             }
         }
         result
@@ -435,11 +402,10 @@ impl Div for Expression {
     ///
     fn div(self, other: Self) -> Self {
         let mut result = self.clone();
-        for self_i in 0..self.operands.len() {
-            result.operands[self_i]
-                .operands
+        for result_term in result.minuend.iter_mut().chain(result.subtrahend.iter_mut()) {
+            result_term
+                .denominator
                 .push(Factor::Parenthetical(other.clone()));
-            result.operands[self_i].operators.push(String::from("/"));
         }
         result
     }
@@ -455,16 +421,13 @@ impl DivAssign for Expression {
 
 #[derive(Debug, Clone)]
 pub struct Term {
-    /// operands in term.
+    /// operands being multiplied.
     ///
-    /// |operands| > 0
-    pub operands: Vec<Factor>,
+    pub numerator: Vec<Factor>,
 
-    /// operators which go between operands.
+    /// operands being divided.
     ///
-    /// |operators| = |operands| - 1
-    /// must be one of: ( '*' | '/' )
-    pub operators: Vec<String>,
+    pub denominator: Vec<Factor>,
 }
 
 impl PartialEq for Term {
@@ -472,49 +435,60 @@ impl PartialEq for Term {
     ///
     fn eq(&self, other: &Self) -> bool {
         let mut accounted_for = self.clone();
-        let mut result = true;
 
-        // check each factor of `other`
-        for other_i in 0..other.operands.len() {
-            let other_numerator = other_i == 0 || other.operators[other_i - 1] == "*";
-            // if the same factor exists in `accounted_for`, remove exactly one of it
-            let mut removed = false;
-            for accounted_for_i in (0..accounted_for.operands.len()).rev() {
-                let accounted_for_numerator =
-                    accounted_for_i == 0 || accounted_for.operators[accounted_for_i - 1] == "/";
-                // remove the factor if needed
-                if other_numerator == accounted_for_numerator
-                    && other.operands[other_i] == accounted_for.operands[accounted_for_i]
-                {
-                    accounted_for.operands.remove(accounted_for_i);
-                    if accounted_for_i > 0 {
-                        accounted_for.operators.remove(accounted_for_i - 1);
-                    }
-                    removed = true;
+        // check each term of `other`
+        for other_factor in other.numerator.clone() {
+            for accounted_for_i in (0..accounted_for.numerator.len()).rev() {
+                // remove the term if needed
+                if other_factor == accounted_for.numerator[accounted_for_i] {
+                    accounted_for.numerator.remove(accounted_for_i);
                     break;
                 }
             }
-            if !removed {
-                result = false;
+        }
+
+        // check each term of `other`
+        for other_factor in other.denominator.clone() {
+            for accounted_for_i in (0..accounted_for.denominator.len()).rev() {
+                // remove the term if needed
+                if other_factor == accounted_for.denominator[accounted_for_i] {
+                    accounted_for.denominator.remove(accounted_for_i);
+                    break;
+                }
             }
         }
-        result &= accounted_for.operands.len() == 0;
-        result
+        accounted_for.numerator.is_empty() && accounted_for.denominator.is_empty()
     }
 }
+
 impl Display for Term {
     /// Format `Term` appropriately.
     ///
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut result = String::new();
-        for i in 0..self.operands.len() {
-            if i > 0 {
-                result = format!("{} {} {}", result, self.operators[i - 1], self.operands[i]);
-            } else {
-                result = format!("{}", self.operands[0]);
-            }
+        // Format numerator elements, joined by `*`
+        let numerator_str = self
+            .numerator
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<_>>()
+            .join(" * ");
+
+        // Format denominator elements, joined by `*` (to be wrapped in parenthetical)
+        let denominator_str = self
+            .denominator
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<_>>()
+            .join(" * ");
+
+        // Combine the two parts
+        if denominator_str.is_empty() {
+            write!(f, "{}", numerator_str)
+        } else if numerator_str.is_empty() {
+            write!(f, "1 / ({})", denominator_str)
+        } else {
+            write!(f, "{} / ({})", numerator_str, denominator_str)
         }
-        write!(f, "{}", result)
     }
 }
 
@@ -525,6 +499,7 @@ impl Term {
     /// combine like terms.
     ///
     pub fn flatten(&mut self) {
+        // initialize numerator and denominator to 1
         let mut numerator = Factor::Number(Number {
             value: 1f64,
             unit: Unit {
@@ -533,21 +508,28 @@ impl Term {
             },
         });
         let mut denominator = numerator.clone();
-        for self_i in 0..self.operands.len() {
-            if let Factor::Parenthetical(mut self_expression) = self.operands[self_i].clone() {
+
+        for self_factor in self.numerator.clone() {
+            if let Factor::Parenthetical(mut self_expression) = self_factor.clone() {
                 self_expression.flatten();
-                self.operands[self_i].clone_from(&Factor::Parenthetical(self_expression));
-            }
-            // multiply/divide through each factor in the term
-            if self_i == 0 || self.operators[self_i - 1] == "*" {
-                numerator *= self.operands[self_i].clone();
+                numerator *= Factor::Parenthetical(self_expression);
             } else {
-                denominator *= self.operands[self_i].clone();
+                numerator *= self_factor;
             }
         }
+
+        for self_factor in self.denominator.clone() {
+            if let Factor::Parenthetical(mut self_expression) = self_factor.clone() {
+                self_expression.flatten();
+                denominator *= Factor::Parenthetical(self_expression);
+            } else {
+                denominator *= self_factor;
+            }
+        }
+
         self.clone_from(&Term {
-            operands: vec![numerator / denominator],
-            operators: Vec::new(),
+            numerator: vec![numerator / denominator],
+            denominator: Vec::new(),
         });
     }
 
@@ -566,10 +548,9 @@ impl Neg for Term {
     type Output = Self;
 
     fn neg(self) -> Self {
-        assert!(self.operands.len() > 0);
+        assert!(self.numerator.len() > 0);
         let mut result = self.clone();
-        result.operators.push(String::from("*"));
-        result.operands.push(Factor::Number(Number {
+        result.numerator.push(Factor::Number(Number {
             value: -1f64,
             unit: Unit {
                 exponent: 0,
@@ -587,14 +568,11 @@ impl Mul for Term {
     ///
     fn mul(self, other: Self) -> Self {
         let mut result = self.clone();
-        for operand in &other.operands {
-            result.operands.push(operand.clone());
+        for operand in &other.numerator {
+            result.numerator.push(operand.clone());
         }
-        if result.operators.len() > 0 {
-            result.operators.push(String::from("*"));
-        }
-        for operator in &other.operators {
-            result.operators.push(operator.clone());
+        for operand in &other.denominator {
+            result.denominator.push(operand.clone());
         }
         result
     }
@@ -705,11 +683,11 @@ impl Mul for Factor {
                         Factor::Parenthetical(
                             self_expression
                                 * Expression {
-                                    operands: vec![Term {
-                                        operands: vec![other],
-                                        operators: Vec::new(),
+                                    minuend: vec![Term {
+                                        numerator: vec![other],
+                                        denominator: Vec::new(),
                                     }],
-                                    operators: Vec::new(),
+                                    subtrahend: Vec::new(),
                                 },
                         )
                     }
@@ -717,20 +695,20 @@ impl Mul for Factor {
                     Factor::Parenthetical(
                         other_expression
                             * Expression {
-                                operands: vec![Term {
-                                    operands: vec![other],
-                                    operators: Vec::new(),
+                                minuend: vec![Term {
+                                    numerator: vec![other],
+                                    denominator: Vec::new(),
                                 }],
-                                operators: Vec::new(),
+                                subtrahend: Vec::new(),
                             },
                     )
                 } else {
                     Factor::Parenthetical(Expression {
-                        operands: vec![Term {
-                            operands: vec![self, other],
-                            operators: vec![String::from("*")],
+                        minuend: vec![Term {
+                            numerator: vec![self, other],
+                            denominator: vec![],
                         }],
-                        operators: Vec::new(),
+                        subtrahend: Vec::new(),
                     })
                 },
             );
@@ -780,31 +758,31 @@ impl Div for Factor {
                         Factor::Parenthetical(
                             self_expression
                                 / Expression {
-                                    operands: vec![Term {
-                                        operands: vec![other],
-                                        operators: Vec::new(),
+                                    minuend: vec![Term {
+                                        numerator: vec![other],
+                                        denominator: Vec::new(),
                                     }],
-                                    operators: Vec::new(),
+                                    subtrahend: Vec::new(),
                                 },
                         )
                     }
                 } else if let Factor::Parenthetical(other_expression) = other.clone() {
                     Factor::Parenthetical(
                         Expression {
-                            operands: vec![Term {
-                                operands: vec![other],
-                                operators: Vec::new(),
+                            minuend: vec![Term {
+                                numerator: vec![other],
+                                denominator: Vec::new(),
                             }],
-                            operators: Vec::new(),
+                            subtrahend: Vec::new(),
                         } / other_expression,
                     )
                 } else {
                     Factor::Parenthetical(Expression {
-                        operands: vec![Term {
-                            operands: vec![self, other],
-                            operators: vec![String::from("/")],
+                        minuend: vec![Term {
+                            numerator: vec![self],
+                            denominator: vec![other],
                         }],
-                        operators: Vec::new(),
+                        subtrahend: Vec::new(),
                     })
                 },
             );
@@ -1400,11 +1378,11 @@ mod tests {
         let call = Call {
             name: Identifier::new("f").unwrap(),
             arguments: vec![Expression {
-                operands: vec![Term {
-                    operands: vec![Factor::Number(get_number_1())],
-                    operators: Vec::new(),
+                minuend: vec![Term {
+                    numerator: vec![Factor::Number(get_number_1())],
+                    denominator: Vec::new(),
                 }],
-                operators: Vec::new(),
+                subtrahend: Vec::new(),
             }],
         };
         assert_eq!(format!("{}", call), "f(1)");
@@ -1416,18 +1394,18 @@ mod tests {
             name: Identifier::new("g").unwrap(),
             arguments: vec![
                 Expression {
-                    operands: vec![Term {
-                        operands: vec![Factor::Identifier(Identifier::new("a").unwrap())],
-                        operators: Vec::new(),
+                    minuend: vec![Term {
+                        numerator: vec![Factor::Identifier(Identifier::new("a").unwrap())],
+                        denominator: Vec::new(),
                     }],
-                    operators: Vec::new(),
+                    subtrahend: Vec::new(),
                 },
                 Expression {
-                    operands: vec![Term {
-                        operands: vec![Factor::Number(get_number_1())],
-                        operators: Vec::new(),
+                    minuend: vec![Term {
+                        numerator: vec![Factor::Number(get_number_1())],
+                        denominator: Vec::new(),
                     }],
-                    operators: Vec::new(),
+                    subtrahend: Vec::new(),
                 },
             ],
         };
@@ -1441,17 +1419,28 @@ mod tests {
         let four = two.clone() * two.clone();
         let five = four.clone() + one.clone();
         let expression = Expression {
-            operands: vec![Term {
-                operands: vec![
-                    Factor::Number(one),
-                    Factor::Number(four),
-                    Factor::Number(two),
-                    Factor::Number(five),
-                ],
-                operators: vec![String::from("-"), String::from("+"), String::from("-")],
-            }],
-            operators: Vec::new(),
+            minuend: vec![
+                Term {
+                    numerator: vec![Factor::Number(one)],
+                    denominator: Vec::new(),
+                },
+                Term {
+                    numerator: vec![Factor::Number(four)],
+                    denominator: Vec::new(),
+                },
+            ],
+            subtrahend: vec![
+                Term {
+                    numerator: vec![Factor::Number(two)],
+                    denominator: Vec::new(),
+                },
+                Term {
+                    numerator: vec![Factor::Number(five)],
+                    denominator: Vec::new(),
+                },
+            ]
+                
         };
-        assert_eq!(format!("{}", expression), "1 - 4 + 2 - 5");
+        assert_eq!(format!("{}", expression), "1 + 4 - 2 - 5");
     }
 }

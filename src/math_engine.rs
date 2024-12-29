@@ -107,13 +107,20 @@ impl ProgramModel {
     /// * `term` - The `Term` to evaluate.
     ///
     fn evaluate_constant_term(&self, term: &Term) -> Result<Number, String> {
-        let mut value = self.evaluate_constant_factor(&term.operands[0])?;
-        for idx in 1..term.operands.len() {
-            if term.operators[idx - 1] == "/" {
-                value /= self.evaluate_constant_factor(&term.operands[idx])?;
-            } else {
-                value *= self.evaluate_constant_factor(&term.operands[idx])?;
+        // value to return
+        let mut value = Number {
+            value: 1f64,
+            unit: Unit {
+                exponent: 0i8,
+                constituents: HashMap::new(),
             }
+        };
+
+        for operand in term.numerator.clone() {
+            value *= self.evaluate_constant_factor(&operand)?;
+        }
+        for operand in term.denominator.clone() {
+            value /= self.evaluate_constant_factor(&operand)?;
         }
         Ok(value)
     }
@@ -124,13 +131,20 @@ impl ProgramModel {
     /// * `expression` - The `Expression` to evaluate.
     ///
     fn evaluate_constant_expression(&self, expression: &Expression) -> Result<Number, String> {
-        let mut value = self.evaluate_constant_term(&expression.operands[0])?;
-        for idx in 1..expression.operands.len() {
-            if expression.operators[idx - 1] == "-" {
-                value -= self.evaluate_constant_term(&expression.operands[idx])?;
-            } else {
-                value += self.evaluate_constant_term(&expression.operands[idx])?;
+        // value to return
+        let mut value = Number {
+            value: 0f64,
+            unit: Unit {
+                exponent: 0i8,
+                constituents: HashMap::new(),
             }
+        };
+
+        for operand in expression.minuend.clone() {
+            value *= self.evaluate_constant_term(&operand)?;
+        }
+        for operand in expression.subtrahend.clone() {
+            value /= self.evaluate_constant_term(&operand)?;
         }
         Ok(value)
     }
@@ -171,54 +185,23 @@ impl ProgramModel {
     ///
     fn simplify_term(&self, term: &Term, make_substitutions: bool) -> Result<Term, String> {
         let mut new_term = Term {
-            operands: Vec::new(),
-            operators: Vec::new(),
+            numerator: Vec::new(),
+            denominator: Vec::new(),
         };
-        for operand in &term.operands {
+
+        // simplify original factors in term and throw them back in
+        for operand in &term.numerator {
             new_term
-                .operands
+                .numerator
                 .push(self.simplify_factor(operand, make_substitutions)?)
         }
-        let mut value: Option<Number> = None;
-        let original_op_ct = new_term.operands.len();
-        for i in 0..original_op_ct {
-            let idx = original_op_ct - i - 1;
-            match self.evaluate_constant_expression(&Expression {
-                operands: vec![Term {
-                    operands: vec![new_term.operands[idx].clone()],
-                    operators: Vec::new(),
-                }],
-                operators: Vec::new(),
-            }) {
-                Ok(number) => {
-                    if value.is_none() {
-                        value = Some(Number {
-                            value: 1f64,
-                            unit: Unit {
-                                exponent: 0,
-                                constituents: HashMap::new(),
-                            },
-                        })
-                    }
-                    value = if idx > 0 && new_term.operators[idx - 1] == "/" {
-                        Some(value.unwrap() / number)
-                    } else {
-                        Some(value.unwrap() * number)
-                    };
-                    new_term.operands.remove(idx);
-                    if idx > 0 {
-                        new_term.operators.remove(idx - 1);
-                    }
-                }
-                Err(_) => {}
-            }
+        for operand in &term.denominator {
+            new_term
+                .denominator
+                .push(self.simplify_factor(operand, make_substitutions)?)
         }
-        if value.is_some() {
-            new_term.operands.push(Factor::Number(value.unwrap()));
-            if new_term.operands.len() > 1 {
-                new_term.operators.push(String::from("*"));
-            }
-        }
+
+        // TODO - call extract number then put it back in as a standalone if not one
 
         Ok(new_term)
     }
@@ -235,51 +218,26 @@ impl ProgramModel {
         make_substitutions: bool,
     ) -> Result<Expression, String> {
         let mut new_expression = Expression {
-            operands: Vec::new(),
-            operators: Vec::new(),
+            minuend: Vec::new(),
+            subtrahend: Vec::new(),
         };
 
-        for operand in &expression.operands {
+        // re-add the original terms after simplifying
+        for operand in &expression.minuend {
             new_expression
-                .operands
+                .minuend
                 .push(self.simplify_term(operand, make_substitutions)?)
         }
 
-        let mut value: Option<Number> = None;
-        let original_op_ct = new_expression.operands.len();
-        for i in 0..original_op_ct {
-            let idx = original_op_ct - i - 1;
-            match self.evaluate_constant_expression(&Expression {
-                operands: vec![new_expression.operands[idx].clone()],
-                operators: Vec::new(),
-            }) {
-                Ok(number) => {
-                    value = if value.is_none() {
-                        Some(number)
-                    } else if idx > 0 && new_expression.operators[idx - 1] == "-" {
-                        Some(value.unwrap() - number)
-                    } else {
-                        Some(value.unwrap() + number)
-                    };
-                    new_expression.operands.remove(idx);
-                    if idx > 0 {
-                        new_expression.operators.remove(idx - 1);
-                    }
-                }
-                Err(_) => {}
-            }
+        for operand in &expression.subtrahend {
+            new_expression
+                .subtrahend
+                .push(self.simplify_term(operand, make_substitutions)?)
         }
+
         // TODO - expand all parentheticals in each term (multiply out)
+
         // TODO - combine like terms
-        if value.is_some() {
-            new_expression.operands.push(Term {
-                operands: vec![Factor::Number(value.unwrap())],
-                operators: Vec::new(),
-            });
-            if new_expression.operands.len() > 1 {
-                new_expression.operators.push(String::from("+"));
-            }
-        }
 
         Ok(new_expression)
     }
