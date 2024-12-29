@@ -43,25 +43,25 @@ pub fn process_function(
 /// * `model` - The program model for the state of the program.
 /// * `equation` - A `Relation` representing the relation to evaluate.
 ///
-pub fn process_equation(_model: &mut ProgramModel, relation: Relation) {
+pub fn process_equation(model: &mut ProgramModel, relation: Relation) {
     assert!(
         relation.operands.len() == relation.operators.len() + 1,
         "Invalid Relation"
     );
 
-    // TODO - implement function
-
-    // TODO - loop through operators
-
-    {
-        // TODO - extract each side of operator as clone
-
-        // TODO - if equality, call add_matrix_row
-
-        // TODO - else, call add_relation
+    // loop through operators
+    for i in 0..relation.operators.len() {
+        // extract each side of operator as clone
+        let left = relation.operands[i].clone();
+        let right = relation.operands[i + 1].clone();
+        // if equality, call add_matrix_row
+        if relation.operators[i] == RelationOp::Equal {
+            model.add_matrix_row(left, right);
+        } else {
+            // else, call add_relation
+            model.add_relation(left, right, relation.operators[i].clone());
+        }
     }
-
-    panic!("Not implemented");
 }
 
 #[derive(Debug, Hash, Clone, PartialEq)]
