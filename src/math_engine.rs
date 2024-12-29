@@ -1,6 +1,6 @@
 use crate::definitions::*;
 use std::cmp;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Process the AST of a prompt.
 ///
@@ -185,20 +185,20 @@ impl ProgramModel {
     ///
     fn simplify_term(&self, term: &Term, make_substitutions: bool) -> Result<Term, String> {
         let mut new_term = Term {
-            numerator: Vec::new(),
-            denominator: Vec::new(),
+            numerator: HashSet::new(),
+            denominator: HashSet::new(),
         };
 
         // simplify original factors in term and throw them back in
         for operand in &term.numerator {
             new_term
                 .numerator
-                .push(self.simplify_factor(operand, make_substitutions)?)
+                .insert(self.simplify_factor(operand, make_substitutions)?);
         }
         for operand in &term.denominator {
             new_term
                 .denominator
-                .push(self.simplify_factor(operand, make_substitutions)?)
+                .insert(self.simplify_factor(operand, make_substitutions)?);
         }
 
         // TODO - call extract number then put it back in as a standalone if not one
@@ -218,21 +218,21 @@ impl ProgramModel {
         make_substitutions: bool,
     ) -> Result<Expression, String> {
         let mut new_expression = Expression {
-            minuend: Vec::new(),
-            subtrahend: Vec::new(),
+            minuend: HashSet::new(),
+            subtrahend: HashSet::new(),
         };
 
         // re-add the original terms after simplifying
         for operand in &expression.minuend {
             new_expression
                 .minuend
-                .push(self.simplify_term(operand, make_substitutions)?)
+                .insert(self.simplify_term(operand, make_substitutions)?);
         }
 
         for operand in &expression.subtrahend {
             new_expression
                 .subtrahend
-                .push(self.simplify_term(operand, make_substitutions)?)
+                .insert(self.simplify_term(operand, make_substitutions)?);
         }
 
         // TODO - expand all parentheticals in each term (multiply out)
