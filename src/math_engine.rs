@@ -64,12 +64,6 @@ pub fn process_equation(model: &mut ProgramModel, relation: Relation) {
     }
 }
 
-#[derive(Debug, Hash, Clone, PartialEq)]
-struct Variable {
-    pub name: Identifier,
-    pub unit: Unit,
-}
-
 /// Model for program.
 ///
 /// An individual model must be owned by each function call.
@@ -79,7 +73,7 @@ struct Variable {
 ///
 #[derive(Debug, Clone)]
 pub struct ProgramModel {
-    variables: Vec<Variable>,
+    variables: Vec<Identifier>,
     augmented_matrix: Vec<Vec<Expression>>,
     relations: HashSet<Relation>,
     functions: HashSet<Statement>,
@@ -89,13 +83,76 @@ pub struct ProgramModel {
 impl ProgramModel {
     /// Make the call in `call`.
     ///
+    /// NOTE - does not check for matching variable names. So the code:
+    /// f(x) = x
+    /// f(x) ?
+    /// would print
+    /// f(x): x
+    /// as opposed to an error
+    ///
     /// # Arguments
     /// * `call` - The `Call` to make.
     ///
-    fn make_call(&self, _call: &Call) -> Result<Expression, String> {
-        // TODO - implement function
-
-        Err(String::from("Not implemented"))
+    fn make_call(&self, call: &Call) -> Result<Expression, String> {
+        if let Some(Statement::FunctionDefinition(_, arguments, definition)) = self.functions.get(
+            &Statement::FunctionDefinition(call.name.clone(), Vec::new(), Vec::new()),
+        ) {
+            assert!(self.call_depth < 500, "Maximum call depth of 500 reached");
+            if arguments.len() != call.arguments.len() {
+                Err(format!(
+                    "Function `{}` takes `{}` arguments, while `{}` were supplied.",
+                    call.name,
+                    arguments.len(),
+                    call.arguments.len()
+                ))
+            } else {
+                let mut model = self.clone();
+                model.augmented_matrix.clear();
+                model.call_depth += 1;
+                for i in 0..arguments.len() {
+                    // assign each variable name to its argument
+                    model.add_matrix_row(
+                        call.arguments[i].clone(),
+                        Expression {
+                            minuend: HashSet::from([Term {
+                                numerator: HashSet::from([Factor::Identifier(
+                                    arguments[i].clone(),
+                                )]),
+                                denominator: HashSet::new(),
+                            }]),
+                            subtrahend: HashSet::new(),
+                        },
+                    );
+                }
+                // find a true thing to return
+                let mut result: Option<Expression> = None;
+                for (expression, relation) in definition {
+                    if result.is_none() {
+                        let evaluated_result = model.simplify_relation(relation);
+                        if evaluated_result.is_ok() {
+                            let evaluated = evaluated_result.unwrap();
+                            let true_expr = Expression {
+                                minuend: HashSet::from([Term {
+                                    numerator: HashSet::new(),
+                                    denominator: HashSet::new(),
+                                }]),
+                                subtrahend: HashSet::new(),
+                            };
+                            if evaluated.operands.len() == 1 && evaluated.operands[0] == true_expr {
+                                result = Some(expression.clone());
+                            }
+                        }
+                    }
+                }
+                if result.is_none() {
+                    Err(format!("Undefined"))
+                } else {
+                    Ok(result.unwrap())
+                }
+            }
+        } else {
+            Err(format!("Function `{}` not found.", call.name))
+        }
     }
 
     /// Evaluate the given `Factor` assuming all constant values.
@@ -127,10 +184,10 @@ impl ProgramModel {
             },
         };
 
-        for operand in term.numerator.clone() {
+        for operand in &term.numerator {
             value *= self.evaluate_constant_factor(&operand)?;
         }
-        for operand in term.denominator.clone() {
+        for operand in &term.denominator {
             value /= self.evaluate_constant_factor(&operand)?;
         }
         Ok(value)
@@ -151,10 +208,10 @@ impl ProgramModel {
             },
         };
 
-        for operand in expression.minuend.clone() {
+        for operand in &expression.minuend {
             value *= self.evaluate_constant_term(&operand)?;
         }
-        for operand in expression.subtrahend.clone() {
+        for operand in &expression.subtrahend {
             value /= self.evaluate_constant_term(&operand)?;
         }
         Ok(value)
@@ -214,7 +271,7 @@ impl ProgramModel {
 
         // combine all the numeric literals and return if not one
         let number = new_term.extract_number();
-        if !number.clone().is_one() {
+        if !number.is_one() {
             new_term.numerator.insert(Factor::Number(number));
         }
 
@@ -250,9 +307,8 @@ impl ProgramModel {
                 .insert(self.simplify_term(operand, make_substitutions)?);
         }
 
-        // TODO - expand all parentheticals in each term (multiply out)
-
-        // TODO - combine like terms
+        // remove parentheticals and combine like terms
+        new_expression.flatten();
 
         Ok(new_expression)
     }
@@ -280,7 +336,6 @@ impl ProgramModel {
         }
         new_relation.operators.clone_from(&relation.operators);
 
-
         let mut all_true = true;
         let mut has_false = false;
         // attempt to evaluate to constant boolean value
@@ -292,7 +347,7 @@ impl ProgramModel {
                 if compare(
                     left_result.unwrap(),
                     right_result.unwrap(),
-                    relation.operators[op_i].clone(),
+                    &relation.operators[op_i],
                 ) {
                     // short circuit if any false ones found
                     has_false = true;
@@ -340,7 +395,7 @@ impl ProgramModel {
     ///
     fn retrieve_value(&self, name: Identifier) -> Result<Expression, String> {
         // find index of identifier
-        let value_col = self.variables.iter().position(|v| v.name == name).unwrap();
+        let value_col = self.variables.iter().position(|var| var == &name).unwrap();
         let row_ct = self.augmented_matrix.len();
         let col_ct = self.augmented_matrix[0].len();
 
@@ -517,28 +572,95 @@ impl ProgramModel {
         }
     }
 
+    /// Assert all relations in `self` still hold.
+    ///
+    fn assert_relations_hold(&self) -> bool {
+        let mut all_true = true;
+        for relation in &self.relations {
+            let simplified_result = self.simplify_relation(relation);
+            if simplified_result.is_err() {
+                all_true = false;
+            } else {
+                let simplified = simplified_result.unwrap();
+                if simplified.operands.len() == 1 {
+                    if simplified.operands[0].minuend.is_empty() {
+                        all_true = false;
+                    }
+                }
+            }
+        }
+        all_true
+    }
+
+    /// Get the index of an identifier in `self.variables`, and create it if it does not exist.
+    ///
+    /// # Arguments
+    /// * row_vector - the additional row vector to insert into
+    /// * identifier - the `Identifier` to search for.
+    ///
+    fn get_index(&mut self, row_vector: &mut Vec<Expression>, identifier: Identifier) -> usize {
+        let index_option = self.variables.iter().position(|var| var == &identifier);
+        if index_option.is_some() {
+            index_option.unwrap()
+        } else {
+            // if the variable is yet to be seen, create an entry for it
+            self.variables.insert(0, identifier);
+            // expression of value zero to cleanly insert
+            let zero_expr = Expression {
+                minuend: HashSet::new(),
+                subtrahend: HashSet::new(),
+            };
+            for row in &mut self.augmented_matrix {
+                row.insert(0, zero_expr.clone());
+            }
+            row_vector.insert(0, zero_expr.clone());
+            0
+        }
+    }
+
     /// Add a row to `self.augmented_matrix` based on the provided equality.
     ///
     /// # Arguments
     /// * `left` - The left-hand side of the equality.
     /// * `right` - The right-hand side of the equality.
     ///
-    fn add_matrix_row(&mut self, _left: Expression, _right: Expression) {
-        // TODO - implement function
+    fn add_matrix_row(&mut self, left: Expression, right: Expression) {
+        // subtract one side from the other
+        let mut zero_equivalent = left.clone() - right.clone();
 
-        // TODO - subtract one side from the other
+        // combine like terms
+        zero_equivalent.flatten();
 
-        // TODO - combine like terms
+        // extract the terms which have no identifiers in numerator
+        let mut column_vector_element = Expression {
+            minuend: HashSet::new(),
+            subtrahend: HashSet::new(),
+        };
 
-        // TODO - extract the `Number` term or set to 0
+        let zero_expr = Expression {
+            minuend: HashSet::new(),
+            subtrahend: HashSet::new(),
+        };
 
-        // TODO - negate that for column vector
+        let mut row_vector = vec![zero_expr.clone(); self.variables.len()];
 
-        // TODO - subtract any isolated function call terms from column vector
-
-        // TODO - for each other term, extract an identifier and place in augmented matrix
-
-        panic!("Not implemented");
+        // extract terms and place in augmented matrix
+        for mut term in zero_equivalent.minuend {
+            if let Some(identifier) = term.extract_identifier() {
+                let index = self.get_index(&mut row_vector, identifier);
+                row_vector[index].minuend.insert(term);
+            } else {
+                column_vector_element.subtrahend.insert(term);
+            }
+        }
+        for mut term in zero_equivalent.subtrahend {
+            if let Some(identifier) = term.extract_identifier() {
+                let index = self.get_index(&mut row_vector, identifier);
+                row_vector[index].subtrahend.insert(term);
+            } else {
+                column_vector_element.minuend.insert(term);
+            }
+        }
     }
 
     /// Add a relation to `self.relations`.
@@ -547,10 +669,12 @@ impl ProgramModel {
     /// * `left` - The left-hand side of the relation.
     /// * `right` - The right-hand side of the relation.
     /// * `operator` - The operator between the relation elements.
-    fn add_relation(&mut self, _left: Expression, _right: Expression, _operator: RelationOp) {
-        // TODO - implement function
-
-        panic!("Not implemented");
+    ///
+    fn add_relation(&mut self, left: Expression, right: Expression, operator: RelationOp) {
+        self.relations.insert(Relation {
+            operands: vec![left, right],
+            operators: vec![operator],
+        });
     }
 
     /// Add a function to the model.
@@ -577,20 +701,6 @@ impl ProgramModel {
             self.functions.insert(function);
             Ok(())
         }
-    }
-
-    /// Add a variable with its unit to the model.
-    ///
-    /// # Arguments
-    /// * `name` - The name of the variable
-    /// * `unit` - The units of the variable
-    ///
-    fn add_variable(&mut self, name: Identifier, unit: Unit) {
-        assert!(
-            !self.variables.iter().any(|v| &v.name == &name),
-            "Variable already exists"
-        );
-        self.variables.push(Variable { name, unit });
     }
 
     /// Initializes the ProgramModel.
