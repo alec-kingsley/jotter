@@ -191,7 +191,7 @@ pub fn parse_term(_code: &str, _i: &mut usize) -> Result<Term, String> {
 
 /// Parse factor into ast.
 ///
-/// factor ::= '(' expression ')' | number | identifier | call
+/// factor ::= '-' ? '(' expression ')' | number | identifier | call
 ///
 /// # Arguments
 /// * `code` - A string representing the user program.
