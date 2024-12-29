@@ -260,14 +260,75 @@ impl ProgramModel {
     /// Simplify the given `Relation`, using known variable values.
     /// Makes substitutions when possible. (This is since relation is not repeated in tree)
     ///
+    /// If |relation.operands| > 1 then returned `Relation` may just be 1 for true and 0 for false.
+    ///
     /// # Arguments
     /// * `expression` - The `Expression` to simplify.
     /// * `make_substitutions` - True iff it should substitute known variables.
     ///
-    pub fn simplify_relation(&self, _relation: &Relation) -> Result<Expression, String> {
-        // TODO - implement function
+    pub fn simplify_relation(&self, relation: &Relation) -> Result<Relation, String> {
+        let mut new_relation = Relation {
+            operands: Vec::new(),
+            operators: Vec::new(),
+        };
 
-        panic!("Not implemented");
+        // re-add the original expressions after simplifying
+        for operand in &relation.operands {
+            new_relation
+                .operands
+                .push(self.simplify_expression(operand, true)?);
+        }
+        new_relation.operators.clone_from(&relation.operators);
+
+
+        let mut all_true = true;
+        let mut has_false = false;
+        // attempt to evaluate to constant boolean value
+        for op_i in 0..relation.operators.len() {
+            // evaluate left and right
+            let left_result = self.evaluate_constant_expression(&relation.operands[op_i]);
+            let right_result = self.evaluate_constant_expression(&relation.operands[op_i + 1]);
+            if left_result.is_ok() && right_result.is_ok() {
+                if compare(
+                    left_result.unwrap(),
+                    right_result.unwrap(),
+                    relation.operators[op_i].clone(),
+                ) {
+                    // short circuit if any false ones found
+                    has_false = true;
+                    break;
+                }
+            } else {
+                // if anything can't be evaluated, we can't say that it's all true
+                all_true = false;
+            }
+        }
+
+        Ok(if has_false {
+            // return false
+            Relation {
+                operands: vec![Expression {
+                    minuend: HashSet::new(),
+                    subtrahend: HashSet::new(),
+                }],
+                operators: Vec::new(),
+            }
+        } else if all_true {
+            // return true
+            Relation {
+                operands: vec![Expression {
+                    minuend: HashSet::from([Term {
+                        numerator: HashSet::new(),
+                        denominator: HashSet::new(),
+                    }]),
+                    subtrahend: HashSet::new(),
+                }],
+                operators: Vec::new(),
+            }
+        } else {
+            // return relation as simplified as it can be
+            new_relation
+        })
     }
 
     /// Retrieve an expression for the value of the given identifier from `self.augmented_matrix`.

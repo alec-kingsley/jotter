@@ -110,6 +110,17 @@ pub enum RelationOp {
     NotEqual,
 }
 
+pub fn compare<T: PartialOrd>(val1: T, val2: T, operator: RelationOp) -> bool {
+    match operator {
+        RelationOp::Less => val1 < val2,
+        RelationOp::Greater => val1 > val2,
+        RelationOp::LessEqual => val1 <= val2,
+        RelationOp::GreaterEqual => val1 >= val2,
+        RelationOp::Equal => val1 == val2,
+        RelationOp::NotEqual => val1 != val2,
+    }
+}
+
 impl Display for Relation {
     /// Format `Relation` appropriately.
     ///
@@ -161,10 +172,12 @@ pub fn get_true_relation() -> Relation {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Expression {
     /// operands to be added.
+    /// if empty, value is 0.
     ///
     pub minuend: HashSet<Term>,
 
     /// operands to be subtracted.
+    /// if empty, value is 0.
     ///
     pub subtrahend: HashSet<Term>,
 }
@@ -205,7 +218,11 @@ impl Display for Expression {
 
         // Combine the two parts
         if subtrahend_str.is_empty() {
-            write!(f, "{}", minuend_str)
+            if minuend_str.is_empty() {
+                write!(f, "0")
+            } else {
+                write!(f, "{}", minuend_str)
+            }
         } else if minuend_str.is_empty() {
             write!(f, "{}", subtrahend_str)
         } else {
@@ -460,10 +477,12 @@ impl DivAssign for Expression {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Term {
     /// operands being multiplied.
+    /// if empty, value is 1.
     ///
     pub numerator: HashSet<Factor>,
 
     /// operands being divided.
+    /// if empty, value is 1.
     ///
     pub denominator: HashSet<Factor>,
 }
@@ -504,7 +523,11 @@ impl Display for Term {
 
         // Combine the two parts
         if denominator_str.is_empty() {
-            write!(f, "{}", numerator_str)
+            if numerator_str.is_empty() {
+                write!(f, "1")
+            } else {
+                write!(f, "{}", numerator_str)
+            }
         } else if numerator_str.is_empty() {
             write!(f, "1 / ({})", denominator_str)
         } else {
