@@ -41,7 +41,10 @@ pub fn process_function(
 /// * `model` - The program model for the state of the program.
 ///
 pub fn process_equation(relation: Relation, _model: &mut ProgramModel) {
-    assert!(relation.operands.len() == relation.operators.len() + 1, "Invalid Relation");
+    assert!(
+        relation.operands.len() == relation.operators.len() + 1,
+        "Invalid Relation"
+    );
 
     // TODO - implement function
 
@@ -79,8 +82,6 @@ pub struct ProgramModel {
     functions: HashSet<Statement>,
     call_depth: u16,
 }
-
-
 
 impl ProgramModel {
     /// Make the call in `call`.
@@ -476,7 +477,6 @@ impl ProgramModel {
         panic!("Not implemented");
     }
 
-
     /// Add a relation to `self.relations`.
     ///
     /// # Arguments
@@ -487,7 +487,6 @@ impl ProgramModel {
         // TODO - implement function
 
         panic!("Not implemented");
-
     }
 
     /// Add a variable with its unit to the model.
@@ -513,6 +512,7 @@ impl ProgramModel {
         ProgramModel {
             variables: Vec::new(),
             augmented_matrix: Vec::new(),
+            relations: HashSet::new(),
             functions: HashSet::new(),
             call_depth,
         }
