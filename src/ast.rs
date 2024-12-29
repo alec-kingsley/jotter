@@ -235,6 +235,9 @@ pub fn parse_factor(
 ) -> Result<Factor, String> {
     // TODO - implement function
 
+    // NOTE - if the first token is '-' as the grammar allows, but it is not a negative number,
+    // ensure that the next token is NOT '-' as well (if it is, return an Err()), then return -1
+
     // NOTE - a call with one argument is hard to parse, since f(x) could be
     // parsed as f*x. To resolve this, only check for it if preceding_identifier
     // is false. (in that, only the current identifier would be the name of the
