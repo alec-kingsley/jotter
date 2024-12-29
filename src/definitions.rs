@@ -19,13 +19,43 @@ use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::ops::*;
 
-#[derive(Debug, Hash, Clone, PartialEq)]
+#[derive(Debug, Hash, Clone)]
 pub enum Statement {
     Prompt(Relation),
     Equation(Relation),
     /// name, arguments, actual function, and their relations.
     FunctionDefinition(Identifier, Vec<Identifier>, Vec<(Expression, Relation)>),
 }
+
+impl PartialEq for Statement {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            Statement::Prompt(self_relation) => {
+                if let Statement::Prompt(other_relation) = other {
+                    self_relation == other_relation
+                } else {
+                    false
+                }
+            }
+            Statement::Equation(self_relation) => {
+                if let Statement::Equation(other_relation) = other {
+                    self_relation == other_relation
+                } else {
+                    false
+                }
+            }
+            Statement::FunctionDefinition(self_identifier, _, _) => {
+                if let Statement::FunctionDefinition(other_identifier, _, _) = other {
+                    self_identifier == other_identifier
+                } else {
+                    false
+                }
+            }
+        }
+    }
+}
+
+impl Eq for Statement {}
 
 impl Display for Statement {
     /// Format `Statement` appropriately.
@@ -57,7 +87,7 @@ impl Display for Statement {
     }
 }
 
-#[derive(Debug, Hash, Clone, PartialEq)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq)]
 pub struct Relation {
     /// operands in relation.
     ///
@@ -128,7 +158,7 @@ pub fn get_true_relation() -> Relation {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Expression {
     /// operands to be added.
     ///
@@ -1256,7 +1286,7 @@ impl PartialOrd for Number {
     }
 }
 
-#[derive(Hash, Debug, Clone, PartialEq)]
+#[derive(Hash, Debug, Clone, PartialEq, Eq)]
 pub struct Identifier {
     /// The String representing the identifier.
     value: String,

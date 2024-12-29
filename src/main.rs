@@ -29,10 +29,10 @@ fn main() {
     while !eof {
         let next_statement = parse_statement(code.as_str(), &mut i);
         match next_statement {
-            Ok(Statement::Prompt(relation)) => process_prompt(relation, &model),
-            Ok(Statement::Equation(relation)) => process_equation(relation, &mut model),
+            Ok(Statement::Prompt(relation)) => process_prompt(&model, relation),
+            Ok(Statement::Equation(relation)) => process_equation(&mut model, relation),
             Ok(Statement::FunctionDefinition(name, arguments, definition)) => {
-                process_function(name, arguments, definition, &mut model)
+                process_function(&mut model, name, arguments, definition)
             }
             Err(msg) => {
                 if msg == "Not found" {

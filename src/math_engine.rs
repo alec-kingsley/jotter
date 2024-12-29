@@ -5,10 +5,10 @@ use std::collections::{HashMap, HashSet};
 /// Process the AST of a prompt.
 ///
 /// # Arguments
-/// * `prompt` - A Statement::Prompt representing the prompt to evaluate.
 /// * `model` - The program model for the state of the program.
+/// * `prompt` - A Statement::Prompt representing the prompt to evaluate.
 ///
-pub fn process_prompt(prompt: Relation, model: &ProgramModel) {
+pub fn process_prompt(model: &ProgramModel, prompt: Relation) {
     let simplified_result = model.simplify_relation(&prompt);
     if simplified_result.is_ok() {
         println!("{prompt} : {}", simplified_result.unwrap());
@@ -20,27 +20,30 @@ pub fn process_prompt(prompt: Relation, model: &ProgramModel) {
 /// Process the AST of a function.
 ///
 /// # Arguments
-/// * `function` - A Statement::FunctionDefinition representing the function to define.
 /// * `model` - The program model for the state of the program.
+/// * `name` - The name of the function.
+/// * `arguments` - The arguments for the function.
+/// * `definition` - The definition for the function.
 ///
 pub fn process_function(
-    _name: Identifier,
-    _arguments: Vec<Identifier>,
-    _definition: Vec<(Expression, Relation)>,
-    _model: &mut ProgramModel,
+    model: &mut ProgramModel,
+    name: Identifier,
+    arguments: Vec<Identifier>,
+    definition: Vec<(Expression, Relation)>,
 ) {
-    // TODO - implement function
-
-    panic!("Not implemented");
+    let add_function_result = model.add_function(name, arguments, definition);
+    if add_function_result.is_err() {
+        println!("WARNING - {}", add_function_result.unwrap_err());
+    }
 }
 
 /// Process the AST of an equation / relation.
 ///
 /// # Arguments
-/// * `equation` - A `Relation` representing the relation to evaluate.
 /// * `model` - The program model for the state of the program.
+/// * `equation` - A `Relation` representing the relation to evaluate.
 ///
-pub fn process_equation(relation: Relation, _model: &mut ProgramModel) {
+pub fn process_equation(_model: &mut ProgramModel, relation: Relation) {
     assert!(
         relation.operands.len() == relation.operators.len() + 1,
         "Invalid Relation"
@@ -487,6 +490,32 @@ impl ProgramModel {
         // TODO - implement function
 
         panic!("Not implemented");
+    }
+
+    /// Add a function to the model.
+    ///
+    /// # Arguments
+    /// * `function` - The function to add.
+    /// * `name` - The name of the function.
+    /// * `arguments` - The arguments for the function.
+    /// * `definition` - The definition for the function.
+    ///
+    fn add_function(
+        &mut self,
+        name: Identifier,
+        arguments: Vec<Identifier>,
+        definition: Vec<(Expression, Relation)>,
+    ) -> Result<(), String> {
+        let function = Statement::FunctionDefinition(name.clone(), arguments, definition);
+
+        // only insert if it doesn't already exist.
+        // note that functions are compared for equality only by their name.
+        if let Some(_) = self.functions.get(&function) {
+            Err(format!("Function `{name}` already defined"))
+        } else {
+            self.functions.insert(function);
+            Ok(())
+        }
     }
 
     /// Add a variable with its unit to the model.
