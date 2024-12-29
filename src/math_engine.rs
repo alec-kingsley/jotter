@@ -54,7 +54,7 @@ pub fn process_equation(_relation: Relation, _model: &mut ProgramModel) {
     panic!("Not implemented");
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Hash, Clone, PartialEq)]
 struct Variable {
     pub name: Identifier,
     pub unit: Unit,
@@ -67,13 +67,15 @@ struct Variable {
 /// Stores each function.
 /// Also stores 'call depth' to keep recursion safe.
 ///
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct ProgramModel {
     variables: Vec<Variable>,
     augmented_matrix: Vec<Vec<Expression>>,
-    functions: Vec<Statement>,
+    functions: HashSet<Statement>,
     call_depth: u16,
 }
+
+
 
 impl ProgramModel {
     /// Make the call in `call`.
@@ -206,7 +208,7 @@ impl ProgramModel {
         if !number.clone().is_one() {
             new_term.numerator.insert(Factor::Number(number));
         }
-            
+
         Ok(new_term)
     }
 
@@ -454,6 +456,18 @@ impl ProgramModel {
     fn add_matrix_row(&mut self, _left: Expression, _right: Expression) {
         // TODO - implement function
 
+        // TODO - subtract one side from the other
+
+        // TODO - combine like terms
+
+        // TODO - extract the `Number` term or set to 0
+
+        // TODO - negate that for column vector
+
+        // TODO - subtract any isolated function call terms from column vector
+
+        // TODO - for each other term, extract an identifier and place in augmented matrix
+
         panic!("Not implemented");
     }
 
@@ -480,7 +494,7 @@ impl ProgramModel {
         ProgramModel {
             variables: Vec::new(),
             augmented_matrix: Vec::new(),
-            functions: Vec::new(),
+            functions: HashSet::new(),
             call_depth,
         }
     }

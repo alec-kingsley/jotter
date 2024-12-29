@@ -19,7 +19,7 @@ use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::ops::*;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Hash, Clone, PartialEq)]
 pub enum Statement {
     Prompt(Relation),
     Equation(Relation),
@@ -57,7 +57,7 @@ impl Display for Statement {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Hash, Clone, PartialEq)]
 pub struct Relation {
     /// operands in relation.
     ///
@@ -169,7 +169,7 @@ impl Display for Expression {
         let subtrahend_str = self
             .subtrahend
             .iter()
-            .map(|x| format!("-{}", x))
+            .map(|x| format!("- {}", x))
             .collect::<Vec<_>>()
             .join(" ");
 
@@ -1487,6 +1487,12 @@ mod tests {
                 },
             ]),
         };
-        assert_eq!(format!("{}", expression), "1 + 4 - 2 - 5");
+        assert!([
+            "1 + 4 - 2 - 5",
+            "4 + 1 - 2 - 5",
+            "1 + 4 - 5 - 2",
+            "4 + 1 - 5 - 2"
+        ]
+        .contains(&&format!("{}", expression).as_str()));
     }
 }
