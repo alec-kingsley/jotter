@@ -529,9 +529,39 @@ impl Term {
     /// This can be called before comparing terms when combining like terms.
     ///
     pub fn extract_number(&mut self) -> Number {
-        // TODO - implement function
+        // initialize base variables
+        let mut value = Number {
+            value: 1f64,
+            unit: Unit {
+                exponent: 0i8,
+                constituents: HashMap::new(),
+            }
+        };
 
-        panic!("Not implemented");
+        let mut new_term = Term {
+            numerator: HashSet::new(),
+            denominator: HashSet::new(),
+        };
+
+        // copy over operands
+        for operand in self.numerator.clone() {
+            if let Factor::Number(number) = operand {
+                value *= number;
+            } else {
+                new_term.numerator.insert(operand);
+            }
+        }
+
+        for operand in self.denominator.clone() {
+            if let Factor::Number(number) = operand {
+                value /= number;
+            } else {
+                new_term.denominator.insert(operand);
+            }
+        }
+
+        self.clone_from(&new_term);
+        value
     }
 }
 
