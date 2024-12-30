@@ -6,10 +6,12 @@
 // term        ::=   factor (( '*' | '/' ) ? factor ) *
 // factor      ::=   '-' ? '(' expression ')' | number | identifier | call
 // call        ::=   identifier '(' expression ( ',' expression ) * ')'
-// number      ::=   ( '0' | [1-9][0-9]* ) ( '.' [0-9]+ ) ? ( '[' unit ']' ) ?
-// unit        ::=   ( baseunit ( '^' [1-9][0-9]* ) ? )+ ( '/' ( baseunit ( '^' [1-9][0-9]* ) ? )+ ) ?
-// baseunit    ::=   [a-zA-Zα-ωΑ-Ω]+
+// number      ::=   ( '0' | [1-9][0-9]* ) ( '.' [0-9]+ ) ? unit ?
 // identifier  ::=   ( [a-zA-Zα-ωΑ-Ω] | '\'' [a-zA-Z0-9_ ]+ '\'' )
+// unit        ::=   '[' unit_term ']'
+// unit_term   ::=   unit_factor (( '*' | '/') ? unit_factor) *
+// unit_factor ::=   unit | baseunit ( '^' '-' ? [1-9][0-9]* )
+// baseunit    ::=   [a-zA-Zα-ωΑ-Ω]+
 
 use regex::Regex;
 use std::cmp::Ordering;

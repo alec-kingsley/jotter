@@ -5,8 +5,6 @@ use std::collections::HashMap;
 
 /// Parse unit into `Unit`.
 ///
-/// unit ::= ( baseunit ( '^' '-' ? [1-9][0-9]* ) ? )+ ( '/' ( baseunit ( '^' '-' ? [1-9][0-9]* ) ? )+ ) ?
-///
 /// # Arguments
 /// * `code` - A string representing the user program.
 /// * `i` - An index within `code` representing a point after the last token processed.
