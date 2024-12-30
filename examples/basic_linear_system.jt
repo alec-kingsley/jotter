@@ -1,0 +1,15 @@
+Setup system of linear equations:
+
+3x + 2y = 7
+y - x = -4
+
+Print values of x and y:
+
+x ?
+y ?
+
+Expected output:
+
+x: 3
+y: -1
+

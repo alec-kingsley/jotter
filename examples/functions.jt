@@ -1,0 +1,11 @@
+f(x) = 3x + 2
+g(x) = {
+	x / 2,	x ≤ 1
+	x,			1 < x ≤ 3
+	2x,			x > 3
+}
+
+g(4) ?
+
+Expected output: `g(4): 8`
+

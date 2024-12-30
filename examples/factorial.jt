@@ -1,0 +1,11 @@
+factorial program.
+
+'factorial'(x) = {
+	1, x ≤ 1
+	x * 'factorial'(x - 1), x > 1
+}
+
+'factorial'(5) ?
+
+Expected output: `'factorial'(5): 120`
+

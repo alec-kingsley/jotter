@@ -1,0 +1,14 @@
+fibonacci program to find the nth fibonacci number.
+
+
+'fibonacci'(n) = {
+	1, n = 1
+	1, n = 2
+	'fibonacci'(n - 1) + 'fibonacci'(n - 2), n > 2
+}
+
+'fibonacci'(7) ?
+
+Expected output: `'fibonacci'(7): 13` 
+(* 1 1 2 3 5 8 .13. *)
+
