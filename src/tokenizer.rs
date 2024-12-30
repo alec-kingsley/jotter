@@ -214,13 +214,13 @@ pub fn next_unit_token(code: &str, i: &mut usize) -> Result<String, String> {
 
     let start_pos = *i;
 
-    let special_characters = ['/', '*', ']', '^'];
+    let special_characters = ['/', '*', '[', ']', '^', '-'];
 
     // special characters
     if special_characters.contains(&code.chars().nth(*i).unwrap()) {
         *i += 1;
         Ok(code.chars().skip(start_pos).take(*i - start_pos).collect())
-    } else if code.chars().nth(*i).unwrap().is_digit(10) {
+    } else if code.chars().nth(*i).unwrap().is_digit(10) || code.chars().nth(*i).unwrap() == '-' {
         // number
         while *i < code_length && code.chars().nth(*i).unwrap().is_digit(10) {
             *i += 1;

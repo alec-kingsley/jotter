@@ -4,6 +4,7 @@ use std::env;
 use std::fs;
 
 mod ast;
+mod unit_parser;
 mod definitions;
 mod math_engine;
 mod tokenizer;
