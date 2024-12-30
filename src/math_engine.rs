@@ -11,7 +11,17 @@ use std::collections::{HashMap, HashSet};
 pub fn process_prompt(model: &ProgramModel, prompt: Relation) {
     let simplified_result = model.simplify_relation(&prompt);
     if simplified_result.is_ok() {
-        println!("{prompt} : {}", simplified_result.unwrap());
+        let simplified = simplified_result.unwrap();
+        if prompt.operands.len() > 1 && simplified.operands.len() == 1 {
+            if simplified.operands[0].minuend.len() == 1 {
+                println!("{prompt} : True");
+            } else {
+                println!("{prompt} : False");
+            }
+        } else {
+            println!("{prompt} : {}", simplified);
+        }
+
     } else {
         println!("{prompt} : ERROR - {}", simplified_result.unwrap_err());
     }

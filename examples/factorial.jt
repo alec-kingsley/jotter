@@ -7,5 +7,5 @@ factorial program.
 
 'factorial'(5) ?
 
-Expected output: `'factorial'(5): 120`
+Expected output: `'factorial'(5) : 120`
 
