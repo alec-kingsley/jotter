@@ -661,6 +661,12 @@ impl ProgramModel {
                 column_vector_element.minuend.insert(term);
             }
         }
+
+        // add to augmented matrix and update information
+        row_vector.push(column_vector_element);
+        self.augmented_matrix.push(row_vector);
+        self.reduce();
+        assert!(self.assert_relations_hold(), "ERROR - impossible situation");
     }
 
     /// Add a relation to `self.relations`.

@@ -273,11 +273,12 @@ impl Expression {
             }
         }
         self.clone_from(&father_expression);
+        self.combine_like_terms();
     }
 
     /// Combine like terms in `Expression`.
     ///
-    pub fn combine_like_terms(&mut self) {
+    fn combine_like_terms(&mut self) {
         let mut numbers: Vec<Number> = Vec::new();
         let mut terms: Vec<Term> = Vec::new();
 
@@ -747,16 +748,6 @@ impl Factor {
     pub fn is_one(self) -> bool {
         if let Factor::Number(number) = self {
             number.is_one()
-        } else {
-            false
-        }
-    }
-
-    /// Returns true iff the factor is a number with value 0
-    ///
-    pub fn is_zero(self) -> bool {
-        if let Factor::Number(number) = self {
-            number.is_zero()
         } else {
             false
         }
@@ -1373,11 +1364,6 @@ impl Identifier {
         } else {
             Err(String::from("Invalid identifier"))
         }
-    }
-
-    /// Returns the inner value
-    pub fn value(&self) -> &str {
-        &self.value
     }
 }
 
