@@ -75,7 +75,7 @@ pub fn process_equation(model: &mut ProgramModel, relation: Relation) {
 pub struct ProgramModel {
     variables: Vec<Identifier>,
     augmented_matrix: Vec<Vec<Expression>>,
-    relations: HashSet<Relation>,
+    relations: Vec<Relation>,
     functions: HashSet<Statement>,
     call_depth: u16,
 }
@@ -114,13 +114,13 @@ impl ProgramModel {
                     model.add_matrix_row(
                         call.arguments[i].clone(),
                         Expression {
-                            minuend: HashSet::from([Term {
-                                numerator: HashSet::from([Factor::Identifier(
+                            minuend: Vec::from([Term {
+                                numerator: Vec::from([Factor::Identifier(
                                     arguments[i].clone(),
                                 )]),
-                                denominator: HashSet::new(),
+                                denominator: Vec::new(),
                             }]),
-                            subtrahend: HashSet::new(),
+                            subtrahend: Vec::new(),
                         },
                     );
                 }
@@ -132,11 +132,11 @@ impl ProgramModel {
                         if evaluated_result.is_ok() {
                             let evaluated = evaluated_result.unwrap();
                             let true_expr = Expression {
-                                minuend: HashSet::from([Term {
-                                    numerator: HashSet::new(),
-                                    denominator: HashSet::new(),
+                                minuend: Vec::from([Term {
+                                    numerator: Vec::new(),
+                                    denominator: Vec::new(),
                                 }]),
-                                subtrahend: HashSet::new(),
+                                subtrahend: Vec::new(),
                             };
                             if evaluated.operands.len() == 1 && evaluated.operands[0] == true_expr {
                                 result = Some(expression.clone());
@@ -230,23 +230,23 @@ impl ProgramModel {
                     Factor::Parenthetical(self.simplify_expression(expression, make_substitutions)?)
                 } else if expression.minuend.len() + expression.subtrahend.len() == 1 {
                     if expression.subtrahend.is_empty() {
-                        let mut sub_term = expression.minuend.clone().drain().next().unwrap();
+                        let sub_term = expression.minuend[0].clone();
                         if sub_term.numerator.len() == 1 && sub_term.denominator.is_empty() {
                             // if the parenthetical is just a factor, return it
-                            sub_term.numerator.drain().next().unwrap()
+                            sub_term.numerator[0].clone()
                         } else {
                             Factor::Parenthetical(Expression {
-                                minuend: HashSet::from([
+                                minuend: Vec::from([
                                     self.simplify_term(&sub_term, make_substitutions)?
                                 ]),
-                                subtrahend: HashSet::new(),
+                                subtrahend: Vec::new(),
                             })
                         }
                     } else {
-                        let sub_term = expression.subtrahend.clone().drain().next().unwrap();
+                        let sub_term = expression.subtrahend[0].clone();
                         Factor::Parenthetical(Expression {
-                            minuend: HashSet::new(),
-                            subtrahend: HashSet::from([
+                            minuend: Vec::new(),
+                            subtrahend: Vec::from([
                                 self.simplify_term(&sub_term, make_substitutions)?
                             ]),
                         })
@@ -286,26 +286,26 @@ impl ProgramModel {
     ///
     fn simplify_term(&self, term: &Term, make_substitutions: bool) -> Result<Term, String> {
         let mut new_term = Term {
-            numerator: HashSet::new(),
-            denominator: HashSet::new(),
+            numerator: Vec::new(),
+            denominator: Vec::new(),
         };
 
         // simplify original factors in term and throw them back in
         for operand in &term.numerator {
             new_term
                 .numerator
-                .insert(self.simplify_factor(operand, make_substitutions)?);
+                .push(self.simplify_factor(operand, make_substitutions)?);
         }
         for operand in &term.denominator {
             new_term
                 .denominator
-                .insert(self.simplify_factor(operand, make_substitutions)?);
+                .push(self.simplify_factor(operand, make_substitutions)?);
         }
 
         // combine all the numeric literals and return if not one
         let number = new_term.extract_number();
         if !number.is_one() {
-            new_term.numerator.insert(Factor::Number(number));
+            new_term.numerator.push(Factor::Number(number));
         }
 
         Ok(new_term)
@@ -323,21 +323,21 @@ impl ProgramModel {
         make_substitutions: bool,
     ) -> Result<Expression, String> {
         let mut new_expression = Expression {
-            minuend: HashSet::new(),
-            subtrahend: HashSet::new(),
+            minuend: Vec::new(),
+            subtrahend: Vec::new(),
         };
 
         // re-add the original terms after simplifying
         for operand in &expression.minuend {
             new_expression
                 .minuend
-                .insert(self.simplify_term(operand, make_substitutions)?);
+                .push(self.simplify_term(operand, make_substitutions)?);
         }
 
         for operand in &expression.subtrahend {
             new_expression
                 .subtrahend
-                .insert(self.simplify_term(operand, make_substitutions)?);
+                .push(self.simplify_term(operand, make_substitutions)?);
         }
 
         // remove parentheticals and combine like terms
@@ -396,8 +396,8 @@ impl ProgramModel {
             // return false
             Relation {
                 operands: vec![Expression {
-                    minuend: HashSet::new(),
-                    subtrahend: HashSet::new(),
+                    minuend: Vec::new(),
+                    subtrahend: Vec::new(),
                 }],
                 operators: Vec::new(),
             }
@@ -405,11 +405,11 @@ impl ProgramModel {
             // return true
             Relation {
                 operands: vec![Expression {
-                    minuend: HashSet::from([Term {
-                        numerator: HashSet::new(),
-                        denominator: HashSet::new(),
+                    minuend: Vec::from([Term {
+                        numerator: Vec::new(),
+                        denominator: Vec::new(),
                     }]),
-                    subtrahend: HashSet::new(),
+                    subtrahend: Vec::new(),
                 }],
                 operators: Vec::new(),
             }
@@ -640,8 +640,8 @@ impl ProgramModel {
             self.variables.insert(0, identifier);
             // expression of value zero to cleanly insert
             let zero_expr = Expression {
-                minuend: HashSet::new(),
-                subtrahend: HashSet::new(),
+                minuend: Vec::new(),
+                subtrahend: Vec::new(),
             };
             for row in &mut self.augmented_matrix {
                 row.insert(0, zero_expr.clone());
@@ -666,13 +666,13 @@ impl ProgramModel {
 
         // extract the terms which have no identifiers in numerator
         let mut column_vector_element = Expression {
-            minuend: HashSet::new(),
-            subtrahend: HashSet::new(),
+            minuend: Vec::new(),
+            subtrahend: Vec::new(),
         };
 
         let zero_expr = Expression {
-            minuend: HashSet::new(),
-            subtrahend: HashSet::new(),
+            minuend: Vec::new(),
+            subtrahend: Vec::new(),
         };
 
         let mut row_vector = vec![zero_expr.clone(); self.variables.len()];
@@ -681,17 +681,17 @@ impl ProgramModel {
         for mut term in zero_equivalent.minuend {
             if let Some(identifier) = term.extract_identifier() {
                 let index = self.get_index(&mut row_vector, identifier);
-                row_vector[index].minuend.insert(term);
+                row_vector[index].minuend.push(term);
             } else {
-                column_vector_element.subtrahend.insert(term);
+                column_vector_element.subtrahend.push(term);
             }
         }
         for mut term in zero_equivalent.subtrahend {
             if let Some(identifier) = term.extract_identifier() {
                 let index = self.get_index(&mut row_vector, identifier);
-                row_vector[index].subtrahend.insert(term);
+                row_vector[index].subtrahend.push(term);
             } else {
-                column_vector_element.minuend.insert(term);
+                column_vector_element.minuend.push(term);
             }
         }
 
@@ -710,7 +710,7 @@ impl ProgramModel {
     /// * `operator` - The operator between the relation elements.
     ///
     fn add_relation(&mut self, left: Expression, right: Expression, operator: RelationOp) {
-        self.relations.insert(Relation {
+        self.relations.push(Relation {
             operands: vec![left, right],
             operators: vec![operator],
         });
@@ -751,7 +751,7 @@ impl ProgramModel {
         ProgramModel {
             variables: Vec::new(),
             augmented_matrix: Vec::new(),
-            relations: HashSet::new(),
+            relations: Vec::new(),
             functions: HashSet::new(),
             call_depth,
         }
@@ -766,8 +766,8 @@ mod tests {
     fn evaluate_constant_term_test1() {
         let model = ProgramModel::new(0);
         let term = Term {
-            numerator: HashSet::new(),
-            denominator: HashSet::new(),
+            numerator: Vec::new(),
+            denominator: Vec::new(),
         };
         let expected = Number {
             value: 1f64,
@@ -788,11 +788,11 @@ mod tests {
     fn evaluate_constant_expression_test1() {
         let model = ProgramModel::new(0);
         let expression = Expression {
-            minuend: HashSet::from([Term {
-                numerator: HashSet::new(),
-                denominator: HashSet::new(),
+            minuend: Vec::from([Term {
+                numerator: Vec::new(),
+                denominator: Vec::new(),
             }]),
-            subtrahend: HashSet::new(),
+            subtrahend: Vec::new(),
         };
         let expected = Number {
             value: 1f64,
@@ -812,35 +812,35 @@ mod tests {
     #[test]
     fn add_matrix_row_test1() {
         let expression_a = Expression {
-            minuend: HashSet::from([Term {
-                numerator: HashSet::from([Factor::Identifier(Identifier::new("a").unwrap())]),
-                denominator: HashSet::new(),
+            minuend: Vec::from([Term {
+                numerator: vec![Factor::Identifier(Identifier::new("a").unwrap())],
+                denominator: Vec::new(),
             }]),
-            subtrahend: HashSet::new(),
+            subtrahend: Vec::new(),
         };
         let expression_2 = Expression {
-            minuend: HashSet::from([Term {
-                numerator: HashSet::from([Factor::Number(Number {
+            minuend: Vec::from([Term {
+                numerator: Vec::from([Factor::Number(Number {
                     value: 2f64,
                     unit: Unit {
                         exponent: 0i8,
                         constituents: HashMap::new(),
                     },
                 })]),
-                denominator: HashSet::new(),
+                denominator: Vec::new(),
             }]),
-            subtrahend: HashSet::new(),
+            subtrahend: Vec::new(),
         };
         let mut model = ProgramModel::new(0);
         model.add_matrix_row(expression_a, expression_2.clone());
 
         let augmented_matrix_expected = vec![vec![
             Expression {
-                minuend: HashSet::from([Term {
-                    numerator: HashSet::new(),
-                    denominator: HashSet::new(),
+                minuend: Vec::from([Term {
+                    numerator: Vec::new(),
+                    denominator: Vec::new(),
                 }]),
-                subtrahend: HashSet::new(),
+                subtrahend: Vec::new(),
             },
             expression_2.clone(),
         ]];
@@ -850,24 +850,24 @@ mod tests {
     #[test]
     fn retrieve_value_test1() {
         let expression_a = Expression {
-            minuend: HashSet::from([Term {
-                numerator: HashSet::from([Factor::Identifier(Identifier::new("a").unwrap())]),
-                denominator: HashSet::new(),
+            minuend: Vec::from([Term {
+                numerator: vec![Factor::Identifier(Identifier::new("a").unwrap())],
+                denominator: Vec::new(),
             }]),
-            subtrahend: HashSet::new(),
+            subtrahend: Vec::new(),
         };
         let expression_2 = Expression {
-            minuend: HashSet::from([Term {
-                numerator: HashSet::from([Factor::Number(Number {
+            minuend: Vec::from([Term {
+                numerator: Vec::from([Factor::Number(Number {
                     value: 2f64,
                     unit: Unit {
                         exponent: 0i8,
                         constituents: HashMap::new(),
                     },
                 })]),
-                denominator: HashSet::new(),
+                denominator: Vec::new(),
             }]),
-            subtrahend: HashSet::new(),
+            subtrahend: Vec::new(),
         };
         let mut model = ProgramModel::new(0);
         // a = 2
@@ -893,8 +893,8 @@ mod tests {
     #[test]
     fn retrieve_value_test2() {
         let expression_2a = Expression {
-            minuend: HashSet::from([Term {
-                numerator: HashSet::from([
+            minuend: Vec::from([Term {
+                numerator: Vec::from([
                     Factor::Identifier(Identifier::new("a").unwrap()),
                     Factor::Number(Number {
                         value: 2f64,
@@ -904,22 +904,22 @@ mod tests {
                         },
                     }),
                 ]),
-                denominator: HashSet::new(),
+                denominator: Vec::new(),
             }]),
-            subtrahend: HashSet::new(),
+            subtrahend: Vec::new(),
         };
         let expression_2 = Expression {
-            minuend: HashSet::from([Term {
-                numerator: HashSet::from([Factor::Number(Number {
+            minuend: Vec::from([Term {
+                numerator: Vec::from([Factor::Number(Number {
                     value: 2f64,
                     unit: Unit {
                         exponent: 0i8,
                         constituents: HashMap::new(),
                     },
                 })]),
-                denominator: HashSet::new(),
+                denominator: Vec::new(),
             }]),
-            subtrahend: HashSet::new(),
+            subtrahend: Vec::new(),
         };
         let mut model = ProgramModel::new(0);
         // 2a = 2

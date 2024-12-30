@@ -13,7 +13,7 @@
 
 use regex::Regex;
 use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
@@ -151,17 +151,17 @@ impl Display for Relation {
 ///
 pub fn get_true_relation() -> Relation {
     let zero = Expression {
-        minuend: HashSet::from([Term {
-            numerator: HashSet::from([Factor::Number(Number {
+        minuend: Vec::from([Term {
+            numerator: Vec::from([Factor::Number(Number {
                 value: 0f64,
                 unit: Unit {
                     exponent: 0,
                     constituents: HashMap::new(),
                 },
             })]),
-            denominator: HashSet::new(),
+            denominator: Vec::new(),
         }]),
-        subtrahend: HashSet::new(),
+        subtrahend: Vec::new(),
     };
     Relation {
         operands: vec![zero.clone(), zero.clone()],
@@ -174,17 +174,17 @@ pub struct Expression {
     /// operands to be added.
     /// if empty, value is 0.
     ///
-    pub minuend: HashSet<Term>,
+    pub minuend: Vec<Term>,
 
     /// operands to be subtracted.
     /// if empty, value is 0.
     ///
-    pub subtrahend: HashSet<Term>,
+    pub subtrahend: Vec<Term>,
 }
 
 impl Hash for Expression {
     /// Hash for an `Expression`.
-    /// Necesarry since HashSet.hash() does not exist.
+    /// Necesarry since Vec.hash() does not exist.
     ///
     fn hash<H: Hasher>(&self, state: &mut H) {
         for factor in &self.minuend {
@@ -239,17 +239,16 @@ impl Expression {
     ///
     pub fn flatten(&mut self) {
         let mut father_expression = Expression {
-            minuend: HashSet::new(),
-            subtrahend: HashSet::new(),
+            minuend: Vec::new(),
+            subtrahend: Vec::new(),
         };
 
         for mut self_term in self.minuend.clone() {
             self_term.flatten();
             if let Factor::Parenthetical(mut child_expression) = self_term
                 .numerator
-                .clone()
-                .drain()
-                .next()
+                .get(0)
+                .cloned()
                 .unwrap_or(Factor::Number(Number {
                     value: 1f64,
                     unit: Unit {
@@ -260,13 +259,13 @@ impl Expression {
             {
                 child_expression.flatten();
                 for child_term in child_expression.minuend {
-                    father_expression.minuend.insert(child_term.clone());
+                    father_expression.minuend.push(child_term.clone());
                 }
                 for child_term in child_expression.subtrahend {
-                    father_expression.subtrahend.insert(child_term.clone());
+                    father_expression.subtrahend.push(child_term.clone());
                 }
             } else {
-                father_expression.minuend.insert(self_term);
+                father_expression.minuend.push(self_term);
             }
         }
 
@@ -274,9 +273,8 @@ impl Expression {
             self_term.flatten();
             if let Factor::Parenthetical(mut child_expression) = self_term
                 .numerator
-                .clone()
-                .drain()
-                .next()
+                .get(0)
+                .cloned()
                 .unwrap_or(Factor::Number(Number {
                     value: 1f64,
                     unit: Unit {
@@ -287,13 +285,13 @@ impl Expression {
             {
                 child_expression.flatten();
                 for child_term in child_expression.minuend {
-                    father_expression.subtrahend.insert(child_term.clone());
+                    father_expression.subtrahend.push(child_term.clone());
                 }
                 for child_term in child_expression.subtrahend {
-                    father_expression.minuend.insert(child_term.clone());
+                    father_expression.minuend.push(child_term.clone());
                 }
             } else {
-                father_expression.subtrahend.insert(self_term);
+                father_expression.subtrahend.push(self_term);
             }
         }
         self.clone_from(&father_expression);
@@ -349,16 +347,16 @@ impl Expression {
             if number != one && number != -one.clone() {
                 operand
                     .numerator
-                    .insert(Factor::Number(if number > zero.clone() {
+                    .push(Factor::Number(if number > zero.clone() {
                         number.clone()
                     } else {
                         -number.clone()
                     }));
             }
             if number > zero.clone() {
-                self.minuend.insert(operand);
+                self.minuend.push(operand);
             } else {
-                self.subtrahend.insert(operand);
+                self.subtrahend.push(operand);
             }
         }
     }
@@ -372,10 +370,10 @@ impl Add for Expression {
     fn add(self, other: Self) -> Self {
         let mut result = self.clone();
         for operand in &other.minuend {
-            result.minuend.insert(operand.clone());
+            result.minuend.push(operand.clone());
         }
         for operand in &other.subtrahend {
-            result.subtrahend.insert(operand.clone());
+            result.subtrahend.push(operand.clone());
         }
         result
     }
@@ -397,10 +395,10 @@ impl Sub for Expression {
     fn sub(self, other: Self) -> Self {
         let mut result = self.clone();
         for operand in &other.minuend {
-            result.subtrahend.insert(operand.clone());
+            result.subtrahend.push(operand.clone());
         }
         for operand in &other.subtrahend {
-            result.minuend.insert(operand.clone());
+            result.minuend.push(operand.clone());
         }
         result
     }
@@ -421,23 +419,23 @@ impl Mul for Expression {
     ///
     fn mul(self, other: Self) -> Self {
         let mut result = Expression {
-            minuend: HashSet::new(),
-            subtrahend: HashSet::new(),
+            minuend: Vec::new(),
+            subtrahend: Vec::new(),
         };
-        for self_term in self.minuend {
+        for self_term in &self.minuend {
             for other_term in other.minuend.clone() {
-                result.minuend.insert(self_term.clone() * other_term);
+                result.minuend.push(self_term.clone() * other_term);
             }
             for other_term in other.subtrahend.clone() {
-                result.subtrahend.insert(self_term.clone() * other_term);
+                result.subtrahend.push(self_term.clone() * other_term);
             }
         }
-        for self_term in self.subtrahend {
+        for self_term in &self.subtrahend {
             for other_term in other.minuend.clone() {
-                result.subtrahend.insert(self_term.clone() * other_term);
+                result.subtrahend.push(self_term.clone() * other_term);
             }
             for other_term in other.subtrahend.clone() {
-                result.minuend.insert(self_term.clone() * other_term);
+                result.minuend.push(self_term.clone() * other_term);
             }
         }
         result
@@ -470,7 +468,7 @@ impl Div for Expression {
             .map(|mut result_term| {
                 result_term
                     .denominator
-                    .insert(Factor::Parenthetical(other.clone()));
+                    .push(Factor::Parenthetical(other.clone()));
                 result_term
             })
             .collect();
@@ -482,7 +480,7 @@ impl Div for Expression {
             .map(|mut result_term| {
                 result_term
                     .denominator
-                    .insert(Factor::Parenthetical(other.clone()));
+                    .push(Factor::Parenthetical(other.clone()));
                 result_term
             })
             .collect();
@@ -504,17 +502,17 @@ pub struct Term {
     /// operands being multiplied.
     /// if empty, value is 1.
     ///
-    pub numerator: HashSet<Factor>,
+    pub numerator: Vec<Factor>,
 
     /// operands being divided.
     /// if empty, value is 1.
     ///
-    pub denominator: HashSet<Factor>,
+    pub denominator: Vec<Factor>,
 }
 
 impl Hash for Term {
     /// Hash for a `Term`.
-    /// Necesarry since HashSet.hash() does not exist.
+    /// Necesarry since Vec.hash() does not exist.
     ///
     fn hash<H: Hasher>(&self, state: &mut H) {
         for factor in &self.numerator {
@@ -570,8 +568,8 @@ impl Term {
     pub fn flatten(&mut self) {
         // initialize numerator and denominator to 1
         let mut new_term = Term {
-            numerator: HashSet::new(),
-            denominator: HashSet::new(),
+            numerator: Vec::new(),
+            denominator: Vec::new(),
         };
 
         for self_factor in self.numerator.clone() {
@@ -580,17 +578,17 @@ impl Term {
                 // if it's just one term
                 if self_expression.minuend.len() + self_expression.subtrahend.len() == 1 {
                     if self_expression.subtrahend.is_empty() {
-                        new_term *= self_expression.minuend.drain().next().unwrap();
+                        new_term *= self_expression.minuend[0].clone();
                     } else {
-                        new_term = -new_term * self_expression.subtrahend.drain().next().unwrap();
+                        new_term = -new_term * self_expression.subtrahend[0].clone();
                     }
                 } else {
                     new_term
                         .denominator
-                        .insert(Factor::Parenthetical(self_expression));
+                        .push(Factor::Parenthetical(self_expression));
                 }
             } else {
-                new_term.numerator.insert(self_factor);
+                new_term.numerator.push(self_factor);
             }
         }
 
@@ -600,17 +598,17 @@ impl Term {
                 // if it's just one term 
                 if self_expression.minuend.len() + self_expression.subtrahend.len() == 1 {
                     if self_expression.subtrahend.is_empty() {
-                        new_term /= self_expression.minuend.drain().next().unwrap();
+                        new_term /= self_expression.minuend[0].clone();
                     } else {
-                        new_term = -new_term / self_expression.subtrahend.drain().next().unwrap();
+                        new_term = -new_term / self_expression.subtrahend[0].clone();
                     }
                 } else {
                     new_term
                         .denominator
-                        .insert(Factor::Parenthetical(self_expression));
+                        .push(Factor::Parenthetical(self_expression));
                 }
             } else {
-                new_term.denominator.insert(self_factor);
+                new_term.denominator.push(self_factor);
             }
         }
 
@@ -632,8 +630,8 @@ impl Term {
         };
 
         let mut new_term = Term {
-            numerator: HashSet::new(),
-            denominator: HashSet::new(),
+            numerator: Vec::new(),
+            denominator: Vec::new(),
         };
 
         // copy over operands
@@ -641,7 +639,7 @@ impl Term {
             if let Factor::Number(number) = operand {
                 value *= number;
             } else {
-                new_term.numerator.insert(operand);
+                new_term.numerator.push(operand);
             }
         }
 
@@ -649,7 +647,7 @@ impl Term {
             if let Factor::Number(number) = operand {
                 value /= number;
             } else {
-                new_term.denominator.insert(operand);
+                new_term.denominator.push(operand);
             }
         }
 
@@ -665,7 +663,7 @@ impl Term {
         let mut result: Option<Identifier> = None;
 
         let mut new_term = Term {
-            numerator: HashSet::new(),
+            numerator: Vec::new(),
             denominator: self.denominator.clone(),
         };
 
@@ -678,7 +676,7 @@ impl Term {
                 }
             }
             if !kill {
-                new_term.numerator.insert(factor);
+                new_term.numerator.push(factor);
             }
         }
         self.clone_from(&new_term);
@@ -690,9 +688,8 @@ impl Neg for Term {
     type Output = Self;
 
     fn neg(self) -> Self {
-        assert!(self.numerator.len() > 0);
         let mut result = self.clone();
-        result.numerator.insert(Factor::Number(Number {
+        result.numerator.push(Factor::Number(Number {
             value: -1f64,
             unit: Unit {
                 exponent: 0,
@@ -711,10 +708,10 @@ impl Mul for Term {
     fn mul(self, other: Self) -> Self {
         let mut result = self.clone();
         for operand in &other.numerator {
-            result.numerator.insert(operand.clone());
+            result.numerator.push(operand.clone());
         }
         for operand in &other.denominator {
-            result.denominator.insert(operand.clone());
+            result.denominator.push(operand.clone());
         }
         result
     }
@@ -736,10 +733,10 @@ impl Div for Term {
     fn div(self, other: Self) -> Self {
         let mut result = self.clone();
         for operand in &other.numerator {
-            result.denominator.insert(operand.clone());
+            result.denominator.push(operand.clone());
         }
         for operand in &other.denominator {
-            result.numerator.insert(operand.clone());
+            result.numerator.push(operand.clone());
         }
         result
     }
@@ -842,11 +839,11 @@ impl Mul for Factor {
                         Factor::Parenthetical(
                             self_expression
                                 * Expression {
-                                    minuend: HashSet::from([Term {
-                                        numerator: HashSet::from([other]),
-                                        denominator: HashSet::new(),
+                                    minuend: Vec::from([Term {
+                                        numerator: vec![other],
+                                        denominator: Vec::new(),
                                     }]),
-                                    subtrahend: HashSet::new(),
+                                    subtrahend: Vec::new(),
                                 },
                         )
                     }
@@ -854,20 +851,20 @@ impl Mul for Factor {
                     Factor::Parenthetical(
                         other_expression
                             * Expression {
-                                minuend: HashSet::from([Term {
-                                    numerator: HashSet::from([other]),
-                                    denominator: HashSet::new(),
+                                minuend: Vec::from([Term {
+                                    numerator: vec![other],
+                                    denominator: Vec::new(),
                                 }]),
-                                subtrahend: HashSet::new(),
+                                subtrahend: Vec::new(),
                             },
                     )
                 } else {
                     Factor::Parenthetical(Expression {
-                        minuend: HashSet::from([Term {
-                            numerator: HashSet::from([self, other]),
-                            denominator: HashSet::new(),
+                        minuend: Vec::from([Term {
+                            numerator: vec![self, other],
+                            denominator: Vec::new(),
                         }]),
-                        subtrahend: HashSet::new(),
+                        subtrahend: Vec::new(),
                     })
                 },
             );
@@ -907,31 +904,31 @@ impl Div for Factor {
                         Factor::Parenthetical(
                             self_expression
                                 / Expression {
-                                    minuend: HashSet::from([Term {
-                                        numerator: HashSet::from([other]),
-                                        denominator: HashSet::new(),
+                                    minuend: Vec::from([Term {
+                                        numerator: vec![other],
+                                        denominator: Vec::new(),
                                     }]),
-                                    subtrahend: HashSet::new(),
+                                    subtrahend: Vec::new(),
                                 },
                         )
                     }
                 } else if let Factor::Parenthetical(other_expression) = other.clone() {
                     Factor::Parenthetical(
                         Expression {
-                            minuend: HashSet::from([Term {
-                                numerator: HashSet::from([other]),
-                                denominator: HashSet::new(),
+                            minuend: Vec::from([Term {
+                                numerator: vec![other],
+                                denominator: Vec::new(),
                             }]),
-                            subtrahend: HashSet::new(),
+                            subtrahend: Vec::new(),
                         } / other_expression,
                     )
                 } else {
                     Factor::Parenthetical(Expression {
-                        minuend: HashSet::from([Term {
-                            numerator: HashSet::from([self]),
-                            denominator: HashSet::from([other]),
+                        minuend: Vec::from([Term {
+                            numerator: vec![self],
+                            denominator: vec![other],
                         }]),
-                        subtrahend: HashSet::new(),
+                        subtrahend: Vec::new(),
                     })
                 },
             );
@@ -1544,11 +1541,11 @@ mod tests {
         let call = Call {
             name: Identifier::new("f").unwrap(),
             arguments: vec![Expression {
-                minuend: HashSet::from([Term {
-                    numerator: HashSet::from([Factor::Number(get_number_1())]),
-                    denominator: HashSet::new(),
+                minuend: Vec::from([Term {
+                    numerator: vec![Factor::Number(get_number_1())],
+                    denominator: Vec::new(),
                 }]),
-                subtrahend: HashSet::new(),
+                subtrahend: Vec::new(),
             }],
         };
         assert_eq!(format!("{}", call), "f(1)");
@@ -1560,20 +1557,20 @@ mod tests {
             name: Identifier::new("g").unwrap(),
             arguments: vec![
                 Expression {
-                    minuend: HashSet::from([Term {
-                        numerator: HashSet::from([Factor::Identifier(
+                    minuend: Vec::from([Term {
+                        numerator: Vec::from([Factor::Identifier(
                             Identifier::new("a").unwrap(),
                         )]),
-                        denominator: HashSet::new(),
+                        denominator: Vec::new(),
                     }]),
-                    subtrahend: HashSet::new(),
+                    subtrahend: Vec::new(),
                 },
                 Expression {
-                    minuend: HashSet::from([Term {
-                        numerator: HashSet::from([Factor::Number(get_number_1())]),
-                        denominator: HashSet::new(),
+                    minuend: Vec::from([Term {
+                        numerator: vec![Factor::Number(get_number_1())],
+                        denominator: Vec::new(),
                     }]),
-                    subtrahend: HashSet::new(),
+                    subtrahend: Vec::new(),
                 },
             ],
         };
@@ -1587,24 +1584,24 @@ mod tests {
         let four = two.clone() * two.clone();
         let five = four.clone() + one.clone();
         let expression = Expression {
-            minuend: HashSet::from([
+            minuend: Vec::from([
                 Term {
-                    numerator: HashSet::from([Factor::Number(one)]),
-                    denominator: HashSet::new(),
+                    numerator: vec![Factor::Number(one)],
+                    denominator: Vec::new(),
                 },
                 Term {
-                    numerator: HashSet::from([Factor::Number(four)]),
-                    denominator: HashSet::new(),
+                    numerator: vec![Factor::Number(four)],
+                    denominator: Vec::new(),
                 },
             ]),
-            subtrahend: HashSet::from([
+            subtrahend: Vec::from([
                 Term {
-                    numerator: HashSet::from([Factor::Number(two)]),
-                    denominator: HashSet::new(),
+                    numerator: vec![Factor::Number(two)],
+                    denominator: Vec::new(),
                 },
                 Term {
-                    numerator: HashSet::from([Factor::Number(five)]),
-                    denominator: HashSet::new(),
+                    numerator: vec![Factor::Number(five)],
+                    denominator: Vec::new(),
                 },
             ]),
         };
