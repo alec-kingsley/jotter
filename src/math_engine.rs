@@ -941,4 +941,133 @@ mod tests {
         };
         assert_eq!(a_expected, a)
     }
+
+    #[test]
+    fn retrieve_value_test3() {
+        // tests that program can solve basic set of linear equations.
+        //
+        // given equations:
+        // 3x + 2y = 7
+        // y - x = -4
+        //
+        // solve for:
+        // x, y
+        //
+        // expected:
+        // x = 3, y = -1
+        //
+
+        let expression_3x_plus_2y = Expression {
+            minuend: Vec::from([
+            Term {
+                numerator: Vec::from([
+                    Factor::Identifier(Identifier::new("x").unwrap()),
+                    Factor::Number(Number {
+                        value: 3f64,
+                        unit: Unit {
+                            exponent: 0i8,
+                            constituents: HashMap::new(),
+                        },
+                    }),
+                ]),
+                denominator: Vec::new(),
+            },
+            Term {
+                numerator: Vec::from([
+                    Factor::Identifier(Identifier::new("y").unwrap()),
+                    Factor::Number(Number {
+                        value: 2f64,
+                        unit: Unit {
+                            exponent: 0i8,
+                            constituents: HashMap::new(),
+                        },
+                    }),
+                ]),
+                denominator: Vec::new(),
+            },
+
+            ]),
+            subtrahend: Vec::new(),
+        };
+        let expression_7 = Expression {
+            minuend: Vec::from([Term {
+                numerator: Vec::from([Factor::Number(Number {
+                    value: 7f64,
+                    unit: Unit {
+                        exponent: 0i8,
+                        constituents: HashMap::new(),
+                    },
+                })]),
+                denominator: Vec::new(),
+            }]),
+            subtrahend: Vec::new(),
+        };
+        let expression_y_minus_x = Expression {
+            minuend: Vec::from([
+            Term {
+                numerator: Vec::from([
+                    Factor::Identifier(Identifier::new("y").unwrap()),
+                ]),
+                denominator: Vec::new(),
+            },
+            ]),
+            subtrahend: Vec::from([
+            Term {
+                numerator: Vec::from([
+                    Factor::Identifier(Identifier::new("x").unwrap()),
+                ]),
+                denominator: Vec::new(),
+            },
+            ]),
+        };
+        let expression_neg_4 = Expression {
+            minuend: Vec::from([Term {
+                numerator: Vec::from([Factor::Number(Number {
+                    value: -4f64,
+                    unit: Unit {
+                        exponent: 0i8,
+                        constituents: HashMap::new(),
+                    },
+                })]),
+                denominator: Vec::new(),
+            }]),
+            subtrahend: Vec::new(),
+        };
+        let mut model = ProgramModel::new(0);
+        // 3x + 2y = 7
+        model.add_matrix_row(expression_3x_plus_2y, expression_7);
+        // y - x = -4
+        model.add_matrix_row(expression_y_minus_x, expression_neg_4);
+
+        let x = model
+            .evaluate_constant_expression(
+                &model
+                    .retrieve_value(Identifier::new("x").unwrap())
+                    .expect("Failed to retrieve value"),
+            )
+            .expect("Failed to evaluate");
+        let x_expected = Number {
+            value: 3f64,
+            unit: Unit {
+                exponent: 0i8,
+                constituents: HashMap::new(),
+            },
+        };
+        assert_eq!(x_expected, x);
+        let y = model
+            .evaluate_constant_expression(
+                &model
+                    .retrieve_value(Identifier::new("y").unwrap())
+                    .expect("Failed to retrieve value"),
+            )
+            .expect("Failed to evaluate");
+        let y_expected = Number {
+            value: -1f64,
+            unit: Unit {
+                exponent: 0i8,
+                constituents: HashMap::new(),
+            },
+        };
+        assert_eq!(y_expected, y);
+    }
 }
