@@ -771,6 +771,7 @@ impl ProgramModel {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ast::*;
 
     #[test]
     fn evaluate_constant_term_test1() {
@@ -821,26 +822,8 @@ mod tests {
 
     #[test]
     fn add_matrix_row_test1() {
-        let expression_a = Expression {
-            minuend: Vec::from([Term {
-                numerator: vec![Factor::Identifier(Identifier::new("a").unwrap())],
-                denominator: Vec::new(),
-            }]),
-            subtrahend: Vec::new(),
-        };
-        let expression_2 = Expression {
-            minuend: Vec::from([Term {
-                numerator: Vec::from([Factor::Number(Number {
-                    value: 2f64,
-                    unit: Unit {
-                        exponent: 0i8,
-                        constituents: HashMap::new(),
-                    },
-                })]),
-                denominator: Vec::new(),
-            }]),
-            subtrahend: Vec::new(),
-        };
+        let expression_a = parse_expression("a", &mut 0).unwrap();
+        let expression_2 = parse_expression("2", &mut 0).unwrap();
         let mut model = ProgramModel::new(0);
         model.add_matrix_row(expression_a, expression_2.clone());
 
@@ -859,26 +842,8 @@ mod tests {
 
     #[test]
     fn retrieve_value_test1() {
-        let expression_a = Expression {
-            minuend: Vec::from([Term {
-                numerator: vec![Factor::Identifier(Identifier::new("a").unwrap())],
-                denominator: Vec::new(),
-            }]),
-            subtrahend: Vec::new(),
-        };
-        let expression_2 = Expression {
-            minuend: Vec::from([Term {
-                numerator: Vec::from([Factor::Number(Number {
-                    value: 2f64,
-                    unit: Unit {
-                        exponent: 0i8,
-                        constituents: HashMap::new(),
-                    },
-                })]),
-                denominator: Vec::new(),
-            }]),
-            subtrahend: Vec::new(),
-        };
+        let expression_a = parse_expression("a", &mut 0).unwrap();
+        let expression_2 = parse_expression("2", &mut 0).unwrap();
         let mut model = ProgramModel::new(0);
         // a = 2
         model.add_matrix_row(expression_a, expression_2.clone());
@@ -902,35 +867,8 @@ mod tests {
 
     #[test]
     fn retrieve_value_test2() {
-        let expression_2a = Expression {
-            minuend: Vec::from([Term {
-                numerator: Vec::from([
-                    Factor::Identifier(Identifier::new("a").unwrap()),
-                    Factor::Number(Number {
-                        value: 2f64,
-                        unit: Unit {
-                            exponent: 0i8,
-                            constituents: HashMap::new(),
-                        },
-                    }),
-                ]),
-                denominator: Vec::new(),
-            }]),
-            subtrahend: Vec::new(),
-        };
-        let expression_2 = Expression {
-            minuend: Vec::from([Term {
-                numerator: Vec::from([Factor::Number(Number {
-                    value: 2f64,
-                    unit: Unit {
-                        exponent: 0i8,
-                        constituents: HashMap::new(),
-                    },
-                })]),
-                denominator: Vec::new(),
-            }]),
-            subtrahend: Vec::new(),
-        };
+        let expression_2a = parse_expression("2a", &mut 0).unwrap();
+        let expression_2 = parse_expression("2", &mut 0).unwrap();
         let mut model = ProgramModel::new(0);
         // 2a = 2
         model.add_matrix_row(expression_2a, expression_2.clone());
@@ -967,82 +905,10 @@ mod tests {
         // x = 3, y = -1
         //
 
-        let expression_3x_plus_2y = Expression {
-            minuend: Vec::from([
-            Term {
-                numerator: Vec::from([
-                    Factor::Identifier(Identifier::new("x").unwrap()),
-                    Factor::Number(Number {
-                        value: 3f64,
-                        unit: Unit {
-                            exponent: 0i8,
-                            constituents: HashMap::new(),
-                        },
-                    }),
-                ]),
-                denominator: Vec::new(),
-            },
-            Term {
-                numerator: Vec::from([
-                    Factor::Identifier(Identifier::new("y").unwrap()),
-                    Factor::Number(Number {
-                        value: 2f64,
-                        unit: Unit {
-                            exponent: 0i8,
-                            constituents: HashMap::new(),
-                        },
-                    }),
-                ]),
-                denominator: Vec::new(),
-            },
-
-            ]),
-            subtrahend: Vec::new(),
-        };
-        let expression_7 = Expression {
-            minuend: Vec::from([Term {
-                numerator: Vec::from([Factor::Number(Number {
-                    value: 7f64,
-                    unit: Unit {
-                        exponent: 0i8,
-                        constituents: HashMap::new(),
-                    },
-                })]),
-                denominator: Vec::new(),
-            }]),
-            subtrahend: Vec::new(),
-        };
-        let expression_y_minus_x = Expression {
-            minuend: Vec::from([
-            Term {
-                numerator: Vec::from([
-                    Factor::Identifier(Identifier::new("y").unwrap()),
-                ]),
-                denominator: Vec::new(),
-            },
-            ]),
-            subtrahend: Vec::from([
-            Term {
-                numerator: Vec::from([
-                    Factor::Identifier(Identifier::new("x").unwrap()),
-                ]),
-                denominator: Vec::new(),
-            },
-            ]),
-        };
-        let expression_neg_4 = Expression {
-            minuend: Vec::from([Term {
-                numerator: Vec::from([Factor::Number(Number {
-                    value: -4f64,
-                    unit: Unit {
-                        exponent: 0i8,
-                        constituents: HashMap::new(),
-                    },
-                })]),
-                denominator: Vec::new(),
-            }]),
-            subtrahend: Vec::new(),
-        };
+        let expression_3x_plus_2y = parse_expression("3x + 2y", &mut 0).unwrap();
+        let expression_7 = parse_expression("7", &mut 0).unwrap();
+        let expression_y_minus_x = parse_expression("y - x", &mut 0).unwrap();
+        let expression_neg_4 = parse_expression("-4", &mut 0).unwrap();
         let mut model = ProgramModel::new(0);
         // 3x + 2y = 7
         model.add_matrix_row(expression_3x_plus_2y, expression_7);
