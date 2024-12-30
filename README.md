@@ -72,7 +72,7 @@ x = 3 [kg ^ 2 / m]
 ```
 
 Note that powers can only go on the inside of the main unit block, so `3 [kg] ^2`
-is invalid, while `3 [kg ^ 2]` and `x = 3 [[kg] ^ 2]` are both valid.
+is invalid, while `3 [kg ^ 2]` and `3 [[kg] ^ 2]` are both valid.
 
 ## Comments and Page Breaks
 
