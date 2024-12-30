@@ -34,12 +34,16 @@ fn main() {
             Ok(Statement::Equation(relation)) => process_equation(&mut model, relation),
             Ok(Statement::FunctionDefinition(name, arguments, definition)) => {
                 process_function(&mut model, name, arguments, definition)
-            }
+            },
+            Ok(Statement::Reset) => {
+                println!("---------");
+                model = ProgramModel::new(0);
+            },
             Err(msg) => {
                 if msg == "Not found" {
                     eof = true;
                 }
-            }
+            },
         }
     }
 }

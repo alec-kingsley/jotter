@@ -27,6 +27,7 @@ pub enum Statement {
     Equation(Relation),
     /// name, arguments, actual function, and their relations.
     FunctionDefinition(Identifier, Vec<Identifier>, Vec<(Expression, Relation)>),
+    Reset,
 }
 
 impl PartialEq for Statement {
@@ -49,6 +50,13 @@ impl PartialEq for Statement {
             Statement::FunctionDefinition(self_identifier, _, _) => {
                 if let Statement::FunctionDefinition(other_identifier, _, _) = other {
                     self_identifier == other_identifier
+                } else {
+                    false
+                }
+            }
+            Statement::Reset => {
+                if let Statement::Reset = other {
+                    true
                 } else {
                     false
                 }
@@ -85,6 +93,7 @@ impl Display for Statement {
                     )
                 )
             ),
+            Statement::Reset => write!(f, "----------"),
         }
     }
 }

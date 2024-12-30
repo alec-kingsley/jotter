@@ -73,19 +73,8 @@ is equivalent to
 x = 3 [kg ^ 2 / m]
 ```
 
-Note that powers can only go on the inside of the main unit block, so
-```
-x = 3 [kg] ^ 2
-```
-is invalid, while
-```
-x = 3 [kg ^ 2]
-```
-or
-```
-x = 3 [[kg] ^ 2]
-```
-are both valid.
+Note that powers can only go on the inside of the main unit block, so `3 [kg] ^2`
+is invalid, while `3 [kg ^ 2]` and `x = 3 [[kg] ^ 2]` are both valid.
 
 Another comment format is by using parentheses with stars on the inside.
 ```
