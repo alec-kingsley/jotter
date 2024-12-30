@@ -209,10 +209,10 @@ impl ProgramModel {
         };
 
         for operand in &expression.minuend {
-            value *= self.evaluate_constant_term(&operand)?;
+            value += self.evaluate_constant_term(&operand)?;
         }
         for operand in &expression.subtrahend {
-            value /= self.evaluate_constant_term(&operand)?;
+            value -= self.evaluate_constant_term(&operand)?;
         }
         Ok(value)
     }
@@ -226,7 +226,40 @@ impl ProgramModel {
     fn simplify_factor(&self, factor: &Factor, make_substitutions: bool) -> Result<Factor, String> {
         Ok(match factor {
             Factor::Parenthetical(expression) => {
-                Factor::Parenthetical(self.simplify_expression(expression, make_substitutions)?)
+                if expression.minuend.len() + expression.subtrahend.len() > 1 {
+                    Factor::Parenthetical(self.simplify_expression(expression, make_substitutions)?)
+                } else if expression.minuend.len() + expression.subtrahend.len() == 1 {
+                    if expression.subtrahend.is_empty() {
+                        let mut sub_term = expression.minuend.clone().drain().next().unwrap();
+                        if sub_term.numerator.len() == 1 && sub_term.denominator.is_empty() {
+                            // if the parenthetical is just a factor, return it
+                            sub_term.numerator.drain().next().unwrap()
+                        } else {
+                            Factor::Parenthetical(Expression {
+                                minuend: HashSet::from([
+                                    self.simplify_term(&sub_term, make_substitutions)?
+                                ]),
+                                subtrahend: HashSet::new(),
+                            })
+                        }
+                    } else {
+                        let sub_term = expression.subtrahend.clone().drain().next().unwrap();
+                        Factor::Parenthetical(Expression {
+                            minuend: HashSet::new(),
+                            subtrahend: HashSet::from([
+                                self.simplify_term(&sub_term, make_substitutions)?
+                            ]),
+                        })
+                    }
+                } else {
+                    Factor::Number(Number {
+                        value: 0f64,
+                        unit: Unit {
+                            exponent: 0i8,
+                            constituents: HashMap::new(),
+                        },
+                    })
+                }
             }
             Factor::Number(number) => Factor::Number(number.clone()),
             Factor::Identifier(identifier) => {
@@ -430,7 +463,7 @@ impl ProgramModel {
         }
 
         if best_row == None {
-            return Err(format!("No formula found for {name}"));
+            return Err(format!("No formula found for `{name}`"));
         }
 
         // build resulting formula
@@ -722,5 +755,190 @@ impl ProgramModel {
             functions: HashSet::new(),
             call_depth,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn evaluate_constant_term_test1() {
+        let model = ProgramModel::new(0);
+        let term = Term {
+            numerator: HashSet::new(),
+            denominator: HashSet::new(),
+        };
+        let expected = Number {
+            value: 1f64,
+            unit: Unit {
+                exponent: 0i8,
+                constituents: HashMap::new(),
+            },
+        };
+        assert_eq!(
+            expected,
+            model
+                .evaluate_constant_term(&term)
+                .expect("Failed to evaluate")
+        );
+    }
+
+    #[test]
+    fn evaluate_constant_expression_test1() {
+        let model = ProgramModel::new(0);
+        let expression = Expression {
+            minuend: HashSet::from([Term {
+                numerator: HashSet::new(),
+                denominator: HashSet::new(),
+            }]),
+            subtrahend: HashSet::new(),
+        };
+        let expected = Number {
+            value: 1f64,
+            unit: Unit {
+                exponent: 0i8,
+                constituents: HashMap::new(),
+            },
+        };
+        assert_eq!(
+            expected,
+            model
+                .evaluate_constant_expression(&expression)
+                .expect("Failed to evaluate")
+        );
+    }
+
+    #[test]
+    fn add_matrix_row_test1() {
+        let expression_a = Expression {
+            minuend: HashSet::from([Term {
+                numerator: HashSet::from([Factor::Identifier(Identifier::new("a").unwrap())]),
+                denominator: HashSet::new(),
+            }]),
+            subtrahend: HashSet::new(),
+        };
+        let expression_2 = Expression {
+            minuend: HashSet::from([Term {
+                numerator: HashSet::from([Factor::Number(Number {
+                    value: 2f64,
+                    unit: Unit {
+                        exponent: 0i8,
+                        constituents: HashMap::new(),
+                    },
+                })]),
+                denominator: HashSet::new(),
+            }]),
+            subtrahend: HashSet::new(),
+        };
+        let mut model = ProgramModel::new(0);
+        model.add_matrix_row(expression_a, expression_2.clone());
+
+        let augmented_matrix_expected = vec![vec![
+            Expression {
+                minuend: HashSet::from([Term {
+                    numerator: HashSet::new(),
+                    denominator: HashSet::new(),
+                }]),
+                subtrahend: HashSet::new(),
+            },
+            expression_2.clone(),
+        ]];
+        assert_eq!(augmented_matrix_expected, model.augmented_matrix)
+    }
+
+    #[test]
+    fn retrieve_value_test1() {
+        let expression_a = Expression {
+            minuend: HashSet::from([Term {
+                numerator: HashSet::from([Factor::Identifier(Identifier::new("a").unwrap())]),
+                denominator: HashSet::new(),
+            }]),
+            subtrahend: HashSet::new(),
+        };
+        let expression_2 = Expression {
+            minuend: HashSet::from([Term {
+                numerator: HashSet::from([Factor::Number(Number {
+                    value: 2f64,
+                    unit: Unit {
+                        exponent: 0i8,
+                        constituents: HashMap::new(),
+                    },
+                })]),
+                denominator: HashSet::new(),
+            }]),
+            subtrahend: HashSet::new(),
+        };
+        let mut model = ProgramModel::new(0);
+        // a = 2
+        model.add_matrix_row(expression_a, expression_2.clone());
+
+        let a = model
+            .evaluate_constant_expression(
+                &model
+                    .retrieve_value(Identifier::new("a").unwrap())
+                    .expect("Failed to retrieve value"),
+            )
+            .expect("Failed to evaluate");
+        let a_expected = Number {
+            value: 2f64,
+            unit: Unit {
+                exponent: 0i8,
+                constituents: HashMap::new(),
+            },
+        };
+        assert_eq!(a_expected, a)
+    }
+
+    #[test]
+    fn retrieve_value_test2() {
+        let expression_2a = Expression {
+            minuend: HashSet::from([Term {
+                numerator: HashSet::from([
+                    Factor::Identifier(Identifier::new("a").unwrap()),
+                    Factor::Number(Number {
+                        value: 2f64,
+                        unit: Unit {
+                            exponent: 0i8,
+                            constituents: HashMap::new(),
+                        },
+                    }),
+                ]),
+                denominator: HashSet::new(),
+            }]),
+            subtrahend: HashSet::new(),
+        };
+        let expression_2 = Expression {
+            minuend: HashSet::from([Term {
+                numerator: HashSet::from([Factor::Number(Number {
+                    value: 2f64,
+                    unit: Unit {
+                        exponent: 0i8,
+                        constituents: HashMap::new(),
+                    },
+                })]),
+                denominator: HashSet::new(),
+            }]),
+            subtrahend: HashSet::new(),
+        };
+        let mut model = ProgramModel::new(0);
+        // 2a = 2
+        model.add_matrix_row(expression_2a, expression_2.clone());
+
+        let a = model
+            .evaluate_constant_expression(
+                &model
+                    .retrieve_value(Identifier::new("a").unwrap())
+                    .expect("Failed to retrieve value"),
+            )
+            .expect("Failed to evaluate");
+        let a_expected = Number {
+            value: 1f64,
+            unit: Unit {
+                exponent: 0i8,
+                constituents: HashMap::new(),
+            },
+        };
+        assert_eq!(a_expected, a)
     }
 }
