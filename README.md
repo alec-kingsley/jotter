@@ -1,8 +1,6 @@
 # Jotter interpreter
 
-DISCLAIMER: This is a work in progress. The below describes the planned documentation for the Jotter language.
-
-Jotter is for throwing down math/physics and just figuring stuff out.
+Jotter is for throwing math down and just figuring stuff out.
 Its syntax is very familiar to real math.
 
 Jotter is not meant to be a full programming language. It won't support complex string manipulation or data structures. Its goal is just to make life easier and solve problems quickly.
@@ -75,6 +73,8 @@ x = 3 [kg ^ 2 / m]
 
 Note that powers can only go on the inside of the main unit block, so `3 [kg] ^2`
 is invalid, while `3 [kg ^ 2]` and `x = 3 [[kg] ^ 2]` are both valid.
+
+## Comments and Page Breaks
 
 Another comment format is by using parentheses with stars on the inside.
 ```
