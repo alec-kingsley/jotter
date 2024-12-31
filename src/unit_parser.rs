@@ -94,14 +94,23 @@ pub fn parse_unit(code: &str, i: &mut usize) -> Result<Unit, String> {
             let mut abbreviated = false;
             let mut prefix = String::from("");
             for base_unit_index in 0..base_units.len() {
-                if base_unit_option.is_none()
-                    && token
+                if base_unit_option.is_none() {
+                    if token
                         .to_lowercase()
                         .ends_with(base_unit_suffixes[base_unit_index])
-                {
-                    base_unit_option = Some(base_units[base_unit_index].clone());
-                    prefix = token[0..token.len() - base_unit_suffixes[base_unit_index].len()]
-                        .to_string();
+                    {
+                        base_unit_option = Some(base_units[base_unit_index].clone());
+                        prefix = token[0..token.len() - base_unit_suffixes[base_unit_index].len()]
+                            .to_string();
+                    } else if token
+                        .to_lowercase()
+                        .ends_with((base_unit_suffixes[base_unit_index].to_string() + "s").as_str())
+                    {
+                        base_unit_option = Some(base_units[base_unit_index].clone());
+                        prefix = token
+                            [0..token.len() - base_unit_suffixes[base_unit_index].len() - 1]
+                            .to_string();
+                    }
                 }
             }
             if base_unit_option.is_none() {
