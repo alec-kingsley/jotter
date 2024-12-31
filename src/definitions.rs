@@ -1,10 +1,11 @@
-// statement   ::=   prompt | function | relation
+// statement   ::=   prompt | function | relation | reset
 // function    ::=   identifier '(' identifier ( ',' identifier ) * ')' '=' ( expression | '{' '\n' ( expression ',' relation '\n' ) + '}' )
 // prompt      ::=   relation '?'
 // relation    ::=   expression (( '<' | '>' | '<=' | '≤' | '>=' | '≥' | '=' | '<>' | '≠'  ) expression) *
+// reset       ::=   '---------' '-' +
 // expression  ::=   term (( '+' | '-' ) term ) *
 // term        ::=   factor (( '*' | '/' ) ? factor ) *
-// factor      ::=   '-' ? '(' expression ')' | number | identifier | call
+// factor      ::=   '(' expression ')' | number | identifier | call
 // call        ::=   identifier '(' expression ( ',' expression ) * ')'
 // number      ::=   ( '0' | [1-9][0-9]* ) ( '.' [0-9]+ ) ? unit ?
 // identifier  ::=   ( [a-zA-Zα-ωΑ-Ω] | '\'' [a-zA-Z0-9_ ]+ '\'' )
@@ -73,7 +74,7 @@ impl Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Statement::Prompt(relation) => write!(f, "{} ?", relation),
-            Statement::Equation(relation) => write!(f, "{} ?", relation),
+            Statement::Equation(relation) => write!(f, "{}", relation),
             Statement::FunctionDefinition(name, arguments, details) => write!(
                 f,
                 "{}\n}}",
@@ -816,9 +817,9 @@ impl Display for Factor {
 impl Factor {
     /// Returns true iff the factor is a number with value 1
     ///
-    pub fn is_one(self) -> bool {
+    pub fn is_unitless_one(self) -> bool {
         if let Factor::Number(number) = self {
-            number.is_one()
+            number.is_unitless_one()
         } else {
             false
         }
@@ -832,9 +833,9 @@ impl Mul for Factor {
     ///
     fn mul(self, other: Self) -> Self {
         let mut result: Option<Factor> = None;
-        if self.clone().is_one() {
+        if self.clone().is_unitless_one() {
             result = Some(other.clone());
-        } else if other.clone().is_one() {
+        } else if other.clone().is_unitless_one() {
             result = Some(self.clone());
         } else if let Factor::Number(self_number) = self.clone() {
             if let Factor::Number(other_number) = other.clone() {
@@ -899,9 +900,7 @@ impl Div for Factor {
     ///
     fn div(self, other: Self) -> Self {
         let mut result: Option<Factor> = None;
-        if other.clone().is_one() {
-            result = Some(self.clone());
-        } else if let Factor::Number(self_number) = self.clone() {
+        if let Factor::Number(self_number) = self.clone() {
             if let Factor::Number(other_number) = other.clone() {
                 result = Some(Factor::Number(self_number / other_number));
             }
@@ -1022,7 +1021,7 @@ impl PartialEq for Number {
             let mut other_clone = other.clone();
             let exp_diff = other_clone.unit.exponent - self.unit.exponent;
             other_clone.unit.exponent -= exp_diff;
-            other_clone.value = other_clone.value * (10 as u64).pow(exp_diff as u32) as f64;
+            other_clone.value = other_clone.value * (10 as f64).powi(exp_diff as i32);
             other_clone.value *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
             let epsilon = 1e-8;
             other_clone.value < self.value + epsilon && other_clone.value > self.value - epsilon
@@ -1033,8 +1032,11 @@ impl PartialEq for Number {
 impl Number {
     /// Returns true iff the number has a value of 1
     ///
-    pub fn is_one(&self) -> bool {
-        self.value * 10f64.powi(self.unit.exponent as i32) as f64 == 1f64
+    pub fn is_unitless_one(&self) -> bool {
+        self.value * 10f64.powi(self.unit.exponent as i32) as f64 == 1f64 && self.unit == Unit {
+            exponent: 0,
+            constituents: HashMap::new(),
+        }
     }
 
     /// Returns true iff the number has a value of 0
@@ -1052,12 +1054,12 @@ impl Number {
         let mut new_value = self.value;
         let mut new_exponent = self.unit.exponent;
         if new_exponent > 0 {
-            while new_exponent > 30 || new_exponent % (3 * subunit_exponent) != 0 {
+            while new_exponent > 30 || (subunit_exponent != 0 && new_exponent % (3 * subunit_exponent) != 0) {
                 new_value *= 10f64;
                 new_exponent -= 1;
             }
         } else {
-            while new_exponent < -30 || new_exponent % (3 * subunit_exponent) != 0 {
+            while new_exponent < -30 || (subunit_exponent != 0 && new_exponent % (3 * subunit_exponent) != 0) {
                 new_value /= 10f64;
                 new_exponent += 1;
             }
@@ -1164,13 +1166,13 @@ impl Display for Number {
             if denominator.is_empty() {
                 write!(f, "{}", self_clone.value)
             } else {
-                write!(f, "{} [1 / {}]", self_clone.value, denominator)
+                write!(f, "{} [1 / ({})]", self_clone.value, denominator)
             }
         } else {
             if denominator.is_empty() {
                 write!(f, "{} [{}]", self_clone.value, numerator)
             } else {
-                write!(f, "{} [{} / {}]", self_clone.value, numerator, denominator)
+                write!(f, "{} [{} / ({})]", self_clone.value, numerator, denominator)
             }
         }
     }
@@ -1234,7 +1236,7 @@ impl Add for Number {
         let mut other_clone = other.clone();
         let exp_diff = other_clone.unit.exponent - self.unit.exponent;
         other_clone.unit.exponent -= exp_diff;
-        other_clone.value = other_clone.value * (10 as u64).pow(exp_diff as u32) as f64;
+        other_clone.value = other_clone.value * (10 as f64).powi(exp_diff as i32) as f64;
         other_clone.value *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
         Self {
             value: self.value + other_clone.value,
@@ -1284,7 +1286,7 @@ impl Sub for Number {
         let mut other_clone = other.clone();
         let exp_diff = other_clone.unit.exponent - self.unit.exponent;
         other_clone.unit.exponent -= exp_diff;
-        other_clone.value = other_clone.value * (10 as u64).pow(exp_diff as u32) as f64;
+        other_clone.value = other_clone.value * (10 as f64).powi(exp_diff as i32);
         other_clone.value *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
         Self {
             value: self.value - other_clone.value,
@@ -1371,7 +1373,7 @@ impl PartialOrd for Number {
     /// Operator overload for <, >, <=, >=
     ///
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        assert!(self.unit == other.unit, "Mismatched types");
+        assert!(self.unit == other.unit || (self.is_zero() || other.is_zero()), "Mismatched types");
 
         if self == other {
             Some(Ordering::Equal)
@@ -1379,7 +1381,7 @@ impl PartialOrd for Number {
             let mut other_clone = other.clone();
             let exp_diff = other_clone.unit.exponent - self.unit.exponent;
             other_clone.unit.exponent -= exp_diff;
-            other_clone.value = other_clone.value * (10 as u64).pow(exp_diff as u32) as f64;
+            other_clone.value = other_clone.value * (10 as f64).powi(exp_diff as i32);
             other_clone.value *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
             Some(if self.value < other_clone.value {
                 Ordering::Less
@@ -1412,7 +1414,7 @@ impl Identifier {
     /// An initialized identifier.
     ///
     /// # Errors
-    /// * "Invalid identifier" - identifier did not match regex.
+    /// * "Invalid identifier: {value}" - identifier did not match regex.
     ///
     pub fn new(value: &str) -> Result<Self, String> {
         if Regex::new(r"^([a-zA-Zα-ωΑ-Ω]|'[a-zA-Z0-9_ ]+')$")
@@ -1423,7 +1425,7 @@ impl Identifier {
                 value: value.to_string(),
             })
         } else {
-            Err(String::from("Invalid identifier"))
+            Err(format!("Invalid identifier: `{value}`"))
         }
     }
 }

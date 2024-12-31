@@ -8,13 +8,14 @@ Jotter is not meant to be a full programming language. It won't support complex 
 ## Grammar
 
 ```
-statement   ::=   prompt | function | relation
+statement   ::=   prompt | function | relation | reset
 function    ::=   identifier '(' identifier ( ',' identifier ) * ')' '=' ( expression | '{' '\n' ( expression ',' relation '\n' ) + '}' )
 prompt      ::=   relation '?'
 relation    ::=   expression (( '<' | '>' | '<=' | '≤' | '>=' | '≥' | '=' | '<>' | '≠'  ) expression ) *
+reset       ::=   '---------' '-' +
 expression  ::=   term (( '+' | '-' ) term ) *
 term        ::=   factor (( '*' | '/' ) ? factor ) *
-factor      ::=   '-' ? '(' expression ')' | number | identifier | call
+factor      ::=   '(' expression ')' | number | identifier | call
 call        ::=   identifier '(' expression ( ',' expression ) * ')'
 number      ::=   ( '0' | [1-9][0-9]* ) ( '.' [0-9]+ ) ? unit ?
 identifier  ::=   ( [a-zA-Zα-ωΑ-Ω] | '\'' [a-zA-Z0-9_ ]+ '\'' )

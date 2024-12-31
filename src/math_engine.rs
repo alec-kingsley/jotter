@@ -21,7 +21,6 @@ pub fn process_prompt(model: &ProgramModel, prompt: Relation) {
         } else {
             println!("{prompt} : {}", simplified);
         }
-
     } else {
         println!("{prompt} : ERROR - {}", simplified_result.unwrap_err());
     }
@@ -97,16 +96,19 @@ impl ProgramModel {
     /// f(x) = x
     /// f(x) ?
     /// would print
-    /// f(x): x
+    /// f(x) : x
     /// as opposed to an error
     ///
     /// # Arguments
     /// * `call` - The `Call` to make.
     ///
     fn make_call(&self, call: &Call) -> Result<Expression, String> {
-        if let Some(Statement::FunctionDefinition(_, arguments, definition)) = self.functions.get(
-            &Statement::FunctionDefinition(call.name.clone(), Vec::new(), Vec::new()),
-        ) {
+        if let Some(Statement::FunctionDefinition(_, arguments, definition)) = self
+            .functions
+            .iter()
+            .find(|stmt| matches!(stmt, Statement::FunctionDefinition(n, _, _) if n == &call.name))
+            .cloned()
+        {
             assert!(self.call_depth < 500, "Maximum call depth of 500 reached");
             if arguments.len() != call.arguments.len() {
                 Err(format!(
@@ -125,9 +127,7 @@ impl ProgramModel {
                         call.arguments[i].clone(),
                         Expression {
                             minuend: Vec::from([Term {
-                                numerator: Vec::from([Factor::Identifier(
-                                    arguments[i].clone(),
-                                )]),
+                                numerator: Vec::from([Factor::Identifier(arguments[i].clone())]),
                                 denominator: Vec::new(),
                             }]),
                             subtrahend: Vec::new(),
@@ -138,7 +138,7 @@ impl ProgramModel {
                 let mut result: Option<Expression> = None;
                 for (expression, relation) in definition {
                     if result.is_none() {
-                        let evaluated_result = model.simplify_relation(relation);
+                        let evaluated_result = model.simplify_relation(&relation);
                         if evaluated_result.is_ok() {
                             let evaluated = evaluated_result.unwrap();
                             let true_expr = Expression {
@@ -149,7 +149,7 @@ impl ProgramModel {
                                 subtrahend: Vec::new(),
                             };
                             if evaluated.operands.len() == 1 && evaluated.operands[0] == true_expr {
-                                result = Some(expression.clone());
+                                result = Some(model.simplify_expression(&expression, true)?);
                             }
                         }
                     }
@@ -314,7 +314,7 @@ impl ProgramModel {
 
         // combine all the numeric literals and return if not one
         let number = new_term.extract_number();
-        if !number.is_one() {
+        if !number.is_unitless_one() {
             new_term.numerator.push(Factor::Number(number));
         }
 
@@ -332,6 +332,7 @@ impl ProgramModel {
         expression: &Expression,
         make_substitutions: bool,
     ) -> Result<Expression, String> {
+
         let mut new_expression = Expression {
             minuend: Vec::new(),
             subtrahend: Vec::new(),
@@ -379,7 +380,7 @@ impl ProgramModel {
         }
         new_relation.operators.clone_from(&relation.operators);
 
-        let mut all_true = true;
+        let mut all_true = !relation.operators.is_empty();
         let mut has_false = false;
         // attempt to evaluate to constant boolean value
         for op_i in 0..relation.operators.len() {
@@ -387,7 +388,7 @@ impl ProgramModel {
             let left_result = self.evaluate_constant_expression(&relation.operands[op_i]);
             let right_result = self.evaluate_constant_expression(&relation.operands[op_i + 1]);
             if left_result.is_ok() && right_result.is_ok() {
-                if compare(
+                if !compare(
                     left_result.unwrap(),
                     right_result.unwrap(),
                     &relation.operators[op_i],
@@ -438,7 +439,19 @@ impl ProgramModel {
     ///
     fn retrieve_value(&self, name: Identifier) -> Result<Expression, String> {
         // find index of identifier
-        let value_col = self.variables.iter().position(|var| var == &name).unwrap();
+        let value_col_result = self.variables.iter().position(|var| var == &name);
+        if value_col_result.is_none() {
+            // TODO - we don't need to give up here. Try to find some term in the augmented matrix
+            // which uses this. There could be something.
+            return Ok(Expression {
+                minuend: vec![Term {
+                    numerator: vec![Factor::Identifier(name)],
+                    denominator: Vec::new(),
+                }],
+                subtrahend: Vec::new(),
+            });
+        }
+        let value_col = value_col_result.unwrap();
         let row_ct = self.augmented_matrix.len();
         let col_ct = self.augmented_matrix[0].len();
 
@@ -744,7 +757,12 @@ impl ProgramModel {
 
         // only insert if it doesn't already exist.
         // note that functions are compared for equality only by their name.
-        if let Some(_) = self.functions.get(&function) {
+        if let Some(_) = self
+            .functions
+            .iter()
+            .find(|stmt| matches!(stmt, Statement::FunctionDefinition(n, _, _) if n == &name))
+            .cloned()
+        {
             Err(format!("Function `{name}` already defined"))
         } else {
             self.functions.insert(function);
@@ -909,6 +927,8 @@ mod tests {
         let expression_7 = parse_expression("7", &mut 0).unwrap();
         let expression_y_minus_x = parse_expression("y - x", &mut 0).unwrap();
         let expression_neg_4 = parse_expression("-4", &mut 0).unwrap();
+        println!("{expression_3x_plus_2y} == {expression_7}");
+        println!("{expression_y_minus_x} == {expression_neg_4}");
         let mut model = ProgramModel::new(0);
         // 3x + 2y = 7
         model.add_matrix_row(expression_3x_plus_2y, expression_7);

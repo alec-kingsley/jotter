@@ -34,7 +34,7 @@ fn interpret_as_whole(code: &str) {
                 process_function(&mut model, name, arguments, definition)
             }
             Ok(Statement::Reset) => {
-                println!("---------");
+                println!("--------------------");
                 model = ProgramModel::new(0);
             }
             Err(msg) => {
@@ -80,7 +80,7 @@ fn spawn_jotter_terminal() {
                         process_function(&mut model, name, arguments, definition)
                     }
                     Ok(Statement::Reset) => {
-                        println!("---------");
+                        println!("Program state reset.");
                         model = ProgramModel::new(0);
                     }
                     Err(msg) => {
