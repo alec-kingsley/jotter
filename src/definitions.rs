@@ -313,7 +313,6 @@ impl Expression {
     /// Combine like terms in `Expression`.
     ///
     fn combine_like_terms(&mut self) {
-        println!("DEBUG - COMBINING LIKE TERMS FOR: `{self}`");
         let mut numbers: Vec<Number> = Vec::new();
         let mut terms: Vec<Term> = Vec::new();
 
@@ -358,13 +357,14 @@ impl Expression {
             let number = numbers[i].clone();
             let mut operand = terms[i].clone();
             if number != one && number != -one.clone() {
-                operand
-                    .numerator
-                    .push(Factor::Number(if number > zero.clone() {
+                operand.numerator.insert(
+                    0,
+                    Factor::Number(if number > zero.clone() {
                         number.clone()
                     } else {
                         -number.clone()
-                    }));
+                    }),
+                );
             }
             if number > zero.clone() {
                 self.minuend.push(operand);

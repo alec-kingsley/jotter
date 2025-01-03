@@ -366,7 +366,7 @@ impl ProgramModel {
                         .push(self.simplify_factor(&denominator_factor, make_substitutions)?);
                 }
             } else if expression.minuend.is_empty() {
-            if expression.subtrahend.len() == 1 {
+                if expression.subtrahend.len() == 1 {
                     new_term /= expression.subtrahend[0].clone()
                         * -Term {
                             numerator: vec![one.clone()],
