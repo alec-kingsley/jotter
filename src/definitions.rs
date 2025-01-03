@@ -367,7 +367,7 @@ impl Expression {
             }
             if number > zero.clone() {
                 self.minuend.push(operand);
-            } else {
+            } else if number < zero.clone() {
                 self.subtrahend.push(operand);
             }
         }
