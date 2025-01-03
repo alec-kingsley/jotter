@@ -607,7 +607,7 @@ impl Term {
         for self_factor in self.denominator.clone() {
             if let Factor::Parenthetical(mut self_expression) = self_factor.clone() {
                 self_expression.flatten();
-                // if it's just one term 
+                // if it's just one term
                 if self_expression.minuend.len() + self_expression.subtrahend.len() == 1 {
                     if self_expression.subtrahend.is_empty() {
                         new_term /= self_expression.minuend[0].clone();
@@ -1033,10 +1033,12 @@ impl Number {
     /// Returns true iff the number has a value of 1
     ///
     pub fn is_unitless_one(&self) -> bool {
-        self.value * 10f64.powi(self.unit.exponent as i32) as f64 == 1f64 && self.unit == Unit {
-            exponent: 0,
-            constituents: HashMap::new(),
-        }
+        self.value * 10f64.powi(self.unit.exponent as i32) as f64 == 1f64
+            && self.unit
+                == Unit {
+                    exponent: 0,
+                    constituents: HashMap::new(),
+                }
     }
 
     /// Returns true iff the number has a value of 0
@@ -1054,12 +1056,16 @@ impl Number {
         let mut new_value = self.value;
         let mut new_exponent = self.unit.exponent;
         if new_exponent > 0 {
-            while new_exponent > 30 || (subunit_exponent != 0 && new_exponent % (3 * subunit_exponent) != 0) {
+            while new_exponent > 30
+                || (subunit_exponent != 0 && new_exponent % (3 * subunit_exponent) != 0)
+            {
                 new_value *= 10f64;
                 new_exponent -= 1;
             }
         } else {
-            while new_exponent < -30 || (subunit_exponent != 0 && new_exponent % (3 * subunit_exponent) != 0) {
+            while new_exponent < -30
+                || (subunit_exponent != 0 && new_exponent % (3 * subunit_exponent) != 0)
+            {
                 new_value /= 10f64;
                 new_exponent += 1;
             }
@@ -1166,17 +1172,21 @@ impl Display for Number {
         }
 
         // write final result depending on numerator/denominator contents
+        let numeric_str = format!("{:.10}", self_clone.value)
+            .trim_end_matches('0')
+            .trim_end_matches('.')
+            .to_owned();
         if numerator.is_empty() {
             if denominator.is_empty() {
-                write!(f, "{:.10}", self_clone.value)
+                write!(f, "{}", numeric_str)
             } else {
-                write!(f, "{:.10} [1 / {}]", self_clone.value, denominator)
+                write!(f, "{} [1 / {}]", numeric_str, denominator)
             }
         } else {
             if denominator.is_empty() {
-                write!(f, "{:.10} [{}]", self_clone.value, numerator)
+                write!(f, "{} [{}]", numeric_str, numerator)
             } else {
-                write!(f, "{:.10} [{} / {}]", self_clone.value, numerator, denominator)
+                write!(f, "{} [{} / {}]", numeric_str, numerator, denominator)
             }
         }
     }
@@ -1377,7 +1387,10 @@ impl PartialOrd for Number {
     /// Operator overload for <, >, <=, >=
     ///
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        assert!(self.unit == other.unit || (self.is_zero() || other.is_zero()), "Mismatched types");
+        assert!(
+            self.unit == other.unit || (self.is_zero() || other.is_zero()),
+            "Mismatched types"
+        );
 
         if self == other {
             Some(Ordering::Equal)
@@ -1575,9 +1588,7 @@ mod tests {
             arguments: vec![
                 Expression {
                     minuend: Vec::from([Term {
-                        numerator: Vec::from([Factor::Identifier(
-                            Identifier::new("a").unwrap(),
-                        )]),
+                        numerator: Vec::from([Factor::Identifier(Identifier::new("a").unwrap())]),
                         denominator: Vec::new(),
                     }]),
                     subtrahend: Vec::new(),

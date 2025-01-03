@@ -121,7 +121,7 @@ g(4) ?
 
 Expected output:
 ```
-g(4): 8
+g(4) : 8
 ```
 
 Note that any comments within a multi-line function definition must be in the (**) format.
