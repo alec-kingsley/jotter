@@ -2,7 +2,7 @@
 // function    ::=   identifier '(' identifier ( ',' identifier ) * ')' '=' ( expression | '{' '\n' ( expression ',' relation '\n' ) + '}' )
 // prompt      ::=   relation '?'
 // relation    ::=   expression (( '<' | '>' | '<=' | '≤' | '>=' | '≥' | '=' | '<>' | '≠'  ) expression) *
-// reset       ::=   '---------' '-' +
+// reset       ::=   '-'{10,}
 // expression  ::=   term (( '+' | '-' ) term ) *
 // term        ::=   factor (( '*' | '/' ) ? factor ) *
 // factor      ::=   '(' expression ')' | number | identifier | call
@@ -1124,6 +1124,10 @@ impl Display for Number {
         let mut denominator = String::new();
         let mut processed_prefix = false;
         for (base_unit, unit_power) in self_clone.unit.constituents.clone() {
+            if unit_power == 0 {
+                continue;
+            }
+
             let mut unit_name = unit_abbreviations.get(&base_unit).unwrap().to_string();
             // assign power on first iteration
             if !processed_prefix {
@@ -1153,7 +1157,7 @@ impl Display for Number {
                 denominator = if denominator.is_empty() {
                     unit_name
                 } else {
-                    format!("{denominator} {}", unit_name)
+                    format!("{denominator} / {}", unit_name)
                 };
                 if unit_power < -1i8 {
                     denominator = format!("{denominator}^{}", -unit_power);
@@ -1166,13 +1170,13 @@ impl Display for Number {
             if denominator.is_empty() {
                 write!(f, "{}", self_clone.value)
             } else {
-                write!(f, "{} [1 / ({})]", self_clone.value, denominator)
+                write!(f, "{} [1 / {}]", self_clone.value, denominator)
             }
         } else {
             if denominator.is_empty() {
                 write!(f, "{} [{}]", self_clone.value, numerator)
             } else {
-                write!(f, "{} [{} / ({})]", self_clone.value, numerator, denominator)
+                write!(f, "{} [{} / {}]", self_clone.value, numerator, denominator)
             }
         }
     }

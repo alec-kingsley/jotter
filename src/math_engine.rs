@@ -1,5 +1,6 @@
 use crate::definitions::*;
 use std::cmp;
+use std::process;
 use std::collections::{HashMap, HashSet};
 
 /// Process the AST of a prompt.
@@ -109,7 +110,11 @@ impl ProgramModel {
             .find(|stmt| matches!(stmt, Statement::FunctionDefinition(n, _, _) if n == &call.name))
             .cloned()
         {
-            assert!(self.call_depth < 500, "Maximum call depth of 500 reached");
+            if self.call_depth > 100 {
+                eprintln!("ERROR: Maximum call depth of 100 reached");
+                process::exit(1);
+            }
+
             if arguments.len() != call.arguments.len() {
                 Err(format!(
                     "Function `{}` takes `{}` arguments, while `{}` were supplied.",
@@ -124,7 +129,7 @@ impl ProgramModel {
                 for i in 0..arguments.len() {
                     // assign each variable name to its argument
                     model.add_matrix_row(
-                        call.arguments[i].clone(),
+                        self.simplify_expression(&call.arguments[i], true).expect("Failed to simplify call argument"),
                         Expression {
                             minuend: Vec::from([Term {
                                 numerator: Vec::from([Factor::Identifier(arguments[i].clone())]),
@@ -332,7 +337,6 @@ impl ProgramModel {
         expression: &Expression,
         make_substitutions: bool,
     ) -> Result<Expression, String> {
-
         let mut new_expression = Expression {
             minuend: Vec::new(),
             subtrahend: Vec::new(),
@@ -383,15 +387,15 @@ impl ProgramModel {
         let mut all_true = !relation.operators.is_empty();
         let mut has_false = false;
         // attempt to evaluate to constant boolean value
-        for op_i in 0..relation.operators.len() {
+        for op_i in 0..new_relation.operators.len() {
             // evaluate left and right
-            let left_result = self.evaluate_constant_expression(&relation.operands[op_i]);
-            let right_result = self.evaluate_constant_expression(&relation.operands[op_i + 1]);
+            let left_result = self.evaluate_constant_expression(&new_relation.operands[op_i]);
+            let right_result = self.evaluate_constant_expression(&new_relation.operands[op_i + 1]);
             if left_result.is_ok() && right_result.is_ok() {
                 if !compare(
                     left_result.unwrap(),
                     right_result.unwrap(),
-                    &relation.operators[op_i],
+                    &new_relation.operators[op_i],
                 ) {
                     // short circuit if any false ones found
                     has_false = true;
@@ -617,13 +621,22 @@ impl ProgramModel {
         // remove expressions which are all 0s
         for row in 0..row_ct {
             let idx = row_ct - row - 1;
-            if self.augmented_matrix[idx].iter().all(|expr| {
-                match self.evaluate_constant_expression(&expr) {
+            if self.augmented_matrix[idx][0..col_ct - 1]
+                .iter()
+                .all(|expr| match self.evaluate_constant_expression(&expr) {
                     Ok(number) => number.is_zero(),
                     Err(_) => false,
+                })
+            {
+                if self
+                    .evaluate_constant_expression(&self.augmented_matrix[idx][col_ct - 1])
+                    .is_ok_and(|n| n.is_zero())
+                {
+                    self.augmented_matrix.remove(idx);
+                } else {
+                    eprintln!("ERROR: Logical error introduced.");
+                    process::exit(1);
                 }
-            }) {
-                self.augmented_matrix.remove(idx);
             }
         }
     }

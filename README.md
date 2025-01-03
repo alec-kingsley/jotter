@@ -1,9 +1,15 @@
-# Jotter interpreter
+# Jotter Interpreter
 
 Jotter is for throwing math down and just figuring stuff out.
 Its syntax is very familiar to real math.
 
 Jotter is not meant to be a full programming language. It won't support complex string manipulation or data structures. Its goal is just to make life easier and solve problems quickly.
+
+## Usage
+
+`cargo run` - open an interactive Jotter terminal
+
+`cargo run example.jt` - run a Jotter program from a file
 
 ## Grammar
 
@@ -12,7 +18,7 @@ statement   ::=   prompt | function | relation | reset
 function    ::=   identifier '(' identifier ( ',' identifier ) * ')' '=' ( expression | '{' '\n' ( expression ',' relation '\n' ) + '}' )
 prompt      ::=   relation '?'
 relation    ::=   expression (( '<' | '>' | '<=' | '≤' | '>=' | '≥' | '=' | '<>' | '≠'  ) expression ) *
-reset       ::=   '---------' '-' +
+reset       ::=   '-'{10,}
 expression  ::=   term (( '+' | '-' ) term ) *
 term        ::=   factor (( '*' | '/' ) ? factor ) *
 factor      ::=   '(' expression ')' | number | identifier | call
@@ -44,8 +50,8 @@ y ?
 
 Expected output:
 ```
-x: 3
-y: -1
+x : 3
+y : -1
 ```
 
 ## Units
@@ -59,7 +65,7 @@ tv ?
 
 Expected output:
 ```
-tv: 0.6 [mm]
+t * v : 600 [μm]
 ```
 
 Units can also have different powers and sub-units. So
@@ -74,6 +80,10 @@ x = 3 [kg ^ 2 / m]
 
 Note that powers can only go on the inside of the main unit block, so `3 [kg] ^2`
 is invalid, while `3 [kg ^ 2]` and `3 [[kg] ^ 2]` are both valid.
+
+So far, only the SI base units are supported. (meter, kilogram, second, ampere, kelvin, mole, candela)
+Each unit is only case sensitive if written as an abbreviation (like `km`) but can be written with any case
+and with or without an `s` at th end if not abbreviated. (`kilometer`, `Kilometer`, `KILOMETERS` are all acceptable)
 
 ## Comments and Page Breaks
 
@@ -114,4 +124,22 @@ Expected output:
 g(4): 8
 ```
 
+Note that any comments within a multi-line function definition must be in the (**) format.
+
+## Planned Features
+
+### Units
+
+- Names for SI units outside base units. (Watt, Hour, etc)
+- Support for customary units as well as Metric
+- Ability to add user-defined units
+
+### Solver
+
+- Ability to solve non-linear systems of equations
+- Add common math functions such as `sin`, `cos`, `tan`, `log`, `mod`
+
+### Functions
+
+- Add integrals and derivatives, as well as a differential equation solver
 
