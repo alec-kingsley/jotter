@@ -10,7 +10,10 @@ b?
 c?
 d?
 
+Expected output:
+
 a : 5
 b : 6
 c : 4
 d : 8
+

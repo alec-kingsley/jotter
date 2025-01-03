@@ -11,26 +11,6 @@ Jotter is not meant to be a full programming language. It won't support complex 
 
 `cargo run example.jt` - run a Jotter program from a file
 
-## Grammar
-
-```
-statement   ::=   prompt | function | relation | reset
-function    ::=   identifier '(' identifier ( ',' identifier ) * ')' '=' ( expression | '{' '\n' ( expression ',' relation '\n' ) + '}' )
-prompt      ::=   relation '?'
-relation    ::=   expression (( '<' | '>' | '<=' | '≤' | '>=' | '≥' | '=' | '<>' | '≠'  ) expression ) *
-reset       ::=   '-'{10,}
-expression  ::=   term (( '+' | '-' ) term ) *
-term        ::=   factor (( '*' | '/' ) ? factor ) *
-factor      ::=   '(' expression ')' | number | identifier | call
-call        ::=   identifier '(' expression ( ',' expression ) * ')'
-number      ::=   ( '0' | [1-9][0-9]* ) ( '.' [0-9]+ ) ? unit ?
-identifier  ::=   ( [a-zA-Zα-ωΑ-Ω] | '\'' [a-zA-Z0-9_ ]+ '\'' )
-unit        ::=   '[' unit_term ']'
-unit_term   ::=   unit_factor (( '*' | '/') ? unit_factor) *
-unit_factor ::=   unit | baseunit ( '^' '-' ? [1-9][0-9]* )
-baseunit    ::=   [a-zA-Zα-ωΑ-Ω]+
-```
-
 ## Basics
 
 Any syntactically invalid lines are assumed to just be comments.
@@ -43,7 +23,8 @@ Here's a program to solve a system of equations:
 3x + 2y = 7
 y - x = -4
 
-Print what x and y are: (the question mark means it's asking for those)
+Print what x and y are:
+('?' represents a prompt)
 x ?
 y ?
 ```
@@ -116,15 +97,39 @@ g(x) = {
 }
 
 
+f(2) ?
 g(4) ? 
 ```
 
 Expected output:
 ```
+f(1) : 5
 g(4) : 8
 ```
 
 Note that any comments within a multi-line function definition must be in the (**) format.
+
+## Implementation Details
+
+### Grammar
+
+```
+statement   ::=   prompt | function | relation | reset
+function    ::=   identifier '(' identifier ( ',' identifier ) * ')' '=' ( expression | '{' '\n' ( expression ',' relation '\n' ) + '}' )
+prompt      ::=   relation '?'
+relation    ::=   expression (( '<' | '>' | '<=' | '≤' | '>=' | '≥' | '=' | '<>' | '≠'  ) expression ) *
+reset       ::=   '-'{10,}
+expression  ::=   term (( '+' | '-' ) term ) *
+term        ::=   factor (( '*' | '/' ) ? factor ) *
+factor      ::=   '(' expression ')' | number | identifier | call
+call        ::=   identifier '(' expression ( ',' expression ) * ')'
+number      ::=   ( '0' | [1-9][0-9]* ) ( '.' [0-9]+ ) ? unit ?
+identifier  ::=   ( [a-zA-Zα-ωΑ-Ω] | '\'' [a-zA-Z0-9_ ]+ '\'' )
+unit        ::=   '[' unit_term ']'
+unit_term   ::=   unit_factor (( '*' | '/') ? unit_factor) *
+unit_factor ::=   unit | baseunit ( '^' '-' ? [1-9][0-9]* ) ?
+baseunit    ::=   [a-zA-Zα-ωΑ-Ω]+
+```
 
 ## Planned Features
 
