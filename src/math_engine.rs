@@ -735,7 +735,7 @@ impl ProgramModel {
         row_vector.push(column_vector_element);
         self.augmented_matrix.push(row_vector);
         self.reduce();
-        if !self.relations_hold() {
+        if !self.assert_relations_hold() {
             eprintln!("ERROR: Logical error introduced.");
             process::exit(1);
         }
