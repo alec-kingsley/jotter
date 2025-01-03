@@ -313,6 +313,7 @@ impl Expression {
     /// Combine like terms in `Expression`.
     ///
     fn combine_like_terms(&mut self) {
+        println!("DEBUG - COMBINING LIKE TERMS FOR: `{self}`");
         let mut numbers: Vec<Number> = Vec::new();
         let mut terms: Vec<Term> = Vec::new();
 
@@ -509,7 +510,7 @@ impl DivAssign for Expression {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct Term {
     /// operands being multiplied.
     /// if empty, value is 1.
@@ -521,6 +522,40 @@ pub struct Term {
     ///
     pub denominator: Vec<Factor>,
 }
+
+impl PartialEq for Term {
+    /// Operator overload for ==.
+    ///
+    fn eq(&self, other: &Self) -> bool {
+        let mut removable = other.clone();
+        let mut all_removed = true;
+        for operand in &self.numerator {
+            let mut removed = false;
+            for i in (0..removable.numerator.len()).rev() {
+                if operand == &removable.numerator[i] {
+                    removable.numerator.remove(i);
+                    removed = true;
+                    break;
+                }
+            }
+            all_removed &= removed;
+        }
+        for operand in &self.denominator {
+            let mut removed = false;
+            for i in (0..removable.denominator.len()).rev() {
+                if operand == &removable.denominator[i] {
+                    removable.denominator.remove(i);
+                    removed = true;
+                    break;
+                }
+            }
+            all_removed &= removed;
+        }
+        all_removed && removable.numerator.is_empty() && removable.denominator.is_empty()
+    }
+}
+
+impl Eq for Term {}
 
 impl Hash for Term {
     /// Hash for a `Term`.
