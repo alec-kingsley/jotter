@@ -326,7 +326,7 @@ impl ProgramModel {
             if expression.subtrahend.is_empty() {
                 if expression.minuend.len() == 1 {
                     new_term *= expression.minuend[0].clone();
-                } else if expression.minuend.len() > 1 {
+                } else {
                     new_term
                         .numerator
                         .push(self.simplify_factor(&numerator_factor, make_substitutions)?);
@@ -360,7 +360,7 @@ impl ProgramModel {
             if expression.subtrahend.is_empty() {
                 if expression.minuend.len() == 1 {
                     new_term /= expression.minuend[0].clone();
-                } else if expression.minuend.len() > 1 {
+                } else {
                     new_term
                         .denominator
                         .push(self.simplify_factor(&denominator_factor, make_substitutions)?);
@@ -391,7 +391,7 @@ impl ProgramModel {
         // combine all the numeric literals and return if not one
         let number = new_term.extract_number();
         if !number.is_unitless_one() {
-            new_term.numerator.push(Factor::Number(number));
+            new_term.numerator.insert(0,Factor::Number(number));
         }
 
         Ok(new_term)
