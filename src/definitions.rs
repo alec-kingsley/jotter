@@ -20,6 +20,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
+use std::iter::Product;
 use std::ops::*;
 
 #[derive(Debug, Hash, Clone)]
@@ -619,6 +620,7 @@ impl Term {
             denominator: Vec::new(),
         };
 
+        let mut numerator_has_parenthetical = false;
         for self_factor in self.numerator.clone() {
             if let Factor::Parenthetical(mut self_expression) = self_factor.clone() {
                 self_expression.flatten();
@@ -627,18 +629,23 @@ impl Term {
                     if self_expression.subtrahend.is_empty() {
                         new_term *= self_expression.minuend[0].clone();
                     } else {
-                        new_term = -new_term * self_expression.subtrahend[0].clone();
+                        new_term *= -self_expression.subtrahend[0].clone();
                     }
                 } else {
                     new_term
                         .numerator
                         .push(Factor::Parenthetical(self_expression));
+                    numerator_has_parenthetical = true;
                 }
             } else {
                 new_term.numerator.push(self_factor);
             }
         }
+        if numerator_has_parenthetical {
+            new_term.numerator = vec![new_term.numerator.drain(..).product()]
+        }
 
+        let mut denominator_has_parenthetical = false;
         for self_factor in self.denominator.clone() {
             if let Factor::Parenthetical(mut self_expression) = self_factor.clone() {
                 self_expression.flatten();
@@ -647,16 +654,20 @@ impl Term {
                     if self_expression.subtrahend.is_empty() {
                         new_term /= self_expression.minuend[0].clone();
                     } else {
-                        new_term = -new_term / self_expression.subtrahend[0].clone();
+                        new_term /= -self_expression.subtrahend[0].clone();
                     }
                 } else {
                     new_term
                         .denominator
                         .push(Factor::Parenthetical(self_expression));
+                    denominator_has_parenthetical = true;
                 }
             } else {
                 new_term.denominator.push(self_factor);
             }
+        }
+        if denominator_has_parenthetical {
+            new_term.denominator = vec![new_term.denominator.drain(..).product()]
         }
 
         self.clone_from(&new_term);
@@ -925,6 +936,14 @@ impl MulAssign for Factor {
     ///
     fn mul_assign(&mut self, other: Self) {
         self.clone_from(&(self.clone() * other));
+    }
+}
+
+impl Product for Factor {
+    /// Overload for product
+    ///
+    fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.reduce(|a, b| a * b).expect("Iterator is empty")
     }
 }
 

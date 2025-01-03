@@ -338,7 +338,7 @@ impl ProgramModel {
                             numerator: vec![one.clone()],
                             denominator: Vec::new(),
                         };
-                } else if expression.minuend.len() > 1 {
+                } else if expression.subtrahend.len() > 1 {
                     new_term
                         .numerator
                         .push(self.simplify_factor(&numerator_factor, make_substitutions)?);
@@ -372,7 +372,7 @@ impl ProgramModel {
                             numerator: vec![one.clone()],
                             denominator: Vec::new(),
                         };
-                } else if expression.minuend.len() > 1 {
+                } else if expression.subtrahend.len() > 1 {
                     new_term
                         .denominator
                         .push(self.simplify_factor(&denominator_factor, make_substitutions)?);
