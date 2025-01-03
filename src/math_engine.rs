@@ -735,7 +735,10 @@ impl ProgramModel {
         row_vector.push(column_vector_element);
         self.augmented_matrix.push(row_vector);
         self.reduce();
-        assert!(self.assert_relations_hold(), "ERROR - impossible situation");
+        if !self.relations_hold() {
+            eprintln!("ERROR: Logical error introduced.");
+            process::exit(1);
+        }
     }
 
     /// Add a relation to `self.relations`.
