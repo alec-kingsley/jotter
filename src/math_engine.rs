@@ -391,7 +391,7 @@ impl ProgramModel {
         // combine all the numeric literals and return if not one
         let number = new_term.extract_number();
         if !number.is_unitless_one() {
-            new_term.numerator.insert(0,Factor::Number(number));
+            new_term.numerator.insert(0, Factor::Number(number));
         }
 
         Ok(new_term)
@@ -473,8 +473,21 @@ impl ProgramModel {
                     break;
                 }
             } else {
-                // if anything can't be evaluated, we can't say that it's all true
-                all_true = false;
+                match &new_relation.operators[op_i] {
+                    RelationOp::Less | RelationOp::Greater => all_true = false,
+                    RelationOp::Equal | RelationOp::LessEqual | RelationOp::GreaterEqual => {
+                        if &new_relation.operands[op_i] != &new_relation.operands[op_i + 1] {
+                            all_true = false;
+                        }
+                    }
+                    RelationOp::NotEqual => {
+                        if &new_relation.operands[op_i] == &new_relation.operands[op_i + 1] {
+                            has_false = true;
+                        } else {
+                            all_true = false;
+                        }
+                    }
+                }
             }
         }
 

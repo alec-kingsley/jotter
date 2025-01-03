@@ -182,7 +182,7 @@ pub fn get_true_relation() -> Relation {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct Expression {
     /// operands to be added.
     /// if empty, value is 0.
@@ -194,6 +194,40 @@ pub struct Expression {
     ///
     pub subtrahend: Vec<Term>,
 }
+
+impl PartialEq for Expression {
+    /// Operator overload for ==.
+    ///
+    fn eq(&self, other: &Self) -> bool {
+        let mut removable = other.clone();
+        let mut all_removed = true;
+        for operand in &self.minuend {
+            let mut removed = false;
+            for i in (0..removable.minuend.len()).rev() {
+                if operand == &removable.minuend[i] {
+                    removable.minuend.remove(i);
+                    removed = true;
+                    break;
+                }
+            }
+            all_removed &= removed;
+        }
+        for operand in &self.subtrahend {
+            let mut removed = false;
+            for i in (0..removable.subtrahend.len()).rev() {
+                if operand == &removable.subtrahend[i] {
+                    removable.subtrahend.remove(i);
+                    removed = true;
+                    break;
+                }
+            }
+            all_removed &= removed;
+        }
+        all_removed && removable.minuend.is_empty() && removable.subtrahend.is_empty()
+    }
+}
+
+impl Eq for Expression {}
 
 impl Hash for Expression {
     /// Hash for an `Expression`.
