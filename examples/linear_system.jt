@@ -1,19 +1,30 @@
-Example of system of linear equations
+Example of solving a complicated system of linear equations
 
-2a + b + 5d = 56
-5a + 2b = 37
-7b + 2c + 2d = 66
-8c + 9d = 104
+-9a + 7b - 8e - 8f - 3g + 5h = 79
+3a + 7b + c + 4d + f - d - 8e = 12
+7c + 2g - 5a - 5e - f - 2h = 9
+6a + 6d + 9f + h - 6b - 6c - 2e = - 36
+4a + 6d + 8e + f + h - 8c = - 2
+5b + 2e + 5f + 4h - 4a - 9d - 6g = - 56
+5a + 5e - 9b - 8c - 4f - 5g - 5h = - 71
+2c + 2d + e + 2g - a - 4b = 41
 
 a?
 b?
 c?
 d?
+e?
+f?
+g?
+h?
 
 Expected output:
-
-a : 5
-b : 6
-c : 4
+a : 7
+b : - 3
+c : 13
 d : 8
+e : 2
+f : - 9
+g : - 4
+h : 19
 
