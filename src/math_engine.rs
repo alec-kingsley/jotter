@@ -239,7 +239,7 @@ impl ProgramModel {
     /// * `make_substitutions` - True iff it should substitute known variables.
     ///
     fn simplify_factor(&self, factor: &Factor, make_substitutions: bool) -> Result<Factor, String> {
-        Ok(match factor {
+        let result = Ok(match factor {
             Factor::Parenthetical(expression) => {
                 if expression.minuend.len() + expression.subtrahend.len() > 1 {
                     Factor::Parenthetical(self.simplify_expression(expression, make_substitutions)?)
@@ -290,7 +290,9 @@ impl ProgramModel {
             Factor::Call(call) => Factor::Parenthetical(
                 self.simplify_expression(&self.make_call(call)?, make_substitutions)?,
             ),
-        })
+        });
+
+        result
     }
 
     /// Simplify the given `Term`.
