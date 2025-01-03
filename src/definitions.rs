@@ -1168,15 +1168,15 @@ impl Display for Number {
         // write final result depending on numerator/denominator contents
         if numerator.is_empty() {
             if denominator.is_empty() {
-                write!(f, "{}", self_clone.value)
+                write!(f, "{:.10}", self_clone.value)
             } else {
-                write!(f, "{} [1 / {}]", self_clone.value, denominator)
+                write!(f, "{:.10} [1 / {}]", self_clone.value, denominator)
             }
         } else {
             if denominator.is_empty() {
-                write!(f, "{} [{}]", self_clone.value, numerator)
+                write!(f, "{:.10} [{}]", self_clone.value, numerator)
             } else {
-                write!(f, "{} [{} / {}]", self_clone.value, numerator, denominator)
+                write!(f, "{:.10} [{} / {}]", self_clone.value, numerator, denominator)
             }
         }
     }
