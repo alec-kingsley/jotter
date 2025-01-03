@@ -244,15 +244,6 @@ impl Display for Expression {
 }
 
 impl Expression {
-    /// Returns true iff `self` is just a factor, in that it contains 1 term in the minuend which
-    /// has 1 factor in the numerator.
-    ///
-    pub fn is_factor(&mut self) {
-        // TODO - implement function
-
-        panic!("Not implemented");
-    }
-
     /// "flatten" the `Expression`.
     ///
     /// remove a many parentheticals as possible, such that it's just a sum of terms.
@@ -604,7 +595,6 @@ impl Term {
                         new_term = -new_term * self_expression.subtrahend[0].clone();
                     }
                 } else {
-                    // TODO - if it's just a factor, it should push that
                     new_term
                         .numerator
                         .push(Factor::Parenthetical(self_expression));
