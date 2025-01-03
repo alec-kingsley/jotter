@@ -7,7 +7,7 @@ Jotter is not meant to be a full programming language. It won't support complex 
 
 ## Disclaimer
 
-Jotter is not yet in a usable state. Functions, basic units, and simple expressions seem to work fine. Further testing needed on distributive operations and complex unit combinations.
+Jotter is not yet ready for general use. It is likely to run into bugs with the software at this point in time.
 
 ## Usage
 
@@ -37,6 +37,17 @@ Expected output:
 ```
 x : 3
 y : -1
+```
+
+Jotter will also simplify expressions for you. As an example:
+
+```
+(a+b)(a+b)?
+```
+
+Expected output:
+```
+(a + b)(a + b) : aa + 2ab + bb
 ```
 
 ## Units
