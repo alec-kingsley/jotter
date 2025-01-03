@@ -864,7 +864,7 @@ impl Mul for Factor {
                         other_expression
                             * Expression {
                                 minuend: Vec::from([Term {
-                                    numerator: vec![other],
+                                    numerator: vec![self],
                                     denominator: Vec::new(),
                                 }]),
                                 subtrahend: Vec::new(),

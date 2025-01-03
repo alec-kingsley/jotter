@@ -1,7 +1,7 @@
 use crate::definitions::*;
 use std::cmp;
-use std::process;
 use std::collections::{HashMap, HashSet};
+use std::process;
 
 /// Process the AST of a prompt.
 ///
@@ -129,7 +129,8 @@ impl ProgramModel {
                 for i in 0..arguments.len() {
                     // assign each variable name to its argument
                     model.add_matrix_row(
-                        self.simplify_expression(&call.arguments[i], true).expect("Failed to simplify call argument"),
+                        self.simplify_expression(&call.arguments[i], true)
+                            .expect("Failed to simplify call argument"),
                         Expression {
                             minuend: Vec::from([Term {
                                 numerator: Vec::from([Factor::Identifier(arguments[i].clone())]),
@@ -308,15 +309,83 @@ impl ProgramModel {
         };
 
         // simplify original factors in term and throw them back in
+
+        let one = Factor::Number(Number {
+            value: 1f64,
+            unit: Unit {
+                exponent: 0i8,
+                constituents: HashMap::new(),
+            },
+        });
+        let mut numerator_factor = one.clone();
+        let mut denominator_factor = one.clone();
         for operand in &term.numerator {
+            numerator_factor *= self.simplify_factor(operand, make_substitutions)?;
+        }
+        if let Factor::Parenthetical(expression) = &numerator_factor {
+            if expression.subtrahend.is_empty() {
+                if expression.minuend.len() == 1 {
+                    new_term *= expression.minuend[0].clone();
+                } else if expression.minuend.len() > 1 {
+                    new_term
+                        .numerator
+                        .push(self.simplify_factor(&numerator_factor, make_substitutions)?);
+                }
+            } else if expression.minuend.is_empty() {
+                if expression.subtrahend.len() == 1 {
+                    new_term *= expression.subtrahend[0].clone()
+                        * -Term {
+                            numerator: vec![one.clone()],
+                            denominator: Vec::new(),
+                        };
+                } else if expression.minuend.len() > 1 {
+                    new_term
+                        .numerator
+                        .push(self.simplify_factor(&numerator_factor, make_substitutions)?);
+                }
+            } else {
+                new_term
+                    .numerator
+                    .push(self.simplify_factor(&numerator_factor, make_substitutions)?);
+            }
+        } else {
             new_term
                 .numerator
-                .push(self.simplify_factor(operand, make_substitutions)?);
+                .push(self.simplify_factor(&numerator_factor, make_substitutions)?);
         }
         for operand in &term.denominator {
+            denominator_factor *= self.simplify_factor(operand, make_substitutions)?;
+        }
+        if let Factor::Parenthetical(expression) = &denominator_factor {
+            if expression.subtrahend.is_empty() {
+                if expression.minuend.len() == 1 {
+                    new_term /= expression.minuend[0].clone();
+                } else if expression.minuend.len() > 1 {
+                    new_term
+                        .denominator
+                        .push(self.simplify_factor(&denominator_factor, make_substitutions)?);
+                }
+            } else if expression.minuend.is_empty() {
+            if expression.subtrahend.len() == 1 {
+                    new_term /= expression.subtrahend[0].clone()
+                        * -Term {
+                            numerator: vec![one.clone()],
+                            denominator: Vec::new(),
+                        };
+                } else if expression.minuend.len() > 1 {
+                    new_term
+                        .denominator
+                        .push(self.simplify_factor(&denominator_factor, make_substitutions)?);
+                }
+            } else {
+                new_term
+                    .denominator
+                    .push(self.simplify_factor(&denominator_factor, make_substitutions)?);
+            }
+        } else {
             new_term
                 .denominator
-                .push(self.simplify_factor(operand, make_substitutions)?);
+                .push(self.simplify_factor(&denominator_factor, make_substitutions)?);
         }
 
         // combine all the numeric literals and return if not one
