@@ -581,7 +581,7 @@ impl Display for Term {
             .iter()
             .map(|x| x.to_string())
             .collect::<Vec<_>>()
-            .join(" * ");
+            .join("");
 
         // Format denominator elements, joined by `*` (to be wrapped in parenthetical)
         let denominator_str = self
@@ -589,7 +589,7 @@ impl Display for Term {
             .iter()
             .map(|x| x.to_string())
             .collect::<Vec<_>>()
-            .join(" / ");
+            .join("/");
 
         // Combine the two parts
         if denominator_str.is_empty() {
@@ -599,9 +599,9 @@ impl Display for Term {
                 write!(f, "{}", numerator_str)
             }
         } else if numerator_str.is_empty() {
-            write!(f, "1 / {}", denominator_str)
+            write!(f, "1/{}", denominator_str)
         } else {
-            write!(f, "{} / {}", numerator_str, denominator_str)
+            write!(f, "{}/{}", numerator_str, denominator_str)
         }
     }
 }
