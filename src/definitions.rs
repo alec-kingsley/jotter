@@ -610,13 +610,22 @@ impl Display for Term {
     /// Format `Term` appropriately.
     ///
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Format numerator elements, joined by `*`
+        // Format numerator elements, joined by `*` for numbers else ``
         let numerator_str = self
             .numerator
             .iter()
-            .map(|x| x.to_string())
+            .map(|x| match x {
+                Factor::Number(_) => String::from("*") + x.to_string().as_str(),
+                _ => x.to_string(),
+            })
             .collect::<Vec<_>>()
             .join("");
+
+        let numerator_str = if numerator_str.starts_with('*') {
+            numerator_str.trim_start_matches('*').to_string()
+        } else {
+            numerator_str
+        };
 
         // Format denominator elements, joined by `*` (to be wrapped in parenthetical)
         let denominator_str = self
