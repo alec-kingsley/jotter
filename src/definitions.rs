@@ -1251,7 +1251,7 @@ impl Display for Number {
                 denominator = if denominator.is_empty() {
                     unit_name
                 } else {
-                    format!("{denominator} / {}", unit_name)
+                    format!("{denominator}/{}", unit_name)
                 };
                 if unit_power < -1i8 {
                     denominator = format!("{denominator}^{}", -unit_power);
