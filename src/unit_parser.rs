@@ -134,18 +134,175 @@ pub fn parse_unit(code: &str, i: &mut usize) -> Result<(Unit, f64), String> {
 ///
 pub fn parse_base_unit(token: &str, abbreviated: &mut bool) -> Result<(Unit, f64, String), String> {
     let base_unit_suffixes = vec![
-        "meter", "gram", "second", "ampere", "kelvin", "mole", "candela",
+        "meter",
+        "liter",
+        "gram",
+        "second",
+        "minute",
+        "hour",
+        "day",
+        "ampere",
+        "kelvin",
+        "mole",
+        "candela",
+        "radian",
+        "steradian",
+        "hertz",
+        "newton",
+        "pascal",
+        "joule",
+        "watt",
+        "coulomb",
+        "volt",
+        "farad",
+        "ohm",
+        "siemens",
+        "weber",
+        "tesla",
+        "henry",
+        "lumen",
+        "lux",
+        "becquerel",
+        "gray",
+        "sievert",
+        "katal",
     ];
-    let base_unit_suffix_abbreviations = vec!["m", "g", "s", "A", "K", "mol", "cd"];
+    let base_unit_suffix_abbreviations = vec![
+        "m", "l", "g", "s", "min", "h", "d", "A", "K", "mol", "cd", "rad", "sr", "Hz", "N", "Pa",
+        "J", "W", "C", "V", "F", "Ω", "S", "Wb", "T", "H", "lm", "lx", "Bq", "Gy", "Sv", "kat",
+    ];
     // vec of constituents paired with order
     let base_units: Vec<(HashMap<BaseUnit, i8>, f64)> = vec![
         (HashMap::from([(BaseUnit::Meter, 1)]), 1.0),
+        (HashMap::from([(BaseUnit::Meter, 3)]), 0.001),
         (HashMap::from([(BaseUnit::Kilogram, 1)]), 1.0),
         (HashMap::from([(BaseUnit::Second, 1)]), 1.0),
+        (HashMap::from([(BaseUnit::Second, 1)]), 60.0),
+        (HashMap::from([(BaseUnit::Second, 1)]), 60.0 * 60.0),
+        (HashMap::from([(BaseUnit::Second, 1)]), 60.0 * 60.0 * 24.0),
         (HashMap::from([(BaseUnit::Ampere, 1)]), 1.0),
         (HashMap::from([(BaseUnit::Kelvin, 1)]), 1.0),
         (HashMap::from([(BaseUnit::Mole, 1)]), 1.0),
         (HashMap::from([(BaseUnit::Candela, 1)]), 1.0),
+        (HashMap::from([]), 1.0),
+        (HashMap::from([]), 1.0),
+        (HashMap::from([(BaseUnit::Second, -1)]), 1.0),
+        (
+            HashMap::from([
+                (BaseUnit::Kilogram, 1),
+                (BaseUnit::Meter, 1),
+                (BaseUnit::Second, -2),
+            ]),
+            1.0,
+        ),
+        (
+            HashMap::from([
+                (BaseUnit::Kilogram, 1),
+                (BaseUnit::Meter, -1),
+                (BaseUnit::Second, -2),
+            ]),
+            1.0,
+        ),
+        (
+            HashMap::from([
+                (BaseUnit::Kilogram, 1),
+                (BaseUnit::Meter, 2),
+                (BaseUnit::Second, -2),
+            ]),
+            1.0,
+        ),
+        (
+            HashMap::from([
+                (BaseUnit::Kilogram, 1),
+                (BaseUnit::Meter, 2),
+                (BaseUnit::Second, -3),
+            ]),
+            1.0,
+        ),
+        (
+            HashMap::from([(BaseUnit::Second, 1), (BaseUnit::Ampere, 1)]),
+            1.0,
+        ),
+        (
+            HashMap::from([
+                (BaseUnit::Kilogram, 1),
+                (BaseUnit::Meter, 2),
+                (BaseUnit::Second, -3),
+                (BaseUnit::Ampere, -1),
+            ]),
+            1.0,
+        ),
+        (
+            HashMap::from([
+                (BaseUnit::Kilogram, -1),
+                (BaseUnit::Meter, -2),
+                (BaseUnit::Second, 4),
+                (BaseUnit::Ampere, 2),
+            ]),
+            1.0,
+        ),
+        (
+            HashMap::from([
+                (BaseUnit::Kilogram, 1),
+                (BaseUnit::Meter, 2),
+                (BaseUnit::Second, -3),
+                (BaseUnit::Ampere, -2),
+            ]),
+            1.0,
+        ),
+        (
+            HashMap::from([
+                (BaseUnit::Kilogram, -1),
+                (BaseUnit::Meter, -2),
+                (BaseUnit::Second, 3),
+                (BaseUnit::Ampere, 2),
+            ]),
+            1.0,
+        ),
+        (
+            HashMap::from([
+                (BaseUnit::Kilogram, 1),
+                (BaseUnit::Meter, 2),
+                (BaseUnit::Second, -2),
+                (BaseUnit::Ampere, -1),
+            ]),
+            1.0,
+        ),
+        (
+            HashMap::from([
+                (BaseUnit::Kilogram, 1),
+                (BaseUnit::Second, -2),
+                (BaseUnit::Ampere, -1),
+            ]),
+            1.0,
+        ),
+        (
+            HashMap::from([
+                (BaseUnit::Kilogram, 1),
+                (BaseUnit::Meter, 2),
+                (BaseUnit::Second, -2),
+                (BaseUnit::Ampere, -2),
+            ]),
+            1.0,
+        ),
+        (HashMap::from([(BaseUnit::Candela, 1)]), 1.0),
+        (
+            HashMap::from([(BaseUnit::Candela, 1), (BaseUnit::Meter, -2)]),
+            1.0,
+        ),
+        (HashMap::from([(BaseUnit::Second, -1)]), 1.0),
+        (
+            HashMap::from([(BaseUnit::Meter, 2), (BaseUnit::Second, -2)]),
+            1.0,
+        ),
+        (
+            HashMap::from([(BaseUnit::Meter, 2), (BaseUnit::Second, -2)]),
+            1.0,
+        ),
+        (
+            HashMap::from([(BaseUnit::Mole, 1), (BaseUnit::Second, -1)]),
+            1.0,
+        ),
     ];
 
     let mut base_unit_option: Option<usize> = None;
