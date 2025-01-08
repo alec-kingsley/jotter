@@ -142,7 +142,7 @@ number      ::=   ( '0' | [1-9][0-9]* ) ( '.' [0-9]+ ) ? '%' ? unit ?
 identifier  ::=   ( [a-zA-Zα-ωΑ-Ω] | '\'' [a-zA-Z0-9_ ]+ '\'' )
 unit        ::=   '[' unit_term ']'
 unit_term   ::=   unit_factor (( '*' | '/') ? unit_factor) *
-unit_factor ::=   unit | baseunit ( '^' '-' ? [1-9][0-9]* ) ?
+unit_factor ::=   unit | 1 | baseunit ( '^' '-' ? [1-9][0-9]* ) ?
 baseunit    ::=   [a-zA-Zα-ωΑ-Ω]+
 ```
 

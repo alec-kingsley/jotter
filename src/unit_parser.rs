@@ -87,6 +87,8 @@ pub fn parse_unit(code: &str, i: &mut usize) -> Result<Unit, String> {
                         .or_insert(-power * sub_unit_power);
                 }
             }
+        } else if token == "1" {
+            token = next_unit_token(code, i)?;
         } else {
             let mut base_unit_option: Option<BaseUnit> = None;
             // base unit expected. parse accordingly.
