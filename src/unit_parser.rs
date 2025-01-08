@@ -142,6 +142,7 @@ pub fn parse_base_unit(token: &str, abbreviated: &mut bool) -> Result<(Unit, f64
         "meter",
         "inch",
         "foot",
+        "feet",
         "yard",
         "mile",
         "liter",
@@ -182,13 +183,15 @@ pub fn parse_base_unit(token: &str, abbreviated: &mut bool) -> Result<(Unit, f64
         "katal",
     ];
     let base_unit_suffix_abbreviations = vec![
-        "m", "in", "ft", "yd", "mi", "l", "c", "pt", "qt", "gal", "g", "lb", "s", "min", "h", "d", "A", "K", "mol", "cd", "rad", "sr", "Hz", "N", "Pa",
-        "J", "W", "C", "V", "F", "Ω", "S", "Wb", "T", "H", "lm", "lx", "Bq", "Gy", "Sv", "kat",
+        "m", "in", "ft", "ft", "yd", "mi", "l", "c", "pt", "qt", "gal", "g", "lb", "s", "min", "h", "d",
+        "A", "K", "mol", "cd", "rad", "sr", "Hz", "N", "Pa", "J", "W", "C", "V", "F", "Ω", "S",
+        "Wb", "T", "H", "lm", "lx", "Bq", "Gy", "Sv", "kat",
     ];
     // vec of constituents paired with order
     let base_units: Vec<(HashMap<BaseUnit, i8>, f64)> = vec![
         (HashMap::from([(BaseUnit::Meter, 1)]), 1.0),
         (HashMap::from([(BaseUnit::Meter, 1)]), 0.0254),
+        (HashMap::from([(BaseUnit::Meter, 1)]), 0.3048),
         (HashMap::from([(BaseUnit::Meter, 1)]), 0.3048),
         (HashMap::from([(BaseUnit::Meter, 1)]), 0.9144),
         (HashMap::from([(BaseUnit::Meter, 1)]), 1609.344),
@@ -342,6 +345,7 @@ pub fn parse_base_unit(token: &str, abbreviated: &mut bool) -> Result<(Unit, f64
             } else if token
                 .to_lowercase()
                 .ends_with((base_unit_suffixes[base_unit_index].to_string() + "s").as_str())
+                && base_unit_suffixes[base_unit_index] != "foot"
             {
                 base_unit_option = Some(base_unit_index);
                 prefix = token[0..token.len() - base_unit_suffixes[base_unit_index].len() - 1]

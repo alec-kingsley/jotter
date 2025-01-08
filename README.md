@@ -146,6 +146,7 @@ baseunit    ::=   [a-zA-Zα-ωΑ-Ω]+
 The grammar does not yet allow for the '-' operator to be used outside of subtraction except as the first element of an expression. i.e., `-1 + 3` is fine, as is `3 - 1`, but `3 + -1` is not.
 
 ### Supported Units
+
 - meter
 - inch
 - foot
@@ -187,6 +188,8 @@ The grammar does not yet allow for the '-' operator to be used outside of subtra
 - gray
 - sievert
 - katal
+
+All units support all SI prefixes. This includes the US customary units, so "kilofoot" is equivalent to 1000 feet. (This will likely be changed)
 
 ## Planned Features
 
