@@ -352,6 +352,13 @@ pub fn parse_factor(
     } else if token.parse::<f64>().is_ok() {
         let value = token.parse::<f64>().unwrap();
         let mut j = i.clone();
+        let value = if next_token(code, &mut j).is_ok_and(|token| token == "%") {
+            *i = j;
+            value / 100.0
+        } else {
+            value
+        };
+        let mut j = i.clone();
         let unit_result = parse_unit(code, &mut j);
         if unit_result.is_ok() {
             *i = j;
