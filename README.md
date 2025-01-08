@@ -145,7 +145,7 @@ baseunit    ::=   [a-zA-Zα-ωΑ-Ω]+
 
 The grammar does not yet allow for the '-' operator to be used outside of subtraction except as the first element of an expression. i.e., `-1 + 3` is fine, as is `3 - 1`, but `3 + -1` is not.
 
-List of supported units:
+### Supported Units
 - meter
 - inch
 - foot
