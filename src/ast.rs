@@ -362,9 +362,10 @@ pub fn parse_factor(
         let unit_result = parse_unit(code, &mut j);
         if unit_result.is_ok() {
             *i = j;
+            let (unit, factor) = unit_result.unwrap();
             Ok(Factor::Number(Number {
-                value,
-                unit: unit_result.unwrap(),
+                value: value * factor,
+                unit,
             }))
         } else {
             Ok(Factor::Number(Number {
