@@ -146,7 +146,11 @@ pub fn next_token(code: &str, i: &mut usize) -> Result<String, String> {
         *i += 1;
         let mut terminated = false;
         while *i < code_length && !terminated {
-            terminated |= code.chars().nth(*i).unwrap() == '\'';
+            let c = code.chars().nth(*i).unwrap();
+            terminated |= c == '\'';
+            if c == '\n' {
+                return Err(String::from("Unterminated named identifier"));
+            }
             *i += 1;
         }
         if !terminated {

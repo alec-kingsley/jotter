@@ -1,0 +1,10 @@
+Euclid's GCD Algorithm
+
+g(x, y) = {
+	x, x = y
+	g(x, y - x), y > x
+	g(y, x - y), x > y
+}
+
+g(250, 75) ?
+g(93 * 5, 93 * 7) ?
