@@ -5,10 +5,6 @@ Its syntax is very familiar to real math.
 
 Jotter is not meant to be a full programming language. It won't support complex string manipulation or data structures. Its goal is just to make life easier and solve problems quickly.
 
-## Disclaimer
-
-Jotter is not yet ready for general use. It is likely to run into bugs with the software at this point in time.
-
 ## Usage
 
 `cargo run` - open an interactive Jotter terminal
@@ -77,7 +73,8 @@ x = 3 [kg ^ 2 / m]
 Note that powers can only go on the inside of the main unit block, so `3 [kg] ^2`
 is invalid, while `3 [kg ^ 2]` and `3 [[kg] ^ 2]` are both valid.
 
-So far, only the SI base units are supported. (meter, kilogram, second, ampere, kelvin, mole, candela)
+Most common metric and US customary units are supported.
+
 Each unit is only case sensitive if written as an abbreviation (like `km`) but can be written with any case
 and with or without an `s` at th end if not abbreviated. (`kilometer`, `Kilometer`, `KILOMETERS` are all acceptable)
 
@@ -148,12 +145,53 @@ baseunit    ::=   [a-zA-Zα-ωΑ-Ω]+
 
 The grammar does not yet allow for the '-' operator to be used outside of subtraction except as the first element of an expression. i.e., `-1 + 3` is fine, as is `3 - 1`, but `3 + -1` is not.
 
+List of supported units:
+- meter
+- inch
+- foot
+- yard
+- mile
+- liter
+- cup
+- pint
+- quart
+- gallon
+- gram
+- pound
+- second
+- minute
+- hour
+- day
+- ampere
+- kelvin
+- mole
+- candela
+- radian
+- steradian
+- hertz
+- newton
+- pascal
+- joule
+- watt
+- coulomb
+- volt
+- farad
+- ohm
+- siemens
+- weber
+- tesla
+- henry
+- lumen
+- lux
+- becquerel
+- gray
+- sievert
+- katal
+
 ## Planned Features
 
 ### Units
 
-- Names for SI units outside base units. (Watt, Hour, etc)
-- Support for customary units as well as Metric
 - Ability to add user-defined units
 
 ### Solver
