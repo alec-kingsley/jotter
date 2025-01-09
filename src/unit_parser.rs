@@ -73,11 +73,6 @@ pub fn parse_unit(code: &str, i: &mut usize) -> Result<(Unit, f64), String> {
             let mut abbreviated = false;
             let (sub_unit, sub_factor, prefix) = parse_base_unit(token.as_str(), &mut abbreviated)?;
             let constituents = &mut unit.constituents;
-            if numerator {
-                factor *= sub_factor;
-            } else {
-                factor /= sub_factor;
-            }
 
             let mut exponent = parse_unit_prefix(prefix.as_str(), abbreviated)?
                 - 3 * sub_unit
@@ -102,6 +97,8 @@ pub fn parse_unit(code: &str, i: &mut usize) -> Result<(Unit, f64), String> {
                 exponent = -exponent;
                 power = -power;
             }
+
+            factor *= sub_factor.powi(power as i32);
 
             for (base_unit, sub_power) in sub_unit.constituents {
                 *constituents.entry(base_unit).or_insert(0) += power * sub_power;
