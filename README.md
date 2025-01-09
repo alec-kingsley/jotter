@@ -57,7 +57,7 @@ tv ?
 
 Expected output:
 ```
-t * v : 600 [μm]
+tv : 0.6 [mm]
 ```
 
 Units can also have different powers and sub-units. So
