@@ -1150,25 +1150,32 @@ impl Number {
     /// # Arguments
     /// * `subunit_exponent` - thing to be divisible by.
     pub fn refactor_exponent(&mut self, subunit_exponent: i8) {
-        let mut new_value = self.value;
-        let mut new_exponent = self.unit.exponent;
-        if new_exponent > 0 {
-            while new_exponent > 30
-                || (subunit_exponent != 0 && new_exponent % (3 * subunit_exponent) != 0)
+        // try to force self to be within 3 digits from 0
+        while self.value.abs() >= 1.0 {
+            self.value /= 10.0;
+            self.unit.exponent += 1;
+        }
+        while self.value.abs() < 1.0 {
+            self.value *= 10.0;
+            self.unit.exponent -= 1;
+        }
+
+        // ensure exponent exists
+        if self.unit.exponent > 0 {
+            while self.unit.exponent > 30
+                || (subunit_exponent != 0 && self.unit.exponent % (3 * subunit_exponent) != 0)
             {
-                new_value *= 10f64;
-                new_exponent -= 1;
+                self.value *= 10.0;
+                self.unit.exponent -= 1;
             }
         } else {
-            while new_exponent < -30
-                || (subunit_exponent != 0 && new_exponent % (3 * subunit_exponent) != 0)
+            while self.unit.exponent < -30
+                || (subunit_exponent != 0 && self.unit.exponent % (3 * subunit_exponent) != 0)
             {
-                new_value /= 10f64;
-                new_exponent += 1;
+                self.value /= 10.0;
+                self.unit.exponent += 1;
             }
         }
-        self.value = new_value;
-        self.unit.exponent = new_exponent;
     }
 }
 
@@ -1236,15 +1243,25 @@ impl Display for Number {
             if !processed_prefix {
                 self_clone.refactor_exponent(unit_power);
                 unit_name = if unit_name == "kg" {
-                    format!("{}g", get_si_prefix(self.unit.exponent + 3, unit_power))
+                    if unit_power > 0i8 {
+                        format!(
+                            "{}g",
+                            get_si_prefix(self_clone.unit.exponent + 3, unit_power)
+                        )
+                    } else {
+                        format!(
+                            "{}g",
+                            get_si_prefix(self_clone.unit.exponent - 3, unit_power)
+                        )
+                    }
                 } else {
                     format!(
                         "{}{unit_name}",
-                        get_si_prefix(self.unit.exponent, unit_power)
+                        get_si_prefix(self_clone.unit.exponent, unit_power)
                     )
-                }
+                };
+                processed_prefix = true;
             }
-            processed_prefix = true;
 
             // build units
             if unit_power > 0i8 {
@@ -1260,7 +1277,7 @@ impl Display for Number {
                 denominator = if denominator.is_empty() {
                     unit_name
                 } else {
-                    format!("{denominator}/{}", unit_name)
+                    format!("{denominator} / {}", unit_name)
                 };
                 if unit_power < -1i8 {
                     denominator = format!("{denominator}^{}", -unit_power);
