@@ -130,6 +130,29 @@ g(4) : 8
 
 Note that any comments within a multi-line function definition must be in the (\*\*) format.
 
+## Relations
+
+This feature has limited usage in the program's current state, as Jotter can't yet solve non-linear systems. However, these can help with some simplifications.
+
+```
+a/a?
+Expected output: a/a: a/a
+(it won't cancel this out in case a is 0)
+
+a > 0
+a/a?
+Expected output: a/a: 1
+(it can now safely perform this operation)
+```
+
+Additionally, if you specify a relation which becomes false, the program will quit. For example,
+
+```
+x > 10
+x = 3
+```
+(This will fail)
+
 ## Implementation Details
 
 ### Grammar
