@@ -702,6 +702,8 @@ impl ProgramModel {
             }
         }
 
+        // TODO - discover new expressions by finding 
+
         // remove expressions which are all 0s
         for row in 0..row_ct {
             let idx = row_ct - row - 1;

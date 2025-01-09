@@ -30,6 +30,7 @@ y ?
 ```
 
 Expected output:
+
 ```
 x : 3
 y : -1
@@ -42,6 +43,7 @@ Jotter will also simplify expressions for you. As an example:
 ```
 
 Expected output:
+
 ```
 (a + b)(a + b) : aa + 2ab + bb
 ```
@@ -49,6 +51,7 @@ Expected output:
 ## Units
 
 Another feature of Jotter is how it handles units:
+
 ```
 t = 3 [ns]
 v = 200 [km/s]
@@ -56,16 +59,19 @@ tv ?
 ```
 
 Expected output:
+
 ```
 tv : 0.6 [mm]
 ```
 
 Units can also have different powers and sub-units. So
+
 ```
 x = 3 [m / [m / kg] ^ 2]
 ```
 
 is equivalent to
+
 ```
 x = 3 [kg ^ 2 / m]
 ```
@@ -81,16 +87,18 @@ and with or without an `s` at th end if not abbreviated. (`kilometer`, `Kilomete
 ## Comments and Page Breaks
 
 Another comment format is by using parentheses with stars on the inside.
+
 ```
 k = 5 [s] (*set k to 5 seconds*)
 ```
 
 This is great for inline comments, or if a comment would be otherwise valid syntax.
 
-You can only use each variable name once, but "page breaks" can separate groups. 
+You can only use each variable name once, but "page breaks" can separate groups.
 To insert a page break, simply create a line consisting only of "-" and at least 10 of them.
 
 Example:
+
 ```
 y = 3
 -------------------------------------------------------------------
@@ -114,12 +122,13 @@ g(4) ?
 ```
 
 Expected output:
+
 ```
 f(1) : 5
 g(4) : 8
 ```
 
-Note that any comments within a multi-line function definition must be in the (**) format.
+Note that any comments within a multi-line function definition must be in the (\*\*) format.
 
 ## Implementation Details
 
@@ -151,62 +160,67 @@ For piecewise functions, the relations are evaluated top-to-bottom, with the fir
 
 ### Supported Units
 
-- meter
-- inch
-- foot
-- yard
-- mile
-- liter
-- cup
-- pint
-- quart
-- gallon
-- gram
-- pound
-- second
-- minute
-- hour
-- day
-- ampere
-- kelvin
-- mole
-- candela
-- radian
-- steradian
-- hertz
-- newton
-- pascal
-- joule
-- watt
-- coulomb
-- volt
-- farad
-- ohm
-- siemens
-- weber
-- tesla
-- henry
-- lumen
-- lux
-- becquerel
-- gray
-- sievert
-- katal
+* meter
+* inch
+* foot
+* yard
+* mile
+* liter
+* cup
+* pint
+* quart
+* gallon
+* gram
+* pound
+* second
+* minute
+* hour
+* day
+* ampere
+* kelvin
+* mole
+* candela
+* radian
+* steradian
+* hertz
+* newton
+* pascal
+* joule
+* watt
+* coulomb
+* volt
+* farad
+* ohm
+* siemens
+* weber
+* tesla
+* henry
+* lumen
+* lux
+* becquerel
+* gray
+* sievert
+* katal
 
 All units support all SI prefixes. This includes the US customary units, so "kilofoot" is equivalent to 1000 feet. (This will likely be changed)
+
+Currently, quantity units are treated as though they were unitless. Technically this may be true, but it is not useful for display purposes, and so it will likely be updated. (if I say `1 [rad / s]?` it should print `1 [rad / s]`, whereas it currently prints `1 [1 / s]`).
 
 ## Planned Features
 
 ### Units
 
-- Ability to add user-defined units
+* Ability to add user-defined units
+
+### Relations
+
+* Simplify based on relations. For example, if it is known that a ≠ 0, then a/a should safely simplify to 1
 
 ### Solver
 
-- Ability to solve non-linear systems of equations
-- Add common math functions such as `sin`, `cos`, `tan`, `log`, `mod`
+* Ability to solve non-linear systems of equations
+* Add common math functions such as `sin`, `cos`, `tan`, `log`, `mod`
 
 ### Functions
 
-- Add integrals and derivatives, as well as a differential equation solver
-
+* Add integrals and derivatives, as well as a differential equation solver
