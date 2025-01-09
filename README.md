@@ -145,6 +145,10 @@ baseunit    ::=   [a-zA-Zα-ωΑ-Ω]+
 
 The grammar does not yet allow for the '-' operator to be used outside of subtraction except as the first element of an expression. i.e., `-1 + 3` is fine, as is `3 - 1`, but `3 + -1` is not.
 
+### Piecewise Functions
+
+For piecewise functions, the relations are evaluated top-to-bottom, with the first true one found being picked. As this is atypical for mathematical definitions, it is not recommended to take advantage of this.
+
 ### Supported Units
 
 - meter
