@@ -370,6 +370,8 @@ impl ProgramModel {
             denominator: Vec::new(),
         };
 
+        let mut identifier_counts: HashMap<Identifier, (bool, isize)> = HashMap::new();
+
         // simplify original factors in term and throw them back in
         let one = Factor::Number(Number {
             value: 1f64,
@@ -381,7 +383,54 @@ impl ProgramModel {
         let mut numerator_factor = one.clone();
         let mut denominator_factor = one.clone();
         for operand in &term.numerator {
-            numerator_factor *= self.simplify_factor(operand, make_substitutions)?;
+            let mut add_to_numerator = true;
+            if let Factor::Identifier(name) = operand {
+                if identifier_counts.contains_key(&name) {
+                    let (could_be_0, _) = identifier_counts.get(&name).unwrap();
+                    if !could_be_0 {
+                        add_to_numerator = false;
+                        identifier_counts
+                            .entry(name.clone())
+                            .and_modify(|(_, ct)| *ct += 1);
+                    }
+                } else if self.could_be_0(name) {
+                    identifier_counts.insert(name.clone(), (true, 0));
+                } else {
+                    add_to_numerator = false;
+                    identifier_counts.insert(name.clone(), (false, 1));
+                }
+            }
+            if add_to_numerator {
+                numerator_factor *= self.simplify_factor(operand, make_substitutions)?;
+            }
+        }
+        for operand in &term.denominator {
+            let mut add_to_denominator = true;
+            if let Factor::Identifier(name) = operand {
+                if identifier_counts.contains_key(&name) {
+                    let (could_be_0, _) = identifier_counts.get(&name).unwrap();
+                    if !could_be_0 {
+                        add_to_denominator = false;
+                        identifier_counts
+                            .entry(name.clone())
+                            .and_modify(|(_, ct)| *ct -= 1);
+                    }
+                }
+            }
+            if add_to_denominator {
+                denominator_factor *= self.simplify_factor(operand, make_substitutions)?;
+            }
+        }
+        // re-add reserved and cancelled terms
+        for (name, (_, mut count)) in identifier_counts {
+            while count > 0 {
+                numerator_factor *= Factor::Identifier(name.clone());
+                count -= 1;
+            }
+            while count < 0 {
+                denominator_factor *= Factor::Identifier(name.clone());
+                count += 1;
+            }
         }
         if let Factor::Parenthetical(expression) = &numerator_factor {
             if expression.subtrahend.is_empty() {
@@ -414,9 +463,6 @@ impl ProgramModel {
             new_term
                 .numerator
                 .push(self.simplify_factor(&numerator_factor, false)?);
-        }
-        for operand in &term.denominator {
-            denominator_factor *= self.simplify_factor(operand, make_substitutions)?;
         }
         if let Factor::Parenthetical(expression) = &denominator_factor {
             if expression.subtrahend.is_empty() {
@@ -578,6 +624,34 @@ impl ProgramModel {
             // return relation as simplified as it can be
             new_relation
         })
+    }
+
+    /// Returns true iff the variable with `name` could possibly be 0.
+    ///
+    fn could_be_0(&self, name: &Identifier) -> bool {
+        if self.solved_variables.contains_key(&name) {
+            // return true iff any of the solutions are 0
+            self.solved_variables
+                .get(name)
+                .unwrap()
+                .iter()
+                .find(|x| x.is_zero())
+                .is_some()
+        } else {
+            let mut test_model = self.clone();
+            test_model.solved_variables.insert(
+                name.clone(),
+                vec![Number {
+                    value: 0f64,
+                    unit: Unit {
+                        exponent: 0i8,
+                        constituents: HashMap::new(),
+                    },
+                }],
+            );
+            // if this breaks, then it can't be 0
+            test_model.assert_relations_hold()
+        }
     }
 
     /// Retrieve an expression for the value of the given identifier from `self.augmented_matrix`.
