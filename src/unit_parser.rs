@@ -183,9 +183,9 @@ pub fn parse_base_unit(token: &str, abbreviated: &mut bool) -> Result<(Unit, f64
         "katal",
     ];
     let base_unit_suffix_abbreviations = vec![
-        "m", "in", "ft", "ft", "yd", "mi", "l", "c", "pt", "qt", "gal", "g", "lb", "s", "min", "h", "d",
-        "A", "K", "mol", "cd", "rad", "sr", "Hz", "N", "Pa", "J", "W", "C", "V", "F", "Ω", "S",
-        "Wb", "T", "H", "lm", "lx", "Bq", "Gy", "Sv", "kat",
+        "m", "in", "ft", "ft", "yd", "mi", "l", "c", "pt", "qt", "gal", "g", "lb", "s", "min", "h",
+        "d", "A", "K", "mol", "cd", "rad", "sr", "Hz", "N", "Pa", "J", "W", "C", "V", "F", "Ω",
+        "S", "Wb", "T", "H", "lm", "lx", "Bq", "Gy", "Sv", "kat",
     ];
     // vec of constituents paired with order
     let base_units: Vec<(HashMap<BaseUnit, i8>, f64)> = vec![
@@ -334,7 +334,10 @@ pub fn parse_base_unit(token: &str, abbreviated: &mut bool) -> Result<(Unit, f64
     let mut base_unit_option: Option<usize> = None;
     let mut prefix = String::new();
     for base_unit_index in 0..base_units.len() {
-        if base_unit_option.is_none() {
+        if base_unit_option.is_none()
+            || base_unit_suffixes[base_unit_index].len()
+                > base_unit_suffixes[base_unit_option.unwrap()].len()
+        {
             if token
                 .to_lowercase()
                 .ends_with(base_unit_suffixes[base_unit_index])
@@ -355,7 +358,9 @@ pub fn parse_base_unit(token: &str, abbreviated: &mut bool) -> Result<(Unit, f64
     }
     if base_unit_option.is_none() {
         for base_unit_index in 0..base_units.len() {
-            if base_unit_option.is_none()
+            if (base_unit_option.is_none()
+                || base_unit_suffix_abbreviations[base_unit_index].len()
+                    > base_unit_suffix_abbreviations[base_unit_option.unwrap()].len())
                 && token.ends_with(base_unit_suffix_abbreviations[base_unit_index])
             {
                 base_unit_option = Some(base_unit_index);
