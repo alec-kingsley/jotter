@@ -85,7 +85,7 @@ pub fn process_equation(model: &mut ProgramModel, relation: Relation) {
 ///
 #[derive(Debug, Clone)]
 pub struct ProgramModel {
-    // TODO - Add this field: solved_variables: HashMap<Identifier, Number>
+    solved_variables: HashMap<Identifier, Vec<Number>>,
     variables: Vec<Identifier>,
     augmented_matrix: Vec<Vec<Expression>>,
     relations: Vec<Relation>,
@@ -371,7 +371,6 @@ impl ProgramModel {
         };
 
         // simplify original factors in term and throw them back in
-
         let one = Factor::Number(Number {
             value: 1f64,
             unit: Unit {
@@ -389,9 +388,10 @@ impl ProgramModel {
                 if expression.minuend.len() == 1 {
                     new_term *= expression.minuend[0].clone();
                 } else {
+                    // must be false since substitutions were already made
                     new_term
                         .numerator
-                        .push(self.simplify_factor(&numerator_factor, make_substitutions)?);
+                        .push(self.simplify_factor(&numerator_factor, false)?);
                 }
             } else if expression.minuend.is_empty() {
                 if expression.subtrahend.len() == 1 {
@@ -403,17 +403,17 @@ impl ProgramModel {
                 } else if expression.subtrahend.len() > 1 {
                     new_term
                         .numerator
-                        .push(self.simplify_factor(&numerator_factor, make_substitutions)?);
+                        .push(self.simplify_factor(&numerator_factor, false)?);
                 }
             } else {
                 new_term
                     .numerator
-                    .push(self.simplify_factor(&numerator_factor, make_substitutions)?);
+                    .push(self.simplify_factor(&numerator_factor, false)?);
             }
         } else {
             new_term
                 .numerator
-                .push(self.simplify_factor(&numerator_factor, make_substitutions)?);
+                .push(self.simplify_factor(&numerator_factor, false)?);
         }
         for operand in &term.denominator {
             denominator_factor *= self.simplify_factor(operand, make_substitutions)?;
@@ -425,7 +425,7 @@ impl ProgramModel {
                 } else {
                     new_term
                         .denominator
-                        .push(self.simplify_factor(&denominator_factor, make_substitutions)?);
+                        .push(self.simplify_factor(&denominator_factor, false)?);
                 }
             } else if expression.minuend.is_empty() {
                 if expression.subtrahend.len() == 1 {
@@ -437,17 +437,17 @@ impl ProgramModel {
                 } else if expression.subtrahend.len() > 1 {
                     new_term
                         .denominator
-                        .push(self.simplify_factor(&denominator_factor, make_substitutions)?);
+                        .push(self.simplify_factor(&denominator_factor, false)?);
                 }
             } else {
                 new_term
                     .denominator
-                    .push(self.simplify_factor(&denominator_factor, make_substitutions)?);
+                    .push(self.simplify_factor(&denominator_factor, false)?);
             }
         } else {
             new_term
                 .denominator
-                .push(self.simplify_factor(&denominator_factor, make_substitutions)?);
+                .push(self.simplify_factor(&denominator_factor, false)?);
         }
 
         // combine all the numeric literals and return if not one
@@ -588,76 +588,98 @@ impl ProgramModel {
     /// * `name` - The identifier to search for.
     ///
     fn retrieve_value(&self, name: Identifier) -> Result<Expression, String> {
-        // TODO - using new solved_variables, try getting it from there first
-        // find index of identifier
-        let value_col_result = self.variables.iter().position(|var| var == &name);
-        if value_col_result.is_none() {
-            // TODO - we don't need to give up here. Try to find some term in the augmented matrix
-            // which uses this. There could be something.
-            return Ok(Expression {
+        // first, attempt to get out of already solved variables
+        if self.solved_variables.contains_key(&name) {
+            if self.solved_variables.get(&name).unwrap().len() > 1 {
+                panic!("Multiple solutions for {name}. (Future feature)");
+            }
+            Ok(Expression {
                 minuend: vec![Term {
-                    numerator: vec![Factor::Identifier(name)],
+                    numerator: vec![Factor::Number(
+                        self.solved_variables.get(&name).unwrap()[0].clone(),
+                    )],
                     denominator: Vec::new(),
                 }],
                 subtrahend: Vec::new(),
-            });
-        }
-        let value_col = value_col_result.unwrap();
-        let row_ct = self.augmented_matrix.len();
-        let col_ct = self.augmented_matrix[0].len();
+            })
+        } else {
+            let value_col_result = self.variables.iter().position(|var| var == &name);
+            if value_col_result.is_none() {
+                // TODO - we don't need to give up here. Try to find some term in the augmented matrix
+                // which uses this. There could be something.
+                Ok(Expression {
+                    minuend: vec![Term {
+                        numerator: vec![Factor::Identifier(name)],
+                        denominator: Vec::new(),
+                    }],
+                    subtrahend: Vec::new(),
+                })
+            } else {
+                let value_col = value_col_result.unwrap();
+                let row_ct = self.augmented_matrix.len();
+                let col_ct = if row_ct == 0 {
+                    1
+                } else {
+                    self.augmented_matrix[0].len()
+                };
 
-        let mut best_row: Option<usize> = None;
-        let mut min_expressions_plus_values = 0;
+                let mut best_row: Option<usize> = None;
+                let mut min_expressions_plus_values = 0;
 
-        // find the best row
-        for row in 0..row_ct {
-            if match self.evaluate_constant_expression(&self.augmented_matrix[row][value_col]) {
-                Ok(number) => !number.is_zero(),
-                Err(_) => true,
-            } {
-                // possible row. Evaluate for goodness
-                let expressions_plus_values =
-                    self.augmented_matrix[row].iter().fold(0, |acc, expr| {
-                        acc + match self.evaluate_constant_expression(&expr) {
-                            Ok(number) => {
-                                if number.is_zero() {
-                                    0
-                                } else {
-                                    1
+                // find the best row
+                for row in 0..row_ct {
+                    if match self
+                        .evaluate_constant_expression(&self.augmented_matrix[row][value_col])
+                    {
+                        Ok(number) => !number.is_zero(),
+                        Err(_) => true,
+                    } {
+                        // possible row. Evaluate for goodness
+                        let expressions_plus_values =
+                            self.augmented_matrix[row].iter().fold(0, |acc, expr| {
+                                acc + match self.evaluate_constant_expression(&expr) {
+                                    Ok(number) => {
+                                        if number.is_zero() {
+                                            0
+                                        } else {
+                                            1
+                                        }
+                                    }
+                                    Err(_) => 2,
                                 }
-                            }
-                            Err(_) => 2,
+                            });
+                        if best_row == None || expressions_plus_values < min_expressions_plus_values
+                        {
+                            best_row = Some(row);
+                            min_expressions_plus_values = expressions_plus_values;
                         }
-                    });
-                if best_row == None || expressions_plus_values < min_expressions_plus_values {
-                    best_row = Some(row);
-                    min_expressions_plus_values = expressions_plus_values;
+                    }
                 }
+
+                if best_row == None {
+                    return Err(format!("No formula found for `{name}`"));
+                }
+
+                // build resulting formula
+                let mut result = self.augmented_matrix[best_row.unwrap()][col_ct - 1].clone();
+                for col in 0..(col_ct - 1) {
+                    if col != value_col {
+                        result -= self.augmented_matrix[best_row.unwrap()][col].clone()
+                            * Expression {
+                                minuend: vec![Term {
+                                    numerator: vec![Factor::Identifier(
+                                        self.variables[col].clone(),
+                                    )],
+                                    denominator: Vec::new(),
+                                }],
+                                subtrahend: Vec::new(),
+                            };
+                    }
+                }
+                result /= self.augmented_matrix[best_row.unwrap()][value_col].clone();
+                Ok(self.simplify_expression(&result, false).unwrap())
             }
         }
-
-        if best_row == None {
-            return Err(format!("No formula found for `{name}`"));
-        }
-
-        // build resulting formula
-        let mut result = self.augmented_matrix[best_row.unwrap()][col_ct - 1].clone();
-        for col in 0..(col_ct - 1) {
-            if col != value_col {
-                // TODO - this is broken, since it introduces a new variable which it'll try to
-                // then solve for
-                result -= self.augmented_matrix[best_row.unwrap()][col].clone()
-                    * Expression {
-                        minuend: vec![Term {
-                            numerator: vec![Factor::Identifier(self.variables[col].clone())],
-                            denominator: Vec::new(),
-                        }],
-                        subtrahend: Vec::new(),
-                    };
-            }
-        }
-        result /= self.augmented_matrix[best_row.unwrap()][value_col].clone();
-        Ok(self.simplify_expression(&result, false).unwrap())
     }
 
     /// Get the row to switch out `row` for.
@@ -756,7 +778,11 @@ impl ProgramModel {
     ///
     fn make_less_lonely(&mut self) {
         let row_ct = self.augmented_matrix.len();
-        let col_ct = self.augmented_matrix[0].len();
+        let col_ct = if row_ct == 0 {
+            1
+        } else {
+            self.augmented_matrix[0].len()
+        };
 
         // find lonely groups, i.e., sets of rows which have exactly one column element, for each
         // column except the last.
@@ -827,11 +853,14 @@ impl ProgramModel {
     ///
     fn remove_0s(&mut self) {
         let row_ct = self.augmented_matrix.len();
-        let col_ct = self.augmented_matrix[0].len();
+        let col_ct = if row_ct == 0 {
+            1
+        } else {
+            self.augmented_matrix[0].len()
+        };
 
-        for row in 0..row_ct {
-            let idx = row_ct - row - 1;
-            if self.augmented_matrix[idx][0..col_ct - 1]
+        for row in (0..row_ct).rev() {
+            if self.augmented_matrix[row][0..col_ct - 1]
                 .iter()
                 .all(|expr| match self.evaluate_constant_expression(&expr) {
                     Ok(number) => number.is_zero(),
@@ -839,13 +868,57 @@ impl ProgramModel {
                 })
             {
                 if self
-                    .evaluate_constant_expression(&self.augmented_matrix[idx][col_ct - 1])
+                    .evaluate_constant_expression(&self.augmented_matrix[row][col_ct - 1])
                     .is_ok_and(|n| n.is_zero())
                 {
-                    self.augmented_matrix.remove(idx);
+                    self.augmented_matrix.remove(row);
                 } else {
                     eprintln!("ERROR: Logical error introduced.");
                     process::exit(1);
+                }
+            }
+        }
+    }
+
+    /// Remove rows which are just a pivot and store them.
+    ///
+    fn store_lonely_pivots(&mut self) {
+        let row_ct = self.augmented_matrix.len();
+        let col_ct = if row_ct == 0 {
+            1
+        } else {
+            self.augmented_matrix[0].len()
+        };
+
+        for row in (0..row_ct).rev() {
+            let equivalence_result =
+                self.evaluate_constant_expression(&self.augmented_matrix[row][col_ct - 1]);
+            if equivalence_result.is_ok() {
+                let mut lonely_col_option: Option<(usize, Number)> = None;
+                let mut too_many_non_zero_constants = false;
+                // determine if row can be thrown into solved variables
+                for col in 0..(col_ct - 1) {
+                    let constant_result =
+                        self.evaluate_constant_expression(&self.augmented_matrix[row][col]);
+                    if constant_result.as_ref().is_ok_and(|n| !n.is_zero()) {
+                        if lonely_col_option.is_none() {
+                            lonely_col_option = Some((col, constant_result.unwrap()));
+                        } else {
+                            too_many_non_zero_constants = true;
+                        }
+                    }
+                }
+                if !too_many_non_zero_constants && lonely_col_option.is_some() {
+                    let (lonely_col, constant) = lonely_col_option.unwrap();
+
+                    // throw that sucker in the solved variables!
+                    self.solved_variables.insert(
+                        self.variables[lonely_col].clone(),
+                        vec![equivalence_result.unwrap() / constant],
+                    );
+
+                    // that information is no longer needed!
+                    self.augmented_matrix.remove(row);
                 }
             }
         }
@@ -890,6 +963,9 @@ impl ProgramModel {
 
         // remove expressions which are all 0s
         self.remove_0s();
+
+        // remove expressions which are just a pivot (these are now knowns!)
+        self.store_lonely_pivots();
 
         // try to generate new equations with the gained info
         self.make_less_lonely();
@@ -1047,6 +1123,7 @@ impl ProgramModel {
     ///
     pub fn new(call_depth: u16) -> Self {
         ProgramModel {
+            solved_variables: HashMap::new(),
             variables: Vec::new(),
             augmented_matrix: Vec::new(),
             relations: Vec::new(),
@@ -1115,17 +1192,20 @@ mod tests {
         let mut model = ProgramModel::new(0);
         model.add_matrix_row(expression_a, expression_2.clone());
 
-        let augmented_matrix_expected = vec![vec![
-            Expression {
-                minuend: Vec::from([Term {
-                    numerator: Vec::new(),
-                    denominator: Vec::new(),
-                }]),
-                subtrahend: Vec::new(),
+        let a_expected = Number {
+            value: 2f64,
+            unit: Unit {
+                exponent: 0i8,
+                constituents: HashMap::new(),
             },
-            expression_2.clone(),
-        ]];
-        assert_eq!(augmented_matrix_expected, model.augmented_matrix)
+        };
+        assert_eq!(
+            a_expected,
+            model
+                .solved_variables
+                .get(&Identifier::new("a").unwrap())
+                .unwrap()[0]
+        );
     }
 
     #[test]
