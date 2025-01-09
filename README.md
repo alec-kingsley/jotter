@@ -5,6 +5,10 @@ Its syntax is very familiar to real math.
 
 Jotter is not meant to be a full programming language. It won't support complex string manipulation or data structures. Its goal is just to make life easier and solve problems quickly.
 
+## Disclaimer
+
+Jotter is incomplete. Expect some issues. It is known to crash in some cases when prompting for a variable which is not yet solved for.
+
 ## Usage
 
 `cargo run` - open an interactive Jotter terminal

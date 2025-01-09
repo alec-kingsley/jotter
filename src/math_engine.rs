@@ -1,6 +1,8 @@
 use crate::definitions::*;
 use std::cmp;
 use std::collections::{HashMap, HashSet};
+use std::fmt;
+use std::fmt::Display;
 use std::process;
 
 /// Process the AST of a prompt.
@@ -83,11 +85,71 @@ pub fn process_equation(model: &mut ProgramModel, relation: Relation) {
 ///
 #[derive(Debug, Clone)]
 pub struct ProgramModel {
+    // TODO - Add this field: solved_variables: HashMap<Identifier, Number>
     variables: Vec<Identifier>,
     augmented_matrix: Vec<Vec<Expression>>,
     relations: Vec<Relation>,
     functions: HashSet<Statement>,
     call_depth: u16,
+}
+
+impl Display for ProgramModel {
+    /// Format `ProgramModel` appropriately.
+    /// This is mainly for debug purposes.
+    ///
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut result = String::new();
+
+        // print out the header
+        for variable in &self.variables {
+            if result.is_empty() {
+                result = format!("{}", variable);
+            } else {
+                result.push_str(format!(", {}", variable).as_str());
+            }
+        }
+        result.push_str(
+            format!(
+                ", _\n{}\n",
+                "-".repeat(result.chars().count() + ", _".len())
+            )
+            .as_str(),
+        );
+
+        result = format!("\nAugmented Matrix:\n{}", result);
+
+        // print out the matrix elements
+        for row in 0..self.augmented_matrix.len() {
+            for col in 0..self.augmented_matrix[0].len() {
+                if col == 0 {
+                    result.push_str(format!("{}", self.augmented_matrix[row][col]).as_str());
+                } else {
+                    result.push_str(format!(", {}", self.augmented_matrix[row][col]).as_str());
+                }
+            }
+            result.push_str("\n");
+        }
+
+        // print out the known relations
+        if self.relations.len() > 0 {
+            result.push_str("Relations:\n");
+            for relation in &self.relations {
+                result.push_str(format!("{}\n", relation).as_str());
+            }
+        }
+
+        // print out the defined functions
+        if self.functions.len() > 0 {
+            result.push_str("Functions:\n");
+            for function in &self.functions {
+                result.push_str(format!("{}\n", function).as_str());
+            }
+        }
+
+        result.push_str(format!("Call Depth: {}\n", self.call_depth).as_str());
+
+        write!(f, "{}", result)
+    }
 }
 
 impl ProgramModel {
@@ -526,6 +588,7 @@ impl ProgramModel {
     /// * `name` - The identifier to search for.
     ///
     fn retrieve_value(&self, name: Identifier) -> Result<Expression, String> {
+        // TODO - using new solved_variables, try getting it from there first
         // find index of identifier
         let value_col_result = self.variables.iter().position(|var| var == &name);
         if value_col_result.is_none() {
@@ -581,7 +644,16 @@ impl ProgramModel {
         let mut result = self.augmented_matrix[best_row.unwrap()][col_ct - 1].clone();
         for col in 0..(col_ct - 1) {
             if col != value_col {
-                result -= self.augmented_matrix[best_row.unwrap()][col].clone();
+                // TODO - this is broken, since it introduces a new variable which it'll try to
+                // then solve for
+                result -= self.augmented_matrix[best_row.unwrap()][col].clone()
+                    * Expression {
+                        minuend: vec![Term {
+                            numerator: vec![Factor::Identifier(self.variables[col].clone())],
+                            denominator: Vec::new(),
+                        }],
+                        subtrahend: Vec::new(),
+                    };
             }
         }
         result /= self.augmented_matrix[best_row.unwrap()][value_col].clone();
@@ -610,12 +682,11 @@ impl ProgramModel {
                     .iter()
                     .all(|expr| self.evaluate_constant_expression(expr).is_ok());
 
-                // start at 0 not col+1 since there could be equations
-                if all_constants_in_row || result.is_none() {
-                    result = Some(switcher);
-                }
                 if all_constants_in_row {
-                    // we've found prioritized type!
+                    // TODO - this is the preferable case -- that all elements of the row are
+                    // constant -- but it'd be worth it as a backup to take something with all 0s
+                    // preceding as a switcher. Update accordingly.
+                    result = Some(switcher);
                     break;
                 }
             }
@@ -665,6 +736,121 @@ impl ProgramModel {
         }
     }
 
+    /// Discover pairs of rows which are lonely, and pair them up.
+    /// This is a weird one.
+    /// Consider this example of an augmented matrix:
+    ///
+    /// a |
+    /// -----
+    /// 2 | 6
+    /// b | 3
+    ///
+    /// In this case, we have that 2a = 6 and ab = 3
+    /// So we can multiply the second by 2 to get 2ab = 6
+    /// Then set 2ab to 2a, and remove the b = 3 row
+    /// Then we can substitue 3 in for a since 2a = 6 implies a = 3,
+    /// so 6b = 6
+    /// That would let us solve that b = 1.
+    ///
+    /// This is a method of solving non-linear systems of equations.
+    ///
+    fn make_less_lonely(&mut self) {
+        let row_ct = self.augmented_matrix.len();
+        let col_ct = self.augmented_matrix[0].len();
+
+        // find lonely groups, i.e., sets of rows which have exactly one column element, for each
+        // column except the last.
+        let mut lonely_groups: Vec<Vec<usize>> = Vec::with_capacity(col_ct - 1);
+        for col in 0..(col_ct - 1) {
+            let mut lonely_rows: Vec<usize> = Vec::new();
+            for row in 0..row_ct {
+                // only consider expressions which cannot evaluate to 0
+                let is_zero = if let Ok(number) =
+                    self.evaluate_constant_expression(&self.augmented_matrix[row][col])
+                {
+                    number.is_zero()
+                } else {
+                    false
+                };
+                if !is_zero {
+                    // determine if this row has a lonely column
+                    let mut lonely_row = true;
+                    for sub_col in 0..(col_ct - 1) {
+                        if sub_col == col {
+                            continue;
+                        }
+                        let is_zero = if let Ok(number) =
+                            self.evaluate_constant_expression(&self.augmented_matrix[row][sub_col])
+                        {
+                            number.is_zero()
+                        } else {
+                            false
+                        };
+                        lonely_row &= is_zero;
+                    }
+                    if lonely_row {
+                        lonely_rows.push(row);
+                    }
+                }
+            }
+            lonely_groups.push(lonely_rows);
+        }
+        // for each lonely group with > 1 element, generate any possible equations
+        // TODO - actually it should only do this if it can guarantee the column variable is not 0
+        let mut new_equations: Vec<(Expression, Expression)> = Vec::new();
+        for col in 0..(col_ct - 1) {
+            if lonely_groups[col].len() > 1 {
+                for right_idx in 1..lonely_groups[col].len() {
+                    let left_row_idx = lonely_groups[col][right_idx - 1];
+                    let right_row_idx = lonely_groups[col][right_idx];
+                    // must multiply each side by the thing the other is equal to so that they're
+                    // equal
+                    new_equations.push((
+                        self.augmented_matrix[left_row_idx][col].clone()
+                            * self.augmented_matrix[right_row_idx][col_ct - 1].clone(),
+                        self.augmented_matrix[right_row_idx][col].clone()
+                            * self.augmented_matrix[left_row_idx][col_ct - 1].clone(),
+                    ));
+                }
+            }
+        }
+
+        // add each equation to the augmented matrix
+        // NOTE - this cannot be optimized by throwing this in the previous loop, since it edits
+        // the augmented matrix and may delete necessary rows.
+        for (left, right) in new_equations {
+            self.add_matrix_row(left, right);
+        }
+    }
+
+    /// Simplify `self.augmented_matrix` by removing meaningless rows. (which are all 0s)
+    ///
+    fn remove_0s(&mut self) {
+        let row_ct = self.augmented_matrix.len();
+        let col_ct = self.augmented_matrix[0].len();
+
+        for row in 0..row_ct {
+            let idx = row_ct - row - 1;
+            if self.augmented_matrix[idx][0..col_ct - 1]
+                .iter()
+                .all(|expr| match self.evaluate_constant_expression(&expr) {
+                    Ok(number) => number.is_zero(),
+                    Err(_) => false,
+                })
+            {
+                if self
+                    .evaluate_constant_expression(&self.augmented_matrix[idx][col_ct - 1])
+                    .is_ok_and(|n| n.is_zero())
+                {
+                    self.augmented_matrix.remove(idx);
+                } else {
+                    eprintln!("ERROR: Logical error introduced.");
+                    process::exit(1);
+                }
+            }
+        }
+    }
+
     /// Update `self.augmented_matrix` to reduced echelon form.
     ///
     fn reduce(&mut self) {
@@ -702,29 +888,11 @@ impl ProgramModel {
             }
         }
 
-        // TODO - discover new expressions by finding 
-
         // remove expressions which are all 0s
-        for row in 0..row_ct {
-            let idx = row_ct - row - 1;
-            if self.augmented_matrix[idx][0..col_ct - 1]
-                .iter()
-                .all(|expr| match self.evaluate_constant_expression(&expr) {
-                    Ok(number) => number.is_zero(),
-                    Err(_) => false,
-                })
-            {
-                if self
-                    .evaluate_constant_expression(&self.augmented_matrix[idx][col_ct - 1])
-                    .is_ok_and(|n| n.is_zero())
-                {
-                    self.augmented_matrix.remove(idx);
-                } else {
-                    eprintln!("ERROR: Logical error introduced.");
-                    process::exit(1);
-                }
-            }
-        }
+        self.remove_0s();
+
+        // try to generate new equations with the gained info
+        self.make_less_lonely();
     }
 
     /// Assert all relations in `self` still hold.
