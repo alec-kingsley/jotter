@@ -235,13 +235,9 @@ Currently, quantity units are treated as though they were unitless. Technically 
 
 * Ability to add user-defined units
 
-### Relations
-
-* Simplify based on relations. For example, if it is known that a ≠ 0, then a/a should safely simplify to 1
-
 ### Solver
 
-* Ability to solve non-linear systems of equations
+* Ability to solve non-linear systems of equations, and show multiple solutions accordingly
 * Add common math functions such as `sin`, `cos`, `tan`, `log`, `mod`
 
 ### Functions

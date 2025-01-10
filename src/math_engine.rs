@@ -45,7 +45,7 @@ pub fn process_function(
 ) {
     let add_function_result = model.add_function(name, arguments, definition);
     if add_function_result.is_err() {
-        println!("WARNING - {}", add_function_result.unwrap_err());
+        eprintln!("WARNING - {}", add_function_result.unwrap_err());
     }
 }
 
@@ -68,7 +68,11 @@ pub fn process_equation(model: &mut ProgramModel, relation: Relation) {
         let right = relation.operands[i + 1].clone();
         // if equality, call add_matrix_row
         if relation.operators[i] == RelationOp::Equal {
-            model.add_matrix_row(left, right);
+            let equal_result = model.add_matrix_row(left, right);
+            if equal_result.is_err() {
+                eprintln!("ERROR - {}", equal_result.unwrap_err());
+                process::exit(0);
+            }
         } else {
             // else, call add_relation
             model.add_relation(left, right, relation.operators[i].clone());
@@ -173,11 +177,8 @@ impl ProgramModel {
             .cloned()
         {
             if self.call_depth > 100 {
-                eprintln!("ERROR: Maximum call depth of 100 reached");
-                process::exit(1);
-            }
-
-            if arguments.len() != call.arguments.len() {
+                Err(String::from("Maximum call depth of 100 reached"))  
+            } else if arguments.len() != call.arguments.len() {
                 Err(format!(
                     "Function `{}` takes `{}` arguments, while `{}` were supplied.",
                     call.name,
@@ -186,6 +187,7 @@ impl ProgramModel {
                 ))
             } else {
                 let mut model = self.clone();
+                model.relations.clear();
                 model.augmented_matrix.clear();
                 model.call_depth += 1;
                 for i in 0..arguments.len() {
@@ -200,7 +202,7 @@ impl ProgramModel {
                             }]),
                             subtrahend: Vec::new(),
                         },
-                    );
+                    ).unwrap();
                 }
                 // find a true thing to return
                 let mut result: Option<Expression> = None;
@@ -585,14 +587,26 @@ impl ProgramModel {
                     RelationOp::Less | RelationOp::Greater => all_true = false,
                     RelationOp::Equal | RelationOp::LessEqual | RelationOp::GreaterEqual => {
                         if &new_relation.operands[op_i] != &new_relation.operands[op_i + 1] {
-                            all_true = false;
+                            let mut model = self.clone();
+                            let logic_result = model.add_matrix_row(new_relation.operands[op_i].clone(), new_relation.operands[op_i + 1].clone());
+                            if logic_result.is_err() || !model.assert_relations_hold() {
+                                // stuff breaks if they were to be equal, so they are not equal
+                                has_false = true;
+                            } else {
+                                all_true = false;
+                            }
                         }
                     }
                     RelationOp::NotEqual => {
                         if &new_relation.operands[op_i] == &new_relation.operands[op_i + 1] {
                             has_false = true;
                         } else {
-                            all_true = false;
+                            let mut model = self.clone();
+                            let logic_result = model.add_matrix_row(new_relation.operands[op_i].clone(), new_relation.operands[op_i + 1].clone());
+                            if logic_result.is_ok() && model.assert_relations_hold() {
+                                // nothing breaks if we add it, so we can't say anything
+                                all_true = false;
+                            }
                         }
                     }
                 }
@@ -850,7 +864,7 @@ impl ProgramModel {
     ///
     /// This is a method of solving non-linear systems of equations.
     ///
-    fn make_less_lonely(&mut self) {
+    fn make_less_lonely(&mut self) -> Result<(), String> {
         let row_ct = self.augmented_matrix.len();
         let col_ct = if row_ct == 0 {
             1
@@ -919,13 +933,15 @@ impl ProgramModel {
         // NOTE - this cannot be optimized by throwing this in the previous loop, since it edits
         // the augmented matrix and may delete necessary rows.
         for (left, right) in new_equations {
-            self.add_matrix_row(left, right);
+            self.add_matrix_row(left, right)?;
         }
+        Ok(())
+
     }
 
     /// Simplify `self.augmented_matrix` by removing meaningless rows. (which are all 0s)
     ///
-    fn remove_0s(&mut self) {
+    fn remove_0s(&mut self) -> Result<(), String> {
         let row_ct = self.augmented_matrix.len();
         let col_ct = if row_ct == 0 {
             1
@@ -952,6 +968,7 @@ impl ProgramModel {
                 }
             }
         }
+        Ok(())
     }
 
     /// Remove rows which are just a pivot and store them.
@@ -1000,7 +1017,7 @@ impl ProgramModel {
 
     /// Update `self.augmented_matrix` to reduced echelon form.
     ///
-    fn reduce(&mut self) {
+    fn reduce(&mut self) -> Result<(), String> {
         assert!(
             self.augmented_matrix.len() > 0 && self.augmented_matrix[0].len() > 0,
             "Empty augmented matrix"
@@ -1036,13 +1053,15 @@ impl ProgramModel {
         }
 
         // remove expressions which are all 0s
-        self.remove_0s();
+        self.remove_0s()?;
 
         // remove expressions which are just a pivot (these are now knowns!)
         self.store_lonely_pivots();
 
         // try to generate new equations with the gained info
-        self.make_less_lonely();
+        self.make_less_lonely()?;
+
+        Ok(())
     }
 
     /// Assert all relations in `self` still hold.
@@ -1097,7 +1116,7 @@ impl ProgramModel {
     /// * `left` - The left-hand side of the equality.
     /// * `right` - The right-hand side of the equality.
     ///
-    fn add_matrix_row(&mut self, left: Expression, right: Expression) {
+    fn add_matrix_row(&mut self, left: Expression, right: Expression) -> Result<(), String> {
         // subtract one side from the other
         let mut zero_equivalent = left.clone() - right.clone();
 
@@ -1138,11 +1157,11 @@ impl ProgramModel {
         // add to augmented matrix and update information
         row_vector.push(column_vector_element);
         self.augmented_matrix.push(row_vector);
-        self.reduce();
+        self.reduce()?;
         if !self.assert_relations_hold() {
-            eprintln!("ERROR: Logical error introduced.");
-            process::exit(1);
+            return Err(String::from("Logical error introduced"));
         }
+        Ok(())
     }
 
     /// Add a relation to `self.relations`.
@@ -1264,7 +1283,7 @@ mod tests {
         let expression_a = parse_expression("a", &mut 0).unwrap();
         let expression_2 = parse_expression("2", &mut 0).unwrap();
         let mut model = ProgramModel::new(0);
-        model.add_matrix_row(expression_a, expression_2.clone());
+        model.add_matrix_row(expression_a, expression_2.clone()).unwrap();
 
         let a_expected = Number {
             value: 2f64,
@@ -1288,7 +1307,7 @@ mod tests {
         let expression_2 = parse_expression("2", &mut 0).unwrap();
         let mut model = ProgramModel::new(0);
         // a = 2
-        model.add_matrix_row(expression_a, expression_2.clone());
+        model.add_matrix_row(expression_a, expression_2.clone()).unwrap();
 
         let a = model
             .evaluate_constant_expression(
@@ -1313,7 +1332,7 @@ mod tests {
         let expression_2 = parse_expression("2", &mut 0).unwrap();
         let mut model = ProgramModel::new(0);
         // 2a = 2
-        model.add_matrix_row(expression_2a, expression_2.clone());
+        model.add_matrix_row(expression_2a, expression_2.clone()).unwrap();
 
         let a = model
             .evaluate_constant_expression(
@@ -1355,9 +1374,9 @@ mod tests {
         println!("{expression_y_minus_x} == {expression_neg_4}");
         let mut model = ProgramModel::new(0);
         // 3x + 2y = 7
-        model.add_matrix_row(expression_3x_plus_2y, expression_7);
+        model.add_matrix_row(expression_3x_plus_2y, expression_7).unwrap();
         // y - x = -4
-        model.add_matrix_row(expression_y_minus_x, expression_neg_4);
+        model.add_matrix_row(expression_y_minus_x, expression_neg_4).unwrap();
 
         let x = model
             .evaluate_constant_expression(
