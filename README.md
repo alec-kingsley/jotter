@@ -111,15 +111,13 @@ yields:
 
 A consequence of this is that units work weirdly with imaginary numbers. You can either specify the unit after each term, or multiply by the unit you want. For example,
 ```
-(3 + 2i) 1[km] = 3[km] + 2i[km]?
+(3 + 2i) [km] = 3[km] + 2i[km]?
 3[km] + 2i[km]?
 
 Expected output:
 (3 + 2i)*1 [km] = 3 [km] + 2i [km] : True
 3 [km] + 2i [km] : (3 + 2i) [km]
 ```
-
-In general, the nice unit displays for real numbers don't always transfer to complex numbers. Be careful with this.
 
 ## Comments and Page Breaks
 
@@ -204,7 +202,7 @@ expression  ::=   term (( '+' | '-' ) term ) *
 term        ::=   factor (( '*' | '/' ) ? factor ) *
 factor      ::=   '(' expression ')' | number | identifier | call
 call        ::=   identifier '(' expression ( ',' expression ) * ')'
-number      ::=   ( '0' | [1-9][0-9]* ) ( '.' [0-9]+ ) ? 'i' ? '%' ? unit ?
+number      ::=   ( '0' | [1-9][0-9]* ) ( '.' [0-9]+ ) ? 'i' ? '%' ? unit ? | unit
 identifier  ::=   ( [a-zA-Zα-ωΑ-Ω] | '\'' [a-zA-Z0-9_ ]+ '\'' )
 unit        ::=   '[' unit_term ']'
 unit_term   ::=   unit_factor (( '*' | '/') ? unit_factor) *

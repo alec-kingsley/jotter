@@ -1144,6 +1144,13 @@ impl PartialEq for Number {
 }
 
 impl Number {
+    /// Returns the absolute value of the number.
+    /// Does not consider unit.
+    ///
+    pub fn abs (&self) -> f64 {
+        (self.real * self.real + self.imaginary * self.imaginary).sqrt()
+    }
+
     /// Returns true iff the number has a value of 1
     ///
     pub fn is_unitless_one(&self) -> bool {
@@ -1169,12 +1176,12 @@ impl Number {
     /// * `subunit_exponent` - thing to be divisible by.
     pub fn refactor_exponent(&mut self, subunit_exponent: i8) {
         // try to force self to be within 3 digits from 0
-        while self.real.abs() >= 1.0 {
+        while self.abs() >= 1.0 {
             self.real /= 10.0;
             self.imaginary /= 10.0;
             self.unit.exponent += 1;
         }
-        while self.real != 0f64 && self.real.abs() < 1.0 {
+        while !self.is_zero() && self.abs() < 1.0 {
             self.real *= 10.0;
             self.imaginary *= 10.0;
             self.unit.exponent -= 1;

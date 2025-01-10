@@ -349,10 +349,13 @@ pub fn parse_factor(
         } else {
             Ok(Factor::Parenthetical(expression))
         }
-    } else if token.parse::<f64>().is_ok() || token == "i" {
+    } else if token.parse::<f64>().is_ok() || token == "i" || token == "[" {
         let value = if token == "i" { 
             *i -= "i".chars().count();
             1f64 
+        } else if token == "[" {
+            *i -= "[".chars().count();
+            1f64
         } else {
             token.parse::<f64>().unwrap()
         };
