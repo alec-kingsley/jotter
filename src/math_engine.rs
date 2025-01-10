@@ -860,19 +860,25 @@ impl ProgramModel {
     /// This is a weird one.
     /// Consider this example of an augmented matrix:
     ///
-    /// a |
+    /// a | _
     /// -----
-    /// 2 | 6
-    /// b | 3
+    /// b | 6
+    /// c | 3
     ///
-    /// In this case, we have that 2a = 6 and ab = 3
-    /// So we can multiply the second by 2 to get 2ab = 6
-    /// Then set 2ab to 2a, and remove the b = 3 row
-    /// Then we can substitue 3 in for a since 2a = 6 implies a = 3,
-    /// so 6b = 6
-    /// That would let us solve that b = 1.
+    /// Let's also say that we know a ≠ 0
+    /// In this case, we have that ab = 6 and ac = 3
+    /// So we can multiply the second by 2 to get 2ac = 6
+    /// Then set 2ac to ab
+    /// Then since a ≠ 0, we can say 2c = b
     ///
-    /// This is a method of solving non-linear systems of equations.
+    /// yielding this new augmented matrix:
+    /// a |  b  | c | _
+    /// ---------------
+    /// b |  0  | 0 | 6
+    /// c |  0  | 0 | 3
+    /// 0 | -1  | 2 | 0
+    ///
+    /// This new information can then be used to further develop augmented matrix.
     ///
     fn make_less_lonely(&mut self) -> Result<(), String> {
         let row_ct = self.augmented_matrix.len();
