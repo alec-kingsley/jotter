@@ -167,9 +167,9 @@ pub fn parse_relation(code: &str, i: &mut usize) -> Result<Relation, String> {
     while relation_op_map.contains_key(&relation_op_string.as_str()) {
         operators.push(
             relation_op_map
-                .get(&relation_op_string.as_str())
-                .unwrap()
-                .clone(),
+            .get(&relation_op_string.as_str())
+            .unwrap()
+            .clone(),
         );
         operands.push(parse_expression(code, i)?);
         relation_op_string = next_token(code, i).unwrap_or_default();
@@ -349,8 +349,13 @@ pub fn parse_factor(
         } else {
             Ok(Factor::Parenthetical(expression))
         }
-    } else if token.parse::<f64>().is_ok() {
-        let value = token.parse::<f64>().unwrap();
+    } else if token.parse::<f64>().is_ok() || token == "i" {
+        let value = if token == "i" { 
+            *i -= "i".chars().count();
+            1f64 
+        } else {
+            token.parse::<f64>().unwrap()
+        };
         let mut j = i.clone();
         let value = if next_token(code, &mut j).is_ok_and(|token| token == "%") {
             *i = j;
@@ -359,17 +364,26 @@ pub fn parse_factor(
             value
         };
         let mut j = i.clone();
+        let is_imaginary = if next_token(code, &mut j).is_ok_and(|token| token == "i") {
+            *i = j;
+            1f64
+        } else {
+            0f64
+        };
+        let mut j = i.clone();
         let unit_result = parse_unit(code, &mut j);
         if unit_result.is_ok() {
             *i = j;
             let (unit, factor) = unit_result.unwrap();
             Ok(Factor::Number(Number {
-                value: value * factor,
+                real: value * factor * (1f64 - is_imaginary),
+                imaginary: value * factor * is_imaginary,
                 unit,
             }))
         } else {
             Ok(Factor::Number(Number {
-                value,
+                real: value * (1f64 - is_imaginary),
+                imaginary: value * is_imaginary,
                 unit: Unit {
                     exponent: 0i8,
                     constituents: HashMap::new(),
@@ -430,10 +444,10 @@ mod tests {
             \t3x,     x < 3\n\
             \t2x + 3, x ≥ 3\n\
             }";
-        let mut i: usize = 0;
-        let function = parse_function(code, &mut i).unwrap();
-        println!("{code} == {function}");
-        assert_eq!(i, code.chars().count());
+    let mut i: usize = 0;
+    let function = parse_function(code, &mut i).unwrap();
+    println!("{code} == {function}");
+    assert_eq!(i, code.chars().count());
     }
 
     #[test]

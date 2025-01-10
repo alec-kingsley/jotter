@@ -166,7 +166,8 @@ pub fn get_true_relation() -> Relation {
     let zero = Expression {
         minuend: Vec::from([Term {
             numerator: Vec::from([Factor::Number(Number {
-                value: 0f64,
+                real: 0f64,
+                imaginary: 0f64,
                 unit: Unit {
                     exponent: 0,
                     constituents: HashMap::new(),
@@ -297,7 +298,8 @@ impl Expression {
                 .get(0)
                 .cloned()
                 .unwrap_or(Factor::Number(Number {
-                    value: 1f64,
+                    real: 1f64,
+                    imaginary: 0f64,
                     unit: Unit {
                         exponent: 0i8,
                         constituents: HashMap::new(),
@@ -323,7 +325,8 @@ impl Expression {
                 .get(0)
                 .cloned()
                 .unwrap_or(Factor::Number(Number {
-                    value: 1f64,
+                    real: 1f64,
+                    imaginary: 0f64,
                     unit: Unit {
                         exponent: 0i8,
                         constituents: HashMap::new(),
@@ -377,7 +380,8 @@ impl Expression {
 
         // restore self
         let one = Number {
-            value: 1f64,
+            real: 1f64,
+            imaginary: 0f64,
             unit: Unit {
                 exponent: 0i8,
                 constituents: HashMap::new(),
@@ -394,10 +398,10 @@ impl Expression {
             if number != one && number != -one.clone() {
                 operand.numerator.insert(
                     0,
-                    Factor::Number(if number > zero.clone() {
-                        number.clone()
-                    } else {
+                    Factor::Number(if number < zero.clone() {
                         -number.clone()
+                    } else {
+                        number.clone()
                     }),
                 );
             }
@@ -405,6 +409,9 @@ impl Expression {
                 self.minuend.push(operand);
             } else if number < zero.clone() {
                 self.subtrahend.push(operand);
+            } else if !number.is_zero() {
+                // it's complex
+                self.minuend.push(operand);
             }
         }
     }
@@ -723,7 +730,8 @@ impl Term {
     pub fn extract_number(&mut self) -> Number {
         // initialize base variables
         let mut value = Number {
-            value: 1f64,
+            real: 1f64,
+            imaginary: 0f64,
             unit: Unit {
                 exponent: 0i8,
                 constituents: HashMap::new(),
@@ -791,7 +799,8 @@ impl Neg for Term {
     fn neg(self) -> Self {
         let mut result = self.clone();
         result.numerator.push(Factor::Number(Number {
-            value: -1f64,
+            real: -1f64,
+            imaginary: 0f64,
             unit: Unit {
                 exponent: 0,
                 constituents: HashMap::new(),
@@ -1094,8 +1103,10 @@ impl Display for Call {
 
 #[derive(Debug, Clone)]
 pub struct Number {
-    /// Value of the numeric literal.
-    pub value: f64,
+    /// Real component of numeric literal.
+    pub real: f64,
+    /// Imaginary component of numeric literal.
+    pub imaginary: f64,
     /// Unit of the numeric literal.
     pub unit: Unit,
 }
@@ -1105,7 +1116,8 @@ impl Hash for Number {
     /// Necesarry since f64.hash() does not exist.
     ///
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.value.to_bits().hash(state);
+        self.real.to_bits().hash(state);
+        self.imaginary.to_bits().hash(state);
         self.unit.hash(state);
     }
 }
@@ -1118,10 +1130,15 @@ impl PartialEq for Number {
             let mut other_clone = other.clone();
             let exp_diff = other_clone.unit.exponent - self.unit.exponent;
             other_clone.unit.exponent -= exp_diff;
-            other_clone.value = other_clone.value * (10 as f64).powi(exp_diff as i32);
-            other_clone.value *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
+            other_clone.real = other_clone.real * (10 as f64).powi(exp_diff as i32);
+            other_clone.imaginary = other_clone.imaginary * (10 as f64).powi(exp_diff as i32);
+            other_clone.real *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
+            other_clone.imaginary *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
             let epsilon = 1e-8;
-            other_clone.value < self.value + epsilon && other_clone.value > self.value - epsilon
+            other_clone.real < self.real + epsilon
+                && other_clone.real > self.real - epsilon
+                && other_clone.imaginary < self.imaginary + epsilon
+                && other_clone.imaginary > self.imaginary - epsilon
         }
     }
 }
@@ -1130,7 +1147,8 @@ impl Number {
     /// Returns true iff the number has a value of 1
     ///
     pub fn is_unitless_one(&self) -> bool {
-        self.value * 10f64.powi(self.unit.exponent as i32) as f64 == 1f64
+        self.real * 10f64.powi(self.unit.exponent as i32) as f64 == 1f64
+            && self.imaginary == 0f64
             && self.unit
                 == Unit {
                     exponent: 0,
@@ -1141,7 +1159,7 @@ impl Number {
     /// Returns true iff the number has a value of 0
     ///
     pub fn is_zero(&self) -> bool {
-        self.value == 0f64
+        self.real == 0f64 && self.imaginary == 0f64
     }
 
     /// Refactor the unit such that its `unit.exponent` is divisible by `subunit_exponent`.
@@ -1151,12 +1169,14 @@ impl Number {
     /// * `subunit_exponent` - thing to be divisible by.
     pub fn refactor_exponent(&mut self, subunit_exponent: i8) {
         // try to force self to be within 3 digits from 0
-        while self.value.abs() >= 1.0 {
-            self.value /= 10.0;
+        while self.real.abs() >= 1.0 {
+            self.real /= 10.0;
+            self.imaginary /= 10.0;
             self.unit.exponent += 1;
         }
-        while self.value.abs() < 1.0 {
-            self.value *= 10.0;
+        while self.real.abs() < 1.0 {
+            self.real *= 10.0;
+            self.imaginary /= 10.0;
             self.unit.exponent -= 1;
         }
 
@@ -1165,14 +1185,16 @@ impl Number {
             while self.unit.exponent > 30
                 || (subunit_exponent != 0 && self.unit.exponent % (3 * subunit_exponent) != 0)
             {
-                self.value *= 10.0;
+                self.real *= 10.0;
+                self.imaginary *= 10.0;
                 self.unit.exponent -= 1;
             }
         } else {
             while self.unit.exponent < -30
                 || (subunit_exponent != 0 && self.unit.exponent % (3 * subunit_exponent) != 0)
             {
-                self.value /= 10.0;
+                self.real /= 10.0;
+                self.imaginary /= 10.0;
                 self.unit.exponent += 1;
             }
         }
@@ -1286,10 +1308,56 @@ impl Display for Number {
         }
 
         // write final result depending on numerator/denominator contents
-        let numeric_str = format!("{:.10}", self_clone.value)
-            .trim_end_matches('0')
-            .trim_end_matches('.')
-            .to_owned();
+        let numeric_str = if self.imaginary == 0f64 {
+            format!("{:.10}", self_clone.real)
+                .trim_end_matches('0')
+                .trim_end_matches('.')
+                .to_owned()
+        } else if self.real == 0f64 {
+            if self_clone.imaginary == 1f64 {
+                String::from("i")
+            } else if self_clone.imaginary == -1f64 {
+                String::from("-i")
+            } else {
+                format!("{:.10}", self_clone.imaginary)
+                    .trim_end_matches('0')
+                    .trim_end_matches('.')
+                    .to_owned()
+                    + "i"
+            }
+        } else {
+            if self_clone.imaginary > 0f64 {
+                format!("{:.10}", self_clone.real)
+                    .trim_end_matches('0')
+                    .trim_end_matches('.')
+                    .to_owned()
+                    + if self_clone.imaginary == 1f64 {
+                        String::from("i")
+                    }   else {
+                        format!(" + {:.10}", self_clone.imaginary)
+                            .trim_end_matches('0')
+                            .trim_end_matches('.')
+                            .to_owned()
+                            + "i"
+                    }
+                    .as_str()
+            } else {
+                format!("{:.10}", self_clone.real)
+                    .trim_end_matches('0')
+                    .trim_end_matches('.')
+                    .to_owned()
+                    + if self_clone.imaginary == -1f64 {
+                        String::from(" - i")
+                    }   else {
+                        format!(" - {:.10}", -self_clone.imaginary)
+                            .trim_end_matches('0')
+                            .trim_end_matches('.')
+                            .to_owned()
+                            + "i"
+                    }
+                    .as_str()
+            }
+        };
         if numerator.is_empty() {
             if denominator.is_empty() {
                 write!(f, "{}", numeric_str)
@@ -1364,10 +1432,13 @@ impl Add for Number {
         let mut other_clone = other.clone();
         let exp_diff = other_clone.unit.exponent - self.unit.exponent;
         other_clone.unit.exponent -= exp_diff;
-        other_clone.value = other_clone.value * (10 as f64).powi(exp_diff as i32) as f64;
-        other_clone.value *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
+        other_clone.real = other_clone.real * (10 as f64).powi(exp_diff as i32) as f64;
+        other_clone.imaginary = other_clone.imaginary * (10 as f64).powi(exp_diff as i32) as f64;
+        other_clone.real *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
+        other_clone.imaginary *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
         Self {
-            value: self.value + other_clone.value,
+            real: self.real + other_clone.real,
+            imaginary: self.imaginary + other_clone.imaginary,
             unit: self.unit,
         }
     }
@@ -1398,7 +1469,8 @@ impl Neg for Number {
     ///
     fn neg(self) -> Self {
         Self {
-            value: -self.value,
+            real: -self.real,
+            imaginary: -self.imaginary,
             unit: self.unit,
         }
     }
@@ -1414,10 +1486,13 @@ impl Sub for Number {
         let mut other_clone = other.clone();
         let exp_diff = other_clone.unit.exponent - self.unit.exponent;
         other_clone.unit.exponent -= exp_diff;
-        other_clone.value = other_clone.value * (10 as f64).powi(exp_diff as i32);
-        other_clone.value *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
+        other_clone.real = other_clone.real * (10 as f64).powi(exp_diff as i32);
+        other_clone.imaginary = other_clone.imaginary * (10 as f64).powi(exp_diff as i32);
+        other_clone.real *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
+        other_clone.imaginary *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
         Self {
-            value: self.value - other_clone.value,
+            real: self.real - other_clone.real,
+            imaginary: self.imaginary - other_clone.imaginary,
             unit: self.unit,
         }
     }
@@ -1452,7 +1527,8 @@ impl Mul for Number {
             *constituents.entry(base_unit).or_insert(0) += power;
         }
         Self {
-            value: self.value * other.value,
+            real: self.real * other.real - self.imaginary * other.imaginary,
+            imaginary: self.real * other.imaginary + self.imaginary * other.real,
             unit: Unit {
                 exponent: self.unit.exponent + other.unit.exponent,
                 constituents,
@@ -1479,8 +1555,12 @@ impl Div for Number {
         for (base_unit, power) in other.unit.constituents {
             *constituents.entry(base_unit).or_insert(0) -= power;
         }
+        // ain't no way I finally used the complex conjugate thing from linear alg
+        let divisor = other.real * other.real + other.imaginary * other.imaginary;
+
         Self {
-            value: self.value / other.value,
+            real: (self.real * other.real + self.imaginary * other.imaginary) / divisor,
+            imaginary: (- self.real * other.imaginary + self.imaginary * other.real) / divisor,
             unit: Unit {
                 exponent: self.unit.exponent - other.unit.exponent,
                 constituents,
@@ -1499,6 +1579,7 @@ impl DivAssign for Number {
 
 impl PartialOrd for Number {
     /// Operator overload for <, >, <=, >=
+    /// Returns None for complex numbers.
     ///
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         assert!(
@@ -1508,17 +1589,19 @@ impl PartialOrd for Number {
 
         if self == other {
             Some(Ordering::Equal)
-        } else {
+        } else if self.imaginary == 0f64 && other.imaginary == 0f64 {
             let mut other_clone = other.clone();
             let exp_diff = other_clone.unit.exponent - self.unit.exponent;
             other_clone.unit.exponent -= exp_diff;
-            other_clone.value = other_clone.value * (10 as f64).powi(exp_diff as i32);
-            other_clone.value *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
-            Some(if self.value < other_clone.value {
+            other_clone.real = other_clone.real * (10 as f64).powi(exp_diff as i32);
+            other_clone.real *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
+            Some(if self.real < other_clone.real {
                 Ordering::Less
             } else {
                 Ordering::Greater
             })
+        } else {
+            None
         }
     }
 }
@@ -1552,9 +1635,13 @@ impl Identifier {
             .unwrap()
             .is_match(value)
         {
-            Ok(Self {
-                value: value.to_string(),
-            })
+            if value == "i" {
+                Err(String::from("`i` is reserved"))
+            } else {
+                Ok(Self {
+                    value: value.to_string(),
+                })
+            }
         } else {
             Err(format!("Invalid identifier: `{value}`"))
         }
@@ -1600,12 +1687,48 @@ mod tests {
 
     fn get_number_1() -> Number {
         Number {
-            value: 1f64,
+            real: 1f64,
+            imaginary: 0f64,
             unit: Unit {
                 exponent: 0,
                 constituents: HashMap::new(),
             },
         }
+    }
+
+    fn get_number_i() -> Number {
+        Number {
+            real: 0f64,
+            imaginary: 1f64,
+            unit: Unit {
+                exponent: 0,
+                constituents: HashMap::new(),
+            },
+        }
+    }
+
+    #[test]
+    fn number_multiply_test1() {
+        assert_eq!(get_number_i(), get_number_1() * get_number_i());
+    }
+
+    #[test]
+    fn number_multiply_test2() {
+        assert_eq!(-get_number_i(), get_number_1() * -get_number_i());
+    }
+
+    #[test]
+    fn number_multiply_test3() {
+        assert_eq!(-get_number_i(), -get_number_1() * get_number_i());
+    }
+    #[test]
+    fn number_divide_test1() {
+        assert_eq!(get_number_i(), get_number_i() / get_number_1());
+    }
+
+    #[test]
+    fn number_divide_test2() {
+        assert_eq!(-get_number_i(), get_number_1() / get_number_i());
     }
 
     #[test]

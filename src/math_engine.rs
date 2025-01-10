@@ -261,7 +261,8 @@ impl ProgramModel {
     fn evaluate_constant_term(&self, term: &Term) -> Result<Number, String> {
         // value to return
         let mut value = Number {
-            value: 1f64,
+            real: 1f64,
+            imaginary: 0f64,
             unit: Unit {
                 exponent: 0i8,
                 constituents: HashMap::new(),
@@ -285,7 +286,8 @@ impl ProgramModel {
     fn evaluate_constant_expression(&self, expression: &Expression) -> Result<Number, String> {
         // value to return
         let mut value = Number {
-            value: 0f64,
+            real: 0f64,
+            imaginary: 0f64,
             unit: Unit {
                 exponent: 0i8,
                 constituents: HashMap::new(),
@@ -337,7 +339,8 @@ impl ProgramModel {
                     }
                 } else {
                     Factor::Number(Number {
-                        value: 0f64,
+                        real: 0f64,
+                        imaginary: 0f64,
                         unit: Unit {
                             exponent: 0i8,
                             constituents: HashMap::new(),
@@ -380,7 +383,8 @@ impl ProgramModel {
 
         // simplify original factors in term and throw them back in
         let one = Factor::Number(Number {
-            value: 1f64,
+            real: 1f64,
+            imaginary: 0f64,
             unit: Unit {
                 exponent: 0i8,
                 constituents: HashMap::new(),
@@ -666,7 +670,8 @@ impl ProgramModel {
             test_model.solved_variables.insert(
                 name.clone(),
                 vec![Number {
-                    value: 0f64,
+                    real: 0f64,
+                    imaginary: 0f64,
                     unit: Unit {
                         exponent: 0i8,
                         constituents: HashMap::new(),
@@ -1256,7 +1261,8 @@ mod tests {
             denominator: Vec::new(),
         };
         let expected = Number {
-            value: 1f64,
+            real: 1f64,
+            imaginary: 0f64,
             unit: Unit {
                 exponent: 0i8,
                 constituents: HashMap::new(),
@@ -1281,7 +1287,8 @@ mod tests {
             subtrahend: Vec::new(),
         };
         let expected = Number {
-            value: 1f64,
+            real: 1f64,
+            imaginary: 0f64,
             unit: Unit {
                 exponent: 0i8,
                 constituents: HashMap::new(),
@@ -1305,7 +1312,8 @@ mod tests {
             .unwrap();
 
         let a_expected = Number {
-            value: 2f64,
+            real: 2f64,
+            imaginary: 0f64,
             unit: Unit {
                 exponent: 0i8,
                 constituents: HashMap::new(),
@@ -1338,7 +1346,8 @@ mod tests {
             )
             .expect("Failed to evaluate");
         let a_expected = Number {
-            value: 2f64,
+            real: 2f64,
+            imaginary: 0f64,
             unit: Unit {
                 exponent: 0i8,
                 constituents: HashMap::new(),
@@ -1365,7 +1374,8 @@ mod tests {
             )
             .expect("Failed to evaluate");
         let a_expected = Number {
-            value: 1f64,
+            real: 1f64,
+            imaginary: 0f64,
             unit: Unit {
                 exponent: 0i8,
                 constituents: HashMap::new(),
@@ -1413,7 +1423,8 @@ mod tests {
             )
             .expect("Failed to evaluate");
         let x_expected = Number {
-            value: 3f64,
+            real: 3f64,
+            imaginary: 0f64,
             unit: Unit {
                 exponent: 0i8,
                 constituents: HashMap::new(),
@@ -1428,7 +1439,8 @@ mod tests {
             )
             .expect("Failed to evaluate");
         let y_expected = Number {
-            value: -1f64,
+            real: -1f64,
+            imaginary: 0f64,
             unit: Unit {
                 exponent: 0i8,
                 constituents: HashMap::new(),

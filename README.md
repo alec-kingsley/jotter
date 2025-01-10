@@ -48,6 +48,31 @@ Expected output:
 (a + b)(a + b) : aa + 2ab + bb
 ```
 
+## Complex Numbers
+
+Complex numbers are supported, and it will divide them cleanly.
+
+Example:
+```
+(-15 + 23i)/(5 + 2i)?
+(25 - 60i)/(8 - i)?
+(3 + 2i)(1 - 5i)?
+
+Expected output:
+(23i - 15)/(5 + 2i) : -1 + 5i
+(25 - 60i)/(8 - i) : 4 - 7i
+(3 + 2i)(1 - 5i) : 13 - 13i
+```
+
+Note that it will initially parse all imaginary and real numbers independently, hence why it would display `23i - 15` instead of the more standard `-15 + 23i`. It will combine these in the simplification process, so by itself,
+
+```
+-15 + 23i?
+
+yields:
+23i - 15 : -15 + 23i
+```
+
 ## Units
 
 Another feature of Jotter is how it handles units:
