@@ -103,24 +103,43 @@ impl Display for ProgramModel {
     ///
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
+        result.push_str("\nSolved Variables:\n");
+        result.push_str(
+            self.solved_variables
+                .iter()
+                .map(|(name, values)| {
+                    format!(
+                        "{name} = {}",
+                        values
+                            .iter()
+                            .map(|n| n.to_string())
+                            .collect::<Vec<_>>()
+                            .join(" OR ")
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(", ")
+                .as_str(),
+        );
+        result.push_str("\nAugmented Matrix:\n");
 
         // print out the header
-        for variable in &self.variables {
-            if result.is_empty() {
-                result = format!("{}", variable);
-            } else {
-                result.push_str(format!(", {}", variable).as_str());
-            }
-        }
-        result.push_str(
+        let mut header = self
+            .variables
+            .iter()
+            .map(|v| v.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        header.push_str(
             format!(
                 ", _\n{}\n",
-                "-".repeat(result.chars().count() + ", _".len())
+                "-".repeat(header.chars().count() + ", _".len())
             )
             .as_str(),
         );
 
-        result = format!("\nAugmented Matrix:\n{}", result);
+        result.push_str(header.as_str());
 
         // print out the matrix elements
         for row in 0..self.augmented_matrix.len() {
@@ -403,7 +422,7 @@ impl ProgramModel {
                             .entry(name.clone())
                             .and_modify(|(_, ct)| *ct += 1);
                     }
-                } else if self.could_be_0(name) {
+                } else if self.could_be_0(name) || self.solved_variables.contains_key(&name) {
                     identifier_counts.insert(name.clone(), (true, 0));
                 } else {
                     add_to_numerator = false;

@@ -248,7 +248,7 @@ impl Display for Expression {
     /// Format `Expression` appropriately.
     ///
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Format minuend elements, joined by `+`
+        // format minuend elements, joined by `+`
         let minuend_str = self
             .minuend
             .iter()
@@ -256,7 +256,7 @@ impl Display for Expression {
             .collect::<Vec<_>>()
             .join(" + ");
 
-        // Format subtrahend elements, each preceded by `-`
+        // format subtrahend elements, each preceded by `-`
         let subtrahend_str = self
             .subtrahend
             .iter()
@@ -264,7 +264,7 @@ impl Display for Expression {
             .collect::<Vec<_>>()
             .join(" ");
 
-        // Combine the two parts
+        // combine the two parts
         if subtrahend_str.is_empty() {
             if minuend_str.is_empty() {
                 write!(f, "0")
