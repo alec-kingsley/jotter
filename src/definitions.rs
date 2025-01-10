@@ -7,7 +7,7 @@
 // term        ::=   factor (( '*' | '/' ) ? factor ) *
 // factor      ::=   '(' expression ')' | number | identifier | call
 // call        ::=   identifier '(' expression ( ',' expression ) * ')'
-// number      ::=   ( '0' | [1-9][0-9]* ) ( '.' [0-9]+ ) ? '%' ? unit ?
+// number      ::=   ( '0' | [1-9][0-9]* ) ( '.' [0-9]+ ) ? 'i' ? '%' ? unit ?
 // identifier  ::=   ( [a-zA-Zα-ωΑ-Ω] | '\'' [a-zA-Z0-9_ ]+ '\'' )
 // unit        ::=   '[' unit_term ']'
 // unit_term   ::=   unit_factor (( '*' | '/') ? unit_factor) *
@@ -1333,7 +1333,7 @@ impl Display for Number {
                     .to_owned()
                     + if self_clone.imaginary == 1f64 {
                         String::from(" + i")
-                    }   else {
+                    } else {
                         format!(" + {:.10}", self_clone.imaginary)
                             .trim_end_matches('0')
                             .trim_end_matches('.')
@@ -1348,7 +1348,7 @@ impl Display for Number {
                     .to_owned()
                     + if self_clone.imaginary == -1f64 {
                         String::from(" - i")
-                    }   else {
+                    } else {
                         format!(" - {:.10}", -self_clone.imaginary)
                             .trim_end_matches('0')
                             .trim_end_matches('.')
@@ -1357,6 +1357,13 @@ impl Display for Number {
                     }
                     .as_str()
             }
+        };
+        let numeric_str = if !(numerator.is_empty() && denominator.is_empty())
+            && (self_clone.real != 0f64 && self_clone.imaginary != 0f64)
+        {
+            format!("({})", numeric_str)
+        } else {
+            numeric_str
         };
         if numerator.is_empty() {
             if denominator.is_empty() {
@@ -1560,7 +1567,7 @@ impl Div for Number {
 
         Self {
             real: (self.real * other.real + self.imaginary * other.imaginary) / divisor,
-            imaginary: (- self.real * other.imaginary + self.imaginary * other.real) / divisor,
+            imaginary: (-self.real * other.imaginary + self.imaginary * other.real) / divisor,
             unit: Unit {
                 exponent: self.unit.exponent - other.unit.exponent,
                 constituents,
