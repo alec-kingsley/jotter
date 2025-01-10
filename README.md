@@ -112,6 +112,9 @@ yields:
 A consequence of this is that units work weirdly with imaginary numbers. You can either specify the unit after each term, or multiply by the unit you want. For example,
 ```
 (1 + i) 1[km] = 1[km] + i[km]?
+1[km] + i[km]?
+
+Expected output:
 (1 + i)*1 [km] = 1 [km] + i [km] : True
 ```
 

@@ -1332,7 +1332,7 @@ impl Display for Number {
                     .trim_end_matches('.')
                     .to_owned()
                     + if self_clone.imaginary == 1f64 {
-                        String::from("i")
+                        String::from(" + i")
                     }   else {
                         format!(" + {:.10}", self_clone.imaginary)
                             .trim_end_matches('0')
