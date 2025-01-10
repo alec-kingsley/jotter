@@ -177,7 +177,7 @@ impl ProgramModel {
             .cloned()
         {
             if self.call_depth > 100 {
-                Err(String::from("Maximum call depth of 100 reached"))  
+                Err(String::from("Maximum call depth of 100 reached"))
             } else if arguments.len() != call.arguments.len() {
                 Err(format!(
                     "Function `{}` takes `{}` arguments, while `{}` were supplied.",
@@ -192,17 +192,21 @@ impl ProgramModel {
                 model.call_depth += 1;
                 for i in 0..arguments.len() {
                     // assign each variable name to its argument
-                    model.add_matrix_row(
-                        self.simplify_expression(&call.arguments[i], true)
-                            .expect("Failed to simplify call argument"),
-                        Expression {
-                            minuend: Vec::from([Term {
-                                numerator: Vec::from([Factor::Identifier(arguments[i].clone())]),
-                                denominator: Vec::new(),
-                            }]),
-                            subtrahend: Vec::new(),
-                        },
-                    ).unwrap();
+                    model
+                        .add_matrix_row(
+                            self.simplify_expression(&call.arguments[i], true)
+                                .expect("Failed to simplify call argument"),
+                            Expression {
+                                minuend: Vec::from([Term {
+                                    numerator: Vec::from([Factor::Identifier(
+                                        arguments[i].clone(),
+                                    )]),
+                                    denominator: Vec::new(),
+                                }]),
+                                subtrahend: Vec::new(),
+                            },
+                        )
+                        .unwrap();
                 }
                 // find a true thing to return
                 let mut result: Option<Expression> = None;
@@ -588,7 +592,10 @@ impl ProgramModel {
                     RelationOp::Equal | RelationOp::LessEqual | RelationOp::GreaterEqual => {
                         if &new_relation.operands[op_i] != &new_relation.operands[op_i + 1] {
                             let mut model = self.clone();
-                            let logic_result = model.add_matrix_row(new_relation.operands[op_i].clone(), new_relation.operands[op_i + 1].clone());
+                            let logic_result = model.add_matrix_row(
+                                new_relation.operands[op_i].clone(),
+                                new_relation.operands[op_i + 1].clone(),
+                            );
                             if logic_result.is_err() || !model.assert_relations_hold() {
                                 // stuff breaks if they were to be equal, so they are not equal
                                 has_false = true;
@@ -602,7 +609,10 @@ impl ProgramModel {
                             has_false = true;
                         } else {
                             let mut model = self.clone();
-                            let logic_result = model.add_matrix_row(new_relation.operands[op_i].clone(), new_relation.operands[op_i + 1].clone());
+                            let logic_result = model.add_matrix_row(
+                                new_relation.operands[op_i].clone(),
+                                new_relation.operands[op_i + 1].clone(),
+                            );
                             if logic_result.is_ok() && model.assert_relations_hold() {
                                 // nothing breaks if we add it, so we can't say anything
                                 all_true = false;
@@ -910,21 +920,23 @@ impl ProgramModel {
             lonely_groups.push(lonely_rows);
         }
         // for each lonely group with > 1 element, generate any possible equations
-        // TODO - actually it should only do this if it can guarantee the column variable is not 0
         let mut new_equations: Vec<(Expression, Expression)> = Vec::new();
         for col in 0..(col_ct - 1) {
-            if lonely_groups[col].len() > 1 {
-                for right_idx in 1..lonely_groups[col].len() {
-                    let left_row_idx = lonely_groups[col][right_idx - 1];
-                    let right_row_idx = lonely_groups[col][right_idx];
-                    // must multiply each side by the thing the other is equal to so that they're
-                    // equal
-                    new_equations.push((
-                        self.augmented_matrix[left_row_idx][col].clone()
-                            * self.augmented_matrix[right_row_idx][col_ct - 1].clone(),
-                        self.augmented_matrix[right_row_idx][col].clone()
-                            * self.augmented_matrix[left_row_idx][col_ct - 1].clone(),
-                    ));
+            // it should only do this if it can guarantee the column variable is not 0
+            if !self.could_be_0(&self.variables[col]) {
+                if lonely_groups[col].len() > 1 {
+                    for right_idx in 1..lonely_groups[col].len() {
+                        let left_row_idx = lonely_groups[col][right_idx - 1];
+                        let right_row_idx = lonely_groups[col][right_idx];
+                        // must multiply each side by the thing the other is equal to so that they're
+                        // equal
+                        new_equations.push((
+                            self.augmented_matrix[left_row_idx][col].clone()
+                                * self.augmented_matrix[right_row_idx][col_ct - 1].clone(),
+                            self.augmented_matrix[right_row_idx][col].clone()
+                                * self.augmented_matrix[left_row_idx][col_ct - 1].clone(),
+                        ));
+                    }
                 }
             }
         }
@@ -936,7 +948,6 @@ impl ProgramModel {
             self.add_matrix_row(left, right)?;
         }
         Ok(())
-
     }
 
     /// Simplify `self.augmented_matrix` by removing meaningless rows. (which are all 0s)
@@ -1283,7 +1294,9 @@ mod tests {
         let expression_a = parse_expression("a", &mut 0).unwrap();
         let expression_2 = parse_expression("2", &mut 0).unwrap();
         let mut model = ProgramModel::new(0);
-        model.add_matrix_row(expression_a, expression_2.clone()).unwrap();
+        model
+            .add_matrix_row(expression_a, expression_2.clone())
+            .unwrap();
 
         let a_expected = Number {
             value: 2f64,
@@ -1307,7 +1320,9 @@ mod tests {
         let expression_2 = parse_expression("2", &mut 0).unwrap();
         let mut model = ProgramModel::new(0);
         // a = 2
-        model.add_matrix_row(expression_a, expression_2.clone()).unwrap();
+        model
+            .add_matrix_row(expression_a, expression_2.clone())
+            .unwrap();
 
         let a = model
             .evaluate_constant_expression(
@@ -1332,7 +1347,9 @@ mod tests {
         let expression_2 = parse_expression("2", &mut 0).unwrap();
         let mut model = ProgramModel::new(0);
         // 2a = 2
-        model.add_matrix_row(expression_2a, expression_2.clone()).unwrap();
+        model
+            .add_matrix_row(expression_2a, expression_2.clone())
+            .unwrap();
 
         let a = model
             .evaluate_constant_expression(
@@ -1374,9 +1391,13 @@ mod tests {
         println!("{expression_y_minus_x} == {expression_neg_4}");
         let mut model = ProgramModel::new(0);
         // 3x + 2y = 7
-        model.add_matrix_row(expression_3x_plus_2y, expression_7).unwrap();
+        model
+            .add_matrix_row(expression_3x_plus_2y, expression_7)
+            .unwrap();
         // y - x = -4
-        model.add_matrix_row(expression_y_minus_x, expression_neg_4).unwrap();
+        model
+            .add_matrix_row(expression_y_minus_x, expression_neg_4)
+            .unwrap();
 
         let x = model
             .evaluate_constant_expression(
