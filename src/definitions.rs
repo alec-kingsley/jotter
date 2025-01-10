@@ -1174,9 +1174,9 @@ impl Number {
             self.imaginary /= 10.0;
             self.unit.exponent += 1;
         }
-        while self.real.abs() < 1.0 {
+        while self.real != 0f64 && self.real.abs() < 1.0 {
             self.real *= 10.0;
-            self.imaginary /= 10.0;
+            self.imaginary *= 10.0;
             self.unit.exponent -= 1;
         }
 

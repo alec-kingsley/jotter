@@ -48,31 +48,6 @@ Expected output:
 (a + b)(a + b) : aa + 2ab + bb
 ```
 
-## Complex Numbers
-
-Complex numbers are supported, and it will divide them cleanly.
-
-Example:
-```
-(-15 + 23i)/(5 + 2i)?
-(25 - 60i)/(8 - i)?
-(3 + 2i)(1 - 5i)?
-
-Expected output:
-(23i - 15)/(5 + 2i) : -1 + 5i
-(25 - 60i)/(8 - i) : 4 - 7i
-(3 + 2i)(1 - 5i) : 13 - 13i
-```
-
-Note that it will initially parse all imaginary and real numbers independently, hence why it would display `23i - 15` instead of the more standard `-15 + 23i`. It will combine these in the simplification process, so by itself,
-
-```
--15 + 23i?
-
-yields:
-23i - 15 : -15 + 23i
-```
-
 ## Units
 
 Another feature of Jotter is how it handles units:
@@ -108,6 +83,39 @@ Most common metric and US customary units are supported.
 
 Each unit is only case sensitive if written as an abbreviation (like `km`) but can be written with any case
 and with or without an `s` at th end if not abbreviated. (`kilometer`, `Kilometer`, `KILOMETERS` are all acceptable)
+
+## Complex Numbers
+
+Complex numbers are supported, and it will divide them cleanly.
+
+Example:
+```
+(-15 + 23i)/(5 + 2i)?
+(25 - 60i)/(8 - i)?
+(3 + 2i)(1 - 5i)?
+
+Expected output:
+(23i - 15)/(5 + 2i) : -1 + 5i
+(25 - 60i)/(8 - i) : 4 - 7i
+(3 + 2i)(1 - 5i) : 13 - 13i
+```
+
+Note that it will initially parse all imaginary and real numbers independently, hence why it would display `23i - 15` instead of the more standard `-15 + 23i`. It will combine these in the simplification process, so by itself,
+
+```
+-15 + 23i?
+
+yields:
+23i - 15 : -15 + 23i
+```
+
+A consequence of this is that units work weirdly with imaginary numbers. You can either specify the unit after each term, or multiply by the unit you want. For example,
+```
+(1 + i) 1[km] = 1[km] + i[km]?
+(1 + i)*1 [km] = 1 [km] + i [km] : True
+```
+
+In general, the nice unit displays for real numbers don't always transfer to complex numbers. Be careful with this.
 
 ## Comments and Page Breaks
 
@@ -259,6 +267,7 @@ Currently, quantity units are treated as though they were unitless. Technically 
 ### Units
 
 * Ability to add user-defined units
+* Better units chosen for complex numbers
 
 ### Solver
 
