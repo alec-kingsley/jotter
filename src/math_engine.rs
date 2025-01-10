@@ -89,11 +89,17 @@ pub fn process_equation(model: &mut ProgramModel, relation: Relation) {
 ///
 #[derive(Debug, Clone)]
 pub struct ProgramModel {
+    /// variables that've been solved for, mapped to a finite solution list
     solved_variables: HashMap<Identifier, Vec<Number>>,
+    /// all variables, in the order they appear in the augmented matrix
     variables: Vec<Identifier>,
+    /// description of all known equations in a mathematical augmented matrix
     augmented_matrix: Vec<Vec<Expression>>,
+    /// all relations which are not equations
     relations: Vec<Relation>,
+    /// function definitions
     functions: HashSet<Statement>,
+    /// for functions ; depth of call (to protect against astray recursion)
     call_depth: u16,
 }
 
@@ -954,7 +960,30 @@ impl ProgramModel {
         for col in 0..(col_ct - 1) {
             // it should only do this if it can guarantee the column variable is not 0
             if !self.could_be_0(&self.variables[col]) {
-                if lonely_groups[col].len() > 1 {
+                if self.solved_variables.contains_key(&self.variables[col])
+                    && self
+                        .solved_variables
+                        .get(&self.variables[col])
+                        .unwrap()
+                        .len()
+                        == 1
+                {
+                    let value = &self.solved_variables.get(&self.variables[col]).unwrap()[0];
+                    for left_idx in 0..lonely_groups[col].len() {
+                        let left_row_idx = lonely_groups[col][left_idx];
+                        new_equations.push((
+                            self.augmented_matrix[left_row_idx][col].clone()
+                                * Expression {
+                                    minuend: vec![Term {
+                                        numerator: vec![Factor::Number(value.clone())],
+                                        denominator: Vec::new(),
+                                    }],
+                                    subtrahend: Vec::new(),
+                                },
+                            self.augmented_matrix[left_row_idx][col_ct - 1].clone(),
+                        ));
+                    }
+                } else if lonely_groups[col].len() > 1 {
                     for right_idx in 1..lonely_groups[col].len() {
                         let left_row_idx = lonely_groups[col][right_idx - 1];
                         let right_row_idx = lonely_groups[col][right_idx];
