@@ -415,6 +415,95 @@ impl Expression {
             }
         }
     }
+
+    /// Extract `Polynomial` from `self`.
+    /// Assumes that `self` is already fully simplified.
+    ///
+    pub fn extract_polynomial(&self) -> Option<(Polynomial, Identifier)> {
+        let mut variable_name_option: Option<Identifier> = None;
+        let mut polynomial = Polynomial {
+            coefficients: Vec::new(),
+        };
+        let zero = Number {
+            real: 0f64,
+            imaginary: 0f64,
+            unit: Unit {
+                exponent: 0i8,
+                constituents: HashMap::new(),
+            },
+        };
+        for term in &self.minuend {
+            if term.denominator.len() > 0 {
+                return None;
+            }
+            let mut degree = 0;
+            let mut coefficient = Number {
+                real: 1f64,
+                imaginary: 0f64,
+                unit: Unit {
+                    exponent: 0i8,
+                    constituents: HashMap::new(),
+                },
+            };
+            for factor in &term.numerator {
+                match factor {
+                    Factor::Identifier(name) => {
+                        if variable_name_option == None {
+                            variable_name_option = Some(name.clone());
+                        } else if &variable_name_option.clone().unwrap() != name {
+                            // a polynomial can only have one variable
+                            return None;
+                        }
+                        degree += 1;
+                    }
+                    Factor::Number(number) => {
+                        coefficient *= number.clone();
+                    }
+                    _ => return None,
+                }
+            }
+            if polynomial.coefficients.len() < degree {
+                polynomial.coefficients.resize_with(degree, || zero.clone());
+            }
+            polynomial.coefficients[degree] = coefficient;
+        }
+        for term in &self.subtrahend {
+            if term.denominator.len() > 0 {
+                return None;
+            }
+            let mut degree = 0;
+            let mut coefficient = Number {
+                real: -1f64,
+                imaginary: 0f64,
+                unit: Unit {
+                    exponent: 0i8,
+                    constituents: HashMap::new(),
+                },
+            };
+            for factor in &term.numerator {
+                match factor {
+                    Factor::Identifier(name) => {
+                        if variable_name_option == None {
+                            variable_name_option = Some(name.clone());
+                        } else if &variable_name_option.clone().unwrap() != name {
+                            // a polynomial can only have one variable
+                            return None;
+                        }
+                        degree += 1;
+                    }
+                    Factor::Number(number) => {
+                        coefficient *= number.clone();
+                    }
+                    _ => return None,
+                }
+            }
+            if polynomial.coefficients.len() < degree {
+                polynomial.coefficients.resize_with(degree, || zero.clone());
+            }
+            polynomial.coefficients[degree] = coefficient;
+        }
+        Some((polynomial, variable_name_option.unwrap()))
+    }
 }
 
 impl Add for Expression {

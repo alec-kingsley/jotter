@@ -1041,6 +1041,73 @@ impl ProgramModel {
         Ok(())
     }
 
+    /// Solve for all solutions of lonely polynomials.
+    ///
+    fn resolve_lonely_polynomials(&mut self) -> Result<(), String> {
+        let row_ct = self.augmented_matrix.len();
+        let col_ct = if row_ct == 0 {
+            1
+        } else {
+            self.augmented_matrix[0].len()
+        };
+
+        for col in 0..(col_ct - 1) {
+            for row in 0..row_ct {
+                // determine if this row has a lonely column
+                let mut lonely_row = true;
+                for sub_col in 0..(col_ct - 1) {
+                    if sub_col == col {
+                        continue;
+                    }
+                    let is_zero = if let Ok(number) =
+                        self.evaluate_constant_expression(&self.augmented_matrix[row][sub_col])
+                    {
+                        number.is_zero()
+                    } else {
+                        false
+                    };
+                    lonely_row &= is_zero;
+                }
+                if lonely_row {
+                    let zero_equivalent = self.simplify_expression(
+                        &((self.augmented_matrix[row][col].clone()
+                            * Expression {
+                                minuend: vec![Term {
+                                    numerator: vec![Factor::Identifier(
+                                        self.variables[col].clone(),
+                                    )],
+                                    denominator: Vec::new(),
+                                }],
+                                subtrahend: Vec::new(),
+                            })
+                            - self.augmented_matrix[row][col_ct - 1].clone()),
+                        true,
+                    );
+                    if zero_equivalent.is_ok() {
+                        if let Some((polynomial, name)) =
+                            zero_equivalent.unwrap().extract_polynomial()
+                        {
+                            let equivalencies = polynomial.find_roots();
+                            self.solved_variables.insert(name.clone(), Vec::new());
+                            let mut test_model = self.clone();
+                            for equivalency in equivalencies {
+                                // only add if solution does not break pre-order
+                                test_model
+                                    .solved_variables
+                                    .insert(name.clone(), vec![equivalency.clone()]);
+                                if test_model.assert_relations_hold() {
+                                    self.solved_variables
+                                        .entry(name.clone())
+                                        .and_modify(|values| values.push(equivalency));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
     /// Remove rows which are just a pivot and store them.
     ///
     fn store_lonely_pivots(&mut self) {
@@ -1122,14 +1189,17 @@ impl ProgramModel {
             }
         }
 
-        // remove expressions which are all 0s
-        self.remove_0s()?;
-
         // remove expressions which are just a pivot (these are now knowns!)
         self.store_lonely_pivots();
 
         // try to generate new equations with the gained info
         self.make_less_lonely()?;
+
+        // try to solve any solvable polynomials
+        self.resolve_lonely_polynomials()?;
+
+        // remove expressions which are all 0s
+        self.remove_0s()?;
 
         Ok(())
     }
