@@ -78,6 +78,8 @@ pub fn process_equation(model: &mut ProgramModel, relation: Relation) {
             model.add_relation(left, right, relation.operators[i].clone());
         }
     }
+
+    println!("DEBUG - PROGRAM STATE: {model}");
 }
 
 /// Model for program.
@@ -90,7 +92,7 @@ pub fn process_equation(model: &mut ProgramModel, relation: Relation) {
 #[derive(Debug, Clone)]
 pub struct ProgramModel {
     /// variables that've been solved for, mapped to a finite solution list
-    solved_variables: HashMap<Identifier, Vec<Number>>,
+    solved_variables: HashMap<Identifier, HashSet<Number>>,
     /// all variables, in the order they appear in the augmented matrix
     variables: Vec<Identifier>,
     /// description of all known equations in a mathematical augmented matrix
@@ -181,6 +183,17 @@ impl Display for ProgramModel {
     }
 }
 
+// TODO - implement this in retrieve_values and in all simplify functions
+#[derive(Debug, PartialEq, Eq)]
+enum RetrievalLevel {
+    /// attempt to generate an expression even if it's not simplified.
+    all,
+    /// only solved variables should be resolved.
+    only_constants,
+    /// only solved variables which have one solution should be resolved.
+    only_single_constants,
+}
+
 impl ProgramModel {
     /// Make the call in `call`.
     ///
@@ -194,7 +207,7 @@ impl ProgramModel {
     /// # Arguments
     /// * `call` - The `Call` to make.
     ///
-    fn make_call(&self, call: &Call) -> Result<Expression, String> {
+    fn make_call(&self, call: &Call) -> Result<HashSet<Expression>, String> {
         if let Some(Statement::FunctionDefinition(_, arguments, definition)) = self
             .functions
             .iter()
@@ -217,10 +230,17 @@ impl ProgramModel {
                 model.call_depth += 1;
                 for i in 0..arguments.len() {
                     // assign each variable name to its argument
+                    let simplified_expressions = self
+                        .simplify_expression(&call.arguments[i], RetrievalLevel::only_constants)
+                        .expect("Failed to simplify call argument");
+                    assert_eq!(
+                        1,
+                        simplified_expressions.len(),
+                        "Solving multiple potential systems at once not yet supported"
+                    );
                     model
                         .add_matrix_row(
-                            self.simplify_expression(&call.arguments[i], true)
-                                .expect("Failed to simplify call argument"),
+                            simplified_expressions.iter().next().unwrap().clone(),
                             Expression {
                                 minuend: Vec::from([Term {
                                     numerator: Vec::from([Factor::Identifier(
@@ -234,7 +254,7 @@ impl ProgramModel {
                         .unwrap();
                 }
                 // find a true thing to return
-                let mut result: Option<Expression> = None;
+                let mut result: Option<HashSet<Expression>> = None;
                 for (expression, relation) in definition {
                     if result.is_none() {
                         let evaluated_result = model.simplify_relation(&relation);
@@ -248,7 +268,7 @@ impl ProgramModel {
                                 subtrahend: Vec::new(),
                             };
                             if evaluated.operands.len() == 1 && evaluated.operands[0] == true_expr {
-                                result = Some(model.simplify_expression(&expression, true)?);
+                                result = Some(model.simplify_expression(&expression, RetrievalLevel::only_constants)?);
                             }
                         }
                     }
@@ -269,12 +289,17 @@ impl ProgramModel {
     /// # Arguments
     /// * `factor` - The `Factor` to evaluate.
     ///
-    fn evaluate_constant_factor(&self, factor: &Factor) -> Result<Number, String> {
+    fn evaluate_constant_factor(&self, factor: &Factor) -> Result<HashSet<Number>, String> {
         match factor {
             Factor::Parenthetical(expression) => self.evaluate_constant_expression(expression),
-            Factor::Number(number) => Ok(number.clone()),
+            Factor::Number(number) => Ok(HashSet::from([number.clone()])),
             Factor::Identifier(identifier) => Err(format!("Identifier found: {identifier}")),
-            Factor::Call(call) => self.evaluate_constant_expression(&self.make_call(call)?),
+            Factor::Call(call) => self
+                .make_call(call)?
+                .iter()
+                .map(|expr| self.evaluate_constant_expression(expr))
+                .collect::<Result<Vec<_>, _>>()
+                .map(|sets| sets.into_iter().flatten().collect::<HashSet<_>>()),
         }
     }
 
@@ -283,7 +308,7 @@ impl ProgramModel {
     /// # Arguments
     /// * `term` - The `Term` to evaluate.
     ///
-    fn evaluate_constant_term(&self, term: &Term) -> Result<Number, String> {
+    fn evaluate_constant_term(&self, term: &Term) -> Result<HashSet<Number>, String> {
         // value to return
         let mut value = Number {
             real: 1f64,
@@ -294,13 +319,33 @@ impl ProgramModel {
             },
         };
 
+        let mut resulting_set = HashSet::from([value]);
+
         for operand in &term.numerator {
-            value *= self.evaluate_constant_factor(&operand)?;
+            resulting_set = self
+                .evaluate_constant_factor(&operand)?
+                .iter()
+                .flat_map(|&multiplicand| {
+                    resulting_set
+                        .iter()
+                        .map(move |&original| original * multiplicand)
+                })
+                .collect::<HashSet<_>>();
         }
+
         for operand in &term.denominator {
-            value /= self.evaluate_constant_factor(&operand)?;
+            resulting_set = self
+                .evaluate_constant_factor(&operand)?
+                .iter()
+                .flat_map(|&divisor| {
+                    resulting_set
+                        .iter()
+                        .map(move |&original| original / divisor)
+                })
+                .collect::<HashSet<_>>();
         }
-        Ok(value)
+
+        Ok(resulting_set)
     }
 
     /// Evaluate the given `Expression` assuming all constant values.
@@ -308,7 +353,10 @@ impl ProgramModel {
     /// # Arguments
     /// * `expression` - The `Expression` to evaluate.
     ///
-    fn evaluate_constant_expression(&self, expression: &Expression) -> Result<Number, String> {
+    fn evaluate_constant_expression(
+        &self,
+        expression: &Expression,
+    ) -> Result<HashSet<Number>, String> {
         // value to return
         let mut value = Number {
             real: 0f64,
@@ -319,13 +367,23 @@ impl ProgramModel {
             },
         };
 
+        let mut resulting_set = HashSet::from([value]);
+
         for operand in &expression.minuend {
-            value += self.evaluate_constant_term(&operand)?;
+            resulting_set = self
+                .evaluate_constant_term(&operand)?
+                .iter()
+                .flat_map(|&off| resulting_set.iter().map(move |&original| original + off))
+                .collect::<HashSet<_>>();
         }
         for operand in &expression.subtrahend {
-            value -= self.evaluate_constant_term(&operand)?;
+            resulting_set = self
+                .evaluate_constant_term(&operand)?
+                .iter()
+                .flat_map(|&negoff| resulting_set.iter().map(move |&original| original - negoff))
+                .collect::<HashSet<_>>();
         }
-        Ok(value)
+        Ok(resulting_set)
     }
 
     /// Simplify the given `Factor`.
@@ -334,59 +392,90 @@ impl ProgramModel {
     /// * `factor` - The `Factor` to simplify.
     /// * `make_substitutions` - True iff it should substitute known variables.
     ///
-    fn simplify_factor(&self, factor: &Factor, make_substitutions: bool) -> Result<Factor, String> {
+    fn simplify_factor(
+        &self,
+        factor: &Factor,
+        retrieval_level: RetrievalLevel,
+    ) -> Result<HashSet<Factor>, String> {
         let result = Ok(match factor {
             Factor::Parenthetical(expression) => {
                 if expression.minuend.len() + expression.subtrahend.len() > 1 {
-                    Factor::Parenthetical(self.simplify_expression(expression, make_substitutions)?)
+                    self.simplify_expression(expression, retrieval_level)?
+                        .iter()
+                        .map(|&simplified_expression| Factor::Parenthetical(simplified_expression))
+                        .collect::<HashSet<_>>()
                 } else if expression.minuend.len() + expression.subtrahend.len() == 1 {
                     if expression.subtrahend.is_empty() {
                         let sub_term = expression.minuend[0].clone();
                         if sub_term.numerator.len() == 1 && sub_term.denominator.is_empty() {
                             // if the parenthetical is just a factor, return it
-                            sub_term.numerator[0].clone()
+                            HashSet::from([sub_term.numerator[0].clone()])
                         } else {
-                            Factor::Parenthetical(Expression {
-                                minuend: Vec::from([
-                                    self.simplify_term(&sub_term, make_substitutions)?
-                                ]),
-                                subtrahend: Vec::new(),
-                            })
+                            self.simplify_term(&sub_term, retrieval_level)?
+                                .iter()
+                                .map(|&simplified_term| {
+                                    Factor::Parenthetical(Expression {
+                                        minuend: Vec::from([simplified_term]),
+                                        subtrahend: Vec::new(),
+                                    })
+                                })
+                                .collect::<HashSet<_>>()
                         }
                     } else {
-                        let sub_term = expression.subtrahend[0].clone();
-                        Factor::Parenthetical(Expression {
-                            minuend: Vec::new(),
-                            subtrahend: Vec::from([
-                                self.simplify_term(&sub_term, make_substitutions)?
-                            ]),
-                        })
+                        self.simplify_term(&expression.subtrahend[0].clone(), retrieval_level)?
+                            .iter()
+                            .map(|&simplified_term| {
+                                Factor::Parenthetical(Expression {
+                                    minuend: Vec::new(),
+                                    subtrahend: Vec::from([simplified_term]),
+                                })
+                            })
+                            .collect::<HashSet<_>>()
                     }
                 } else {
-                    Factor::Number(Number {
+                    HashSet::from([Factor::Number(Number {
                         real: 0f64,
                         imaginary: 0f64,
                         unit: Unit {
                             exponent: 0i8,
                             constituents: HashMap::new(),
                         },
-                    })
+                    })])
                 }
             }
-            Factor::Number(number) => Factor::Number(number.clone()),
+            Factor::Number(number) => HashSet::from([Factor::Number(number.clone())]),
             Factor::Identifier(identifier) => {
                 if make_substitutions {
-                    match self.retrieve_value(identifier.clone()) {
-                        Ok(value) => Factor::Parenthetical(value),
-                        Err(_) => Factor::Identifier(identifier.clone()),
+                    // TODO - once retrieve value logic improves, this could be false sometimes
+                    match self.retrieve_values(identifier.clone(), true) {
+                        Ok(values) => values
+                            .iter()
+                            .map(|&value| Factor::Parenthetical(value))
+                            .collect::<HashSet<_>>(),
+                        Err(_) => HashSet::from([Factor::Identifier(identifier.clone())]),
                     }
                 } else {
-                    Factor::Identifier(identifier.clone())
+                    HashSet::from([Factor::Identifier(identifier.clone())])
                 }
             }
-            Factor::Call(call) => Factor::Parenthetical(
-                self.simplify_expression(&self.make_call(call)?, make_substitutions)?,
-            ),
+            Factor::Call(call) => self
+                .make_call(call)?
+                .iter()
+                .map(|&call_result| {
+                    self.simplify_expression(&call_result, retrieval_level)
+                        .map(|simplified| {
+                            simplified
+                                .iter()
+                                .map(|&simplified_call_result| {
+                                    Factor::Parenthetical(simplified_call_result)
+                                })
+                                .collect::<Vec<_>>()
+                        })
+                })
+                .collect::<Result<Vec<_>, _>>()?
+                .into_iter()
+                .flatten()
+                .collect::<HashSet<_>>(),
         });
 
         result
@@ -398,7 +487,11 @@ impl ProgramModel {
     /// * `term` - The `Term` to simplify.
     /// * `make_substitutions` - True iff it should substitute known variables.
     ///
-    fn simplify_term(&self, term: &Term, make_substitutions: bool) -> Result<Term, String> {
+    fn simplify_term(
+        &self,
+        term: &Term,
+        retrieval_level: RetrievalLevel,
+    ) -> Result<HashSet<Term>, String> {
         let mut new_term = Term {
             numerator: Vec::new(),
             denominator: Vec::new(),
@@ -415,8 +508,8 @@ impl ProgramModel {
                 constituents: HashMap::new(),
             },
         });
-        let mut numerator_factor = one.clone();
-        let mut denominator_factor = one.clone();
+        let mut numerator_factors = HashSet::from([one.clone()]);
+        let mut denominator_factors = HashSet::from([one.clone()]);
         for operand in &term.numerator {
             let mut add_to_numerator = true;
             if let Factor::Identifier(name) = operand {
@@ -436,7 +529,15 @@ impl ProgramModel {
                 }
             }
             if add_to_numerator {
-                numerator_factor *= self.simplify_factor(operand, make_substitutions)?;
+                numerator_factors = self
+                    .simplify_factor(operand, retrieval_level)?
+                    .iter()
+                    .flat_map(|&multiplicand| {
+                        numerator_factors
+                            .iter()
+                            .map(move |&original| original * multiplicand)
+                    })
+                    .collect::<HashSet<_>>();
             }
         }
         for operand in &term.denominator {
@@ -453,91 +554,115 @@ impl ProgramModel {
                 }
             }
             if add_to_denominator {
-                denominator_factor *= self.simplify_factor(operand, make_substitutions)?;
+                denominator_factors = self
+                    .simplify_factor(operand, retrieval_level)?
+                    .iter()
+                    .flat_map(|&divisor| {
+                        denominator_factors
+                            .iter()
+                            // NOTE - the `*` is intentional
+                            .map(move |&original| original * divisor)
+                    })
+                    .collect::<HashSet<_>>();
             }
         }
         // re-add reserved and cancelled terms
         for (name, (_, mut count)) in identifier_counts {
             while count > 0 {
-                numerator_factor *= Factor::Identifier(name.clone());
+                numerator_factors = numerator_factors
+                    .iter()
+                    .map(|&original| original * Factor::Identifier(name.clone()))
+                    .collect::<HashSet<_>>();
                 count -= 1;
             }
             while count < 0 {
-                denominator_factor *= Factor::Identifier(name.clone());
+                denominator_factors = denominator_factors
+                    .iter()
+                    .map(|&original| original * Factor::Identifier(name.clone()))
+                    .collect::<HashSet<_>>();
                 count += 1;
             }
         }
-        if let Factor::Parenthetical(expression) = &numerator_factor {
-            if expression.subtrahend.is_empty() {
-                if expression.minuend.len() == 1 {
-                    new_term *= expression.minuend[0].clone();
+
+        let mut new_terms: HashSet<Term> = HashSet::new();
+        for numerator_factor in numerator_factors {
+            let mut new_term = Term {
+                numerator: Vec::new(),
+                denominator: Vec::new(),
+            };
+            let mut no_special_treatment = false;
+            if let Factor::Parenthetical(expression) = &numerator_factor {
+                if expression.subtrahend.is_empty() {
+                    if expression.minuend.len() == 1 {
+                        new_term *= expression.minuend[0].clone();
+                    } else {
+                        // must be false since substitutions were already made
+                        no_special_treatment = true;
+                    }
+                } else if expression.minuend.is_empty() {
+                    if expression.subtrahend.len() == 1 {
+                        new_term *= expression.subtrahend[0].clone()
+                            * -Term {
+                                numerator: vec![one.clone()],
+                                denominator: Vec::new(),
+                            };
+                    } else if expression.subtrahend.len() > 1 {
+                        no_special_treatment = true;
+                    }
                 } else {
-                    // must be false since substitutions were already made
-                    new_term
-                        .numerator
-                        .push(self.simplify_factor(&numerator_factor, false)?);
-                }
-            } else if expression.minuend.is_empty() {
-                if expression.subtrahend.len() == 1 {
-                    new_term *= expression.subtrahend[0].clone()
-                        * -Term {
-                            numerator: vec![one.clone()],
-                            denominator: Vec::new(),
-                        };
-                } else if expression.subtrahend.len() > 1 {
-                    new_term
-                        .numerator
-                        .push(self.simplify_factor(&numerator_factor, false)?);
+                    no_special_treatment = true;
                 }
             } else {
-                new_term
-                    .numerator
-                    .push(self.simplify_factor(&numerator_factor, false)?);
+                no_special_treatment = true;
             }
-        } else {
-            new_term
-                .numerator
-                .push(self.simplify_factor(&numerator_factor, false)?);
-        }
-        if let Factor::Parenthetical(expression) = &denominator_factor {
-            if expression.subtrahend.is_empty() {
-                if expression.minuend.len() == 1 {
-                    new_term /= expression.minuend[0].clone();
+            if no_special_treatment {
+                self.simplify_factor(&numerator_factor, RetrievalLevel::only_constants)?
+                    .iter()
+                    .for_each(|&factor| new_term.numerator.push(factor));
+            }
+
+            for denominator_factor in &denominator_factors {
+                let mut new_term = new_term.clone();
+                let mut no_special_treatment = false;
+                if let Factor::Parenthetical(expression) = &denominator_factor {
+                    if expression.subtrahend.is_empty() {
+                        if expression.minuend.len() == 1 {
+                            new_term /= expression.minuend[0].clone();
+                        } else {
+                            no_special_treatment = true;
+                        }
+                    } else if expression.minuend.is_empty() {
+                        if expression.subtrahend.len() == 1 {
+                            new_term /= expression.subtrahend[0].clone()
+                                * -Term {
+                                    numerator: vec![one.clone()],
+                                    denominator: Vec::new(),
+                                };
+                        } else if expression.subtrahend.len() > 1 {
+                            no_special_treatment = true;
+                        }
+                    } else {
+                        no_special_treatment = true;
+                    }
                 } else {
-                    new_term
-                        .denominator
-                        .push(self.simplify_factor(&denominator_factor, false)?);
+                    no_special_treatment = true;
                 }
-            } else if expression.minuend.is_empty() {
-                if expression.subtrahend.len() == 1 {
-                    new_term /= expression.subtrahend[0].clone()
-                        * -Term {
-                            numerator: vec![one.clone()],
-                            denominator: Vec::new(),
-                        };
-                } else if expression.subtrahend.len() > 1 {
-                    new_term
-                        .denominator
-                        .push(self.simplify_factor(&denominator_factor, false)?);
+                if no_special_treatment {
+                    self.simplify_factor(&denominator_factor, false)?
+                        .iter()
+                        .for_each(|&factor| new_term.denominator.push(factor));
                 }
-            } else {
-                new_term
-                    .denominator
-                    .push(self.simplify_factor(&denominator_factor, false)?);
+
+                // combine all the numeric literals and return if not one
+                let number = new_term.extract_number();
+                if !number.is_unitless_one() {
+                    new_term.numerator.insert(0, Factor::Number(number));
+                }
+                new_terms.insert(new_term);
             }
-        } else {
-            new_term
-                .denominator
-                .push(self.simplify_factor(&denominator_factor, false)?);
         }
 
-        // combine all the numeric literals and return if not one
-        let number = new_term.extract_number();
-        if !number.is_unitless_one() {
-            new_term.numerator.insert(0, Factor::Number(number));
-        }
-
-        Ok(new_term)
+        Ok(new_terms)
     }
 
     /// Simplify the given `Expression`, using known variable values.
@@ -549,34 +674,58 @@ impl ProgramModel {
     fn simplify_expression(
         &self,
         expression: &Expression,
-        make_substitutions: bool,
-    ) -> Result<Expression, String> {
-        let mut new_expression = Expression {
+        retrieval_level: RetrievalLevel,
+    ) -> Result<HashSet<Expression>, String> {
+        let mut new_expressions = HashSet::from([Expression {
             minuend: Vec::new(),
             subtrahend: Vec::new(),
-        };
+        }]);
 
         // re-add the original terms after simplifying
         for operand in &expression.minuend {
-            new_expression
-                .minuend
-                .push(self.simplify_term(operand, make_substitutions)?);
+            new_expressions = self
+                .simplify_term(operand, make_substitutions)?
+                .iter()
+                .flat_map(|&off| {
+                    new_expressions.into_iter().map(move |mut original| {
+                        original.minuend.push(off);
+                        original
+                    })
+                })
+                .collect::<HashSet<_>>();
         }
 
         for operand in &expression.subtrahend {
-            new_expression
-                .subtrahend
-                .push(self.simplify_term(operand, make_substitutions)?);
+            new_expressions = self
+                .simplify_term(operand, make_substitutions)?
+                .iter()
+                .flat_map(|&off| {
+                    new_expressions.into_iter().map(move |mut original| {
+                        original.subtrahend.push(off);
+                        original
+                    })
+                })
+                .collect::<HashSet<_>>();
         }
 
         // remove parentheticals and combine like terms
-        new_expression.flatten();
+        new_expressions = new_expressions
+            .into_iter()
+            .map(|mut expression| {
+                expression.flatten();
+                expression
+            })
+            .collect::<HashSet<_>>();
 
-        Ok(new_expression)
+        Ok(new_expressions)
     }
 
     /// Simplify the given `Relation`, using known variable values.
     /// Makes substitutions when possible. (This is since relation is not repeated in tree)
+    ///
+    /// NOTE - The other `simplify` expressions return an Ok(HashSet<_>) on Ok. This does not,
+    /// since it could either be True or False. A set of "True" and "False" is not useful when a
+    /// boolean value is prompted.
     ///
     /// If |relation.operands| > 1 then returned `Relation` may just be 1 for true and 0 for false.
     ///
@@ -708,40 +857,58 @@ impl ProgramModel {
         }
     }
 
-    /// Retrieve an expression for the value of the given identifier from `self.augmented_matrix`.
+    /// Retrieve all expressions for the value(s) of the given identifier from `self.augmented_matrix` and `self.solved_variables`.
     /// Finds the expression in the most simplified form. That is, a non-zero multiplier with
     /// minimum other non-constant terms.
     ///
     /// # Arguments
     /// * `name` - The identifier to search for.
+    /// * `retrieval_level` - What sorts of things it should search for.
     ///
-    fn retrieve_value(&self, name: Identifier) -> Result<Expression, String> {
+    fn retrieve_values(
+        &self,
+        name: Identifier,
+        retrieval_level: RetrievalLevel,
+    ) -> Result<HashSet<Expression>, String> {
         // first, attempt to get out of already solved variables
         if self.solved_variables.contains_key(&name) {
-            if self.solved_variables.get(&name).unwrap().len() > 1 {
-                panic!("Multiple solutions for {name}. (Future feature)");
-            }
-            Ok(Expression {
-                minuend: vec![Term {
-                    numerator: vec![Factor::Number(
-                        self.solved_variables.get(&name).unwrap()[0].clone(),
-                    )],
-                    denominator: Vec::new(),
-                }],
-                subtrahend: Vec::new(),
-            })
-        } else {
-            let value_col_result = self.variables.iter().position(|var| var == &name);
-            if value_col_result.is_none() {
-                // TODO - we don't need to give up here. Try to find some term in the augmented matrix
-                // which uses this. There could be something.
-                Ok(Expression {
+            if self.solved_variables.get(&name).unwrap().len() > 1
+                || retrieval_level != RetrievalLevel::only_single_constants
+            {
+                Ok(self
+                    .solved_variables
+                    .get(&name)
+                    .unwrap()
+                    .iter()
+                    .map(|&number| Expression {
+                        minuend: vec![Term {
+                            numerator: vec![Factor::Number(number)],
+                            denominator: Vec::new(),
+                        }],
+                        subtrahend: Vec::new(),
+                    })
+                    .collect::<HashSet<_>>())
+            } else {
+                Ok(HashSet::from([Expression {
                     minuend: vec![Term {
                         numerator: vec![Factor::Identifier(name)],
                         denominator: Vec::new(),
                     }],
                     subtrahend: Vec::new(),
-                })
+                }]))
+            }
+        } else {
+            let value_col_result = self.variables.iter().position(|var| var == &name);
+            if value_col_result.is_none() {
+                // TODO - we don't need to give up here. Try to find some term in the augmented matrix
+                // which uses this. There could be something.
+                Ok(HashSet::from([Expression {
+                    minuend: vec![Term {
+                        numerator: vec![Factor::Identifier(name)],
+                        denominator: Vec::new(),
+                    }],
+                    subtrahend: Vec::new(),
+                }]))
             } else {
                 let value_col = value_col_result.unwrap();
                 let row_ct = self.augmented_matrix.len();
@@ -759,15 +926,15 @@ impl ProgramModel {
                     if match self
                         .evaluate_constant_expression(&self.augmented_matrix[row][value_col])
                     {
-                        Ok(number) => !number.is_zero(),
+                        Ok(numbers) => !numbers.iter().all(|number| number.is_zero()),
                         Err(_) => true,
                     } {
                         // possible row. Evaluate for goodness
                         let expressions_plus_values =
                             self.augmented_matrix[row].iter().fold(0, |acc, expr| {
                                 acc + match self.evaluate_constant_expression(&expr) {
-                                    Ok(number) => {
-                                        if number.is_zero() {
+                                    Ok(numbers) => {
+                                        if numbers.iter().all(|number| number.is_zero()) {
                                             0
                                         } else {
                                             1
@@ -805,7 +972,35 @@ impl ProgramModel {
                     }
                 }
                 result /= self.augmented_matrix[best_row.unwrap()][value_col].clone();
-                Ok(self.simplify_expression(&result, false).unwrap())
+                if retrieval_level == RetrievalLevel::all {
+                    self.simplify_expression(&result, false)
+                } else {
+                    let resulting_set = self
+                        .evaluate_constant_expression(&result)?
+                        .iter()
+                        .map(|&number| Expression {
+                            minuend: vec![Term {
+                                numerator: vec![Factor::Number(number)],
+                                denominator: Vec::new(),
+                            }],
+                            subtrahend: Vec::new(),
+                        })
+                        .collect::<HashSet<_>>();
+                    if retrieval_level == RetrievalLevel::only_constants {
+                        Ok(resulting_set)
+                    } else {
+                        // retrieval_level is only_single_constants
+                        if resulting_set.len() == 1 {
+                            Ok(HashSet::from([resulting_set
+                                .iter()
+                                .next()
+                                .unwrap()
+                                .clone()]))
+                        } else {
+                            Err(format!("Multiple solutions found for {name}"))
+                        }
+                    }
+                }
             }
         }
     }
@@ -1052,7 +1247,8 @@ impl ProgramModel {
         };
 
         for col in 0..(col_ct - 1) {
-            for row in 0..row_ct {
+            let row_ct = self.augmented_matrix.len();
+            for row in (0..row_ct).rev() {
                 // determine if this row has a lonely column
                 let mut lonely_row = true;
                 for sub_col in 0..(col_ct - 1) {
@@ -1081,7 +1277,7 @@ impl ProgramModel {
                                 subtrahend: Vec::new(),
                             })
                             - self.augmented_matrix[row][col_ct - 1].clone()),
-                        true,
+                        false, // since at least this far should've been taken care of already
                     );
                     if zero_equivalent.is_ok() {
                         if let Some((polynomial, name)) =
@@ -1089,6 +1285,7 @@ impl ProgramModel {
                         {
                             let equivalencies = polynomial.find_roots();
                             self.solved_variables.insert(name.clone(), Vec::new());
+                            self.augmented_matrix.remove(row);
                             let mut test_model = self.clone();
                             for equivalency in equivalencies {
                                 // only add if solution does not break pre-order
@@ -1312,6 +1509,7 @@ impl ProgramModel {
     /// * `operator` - The operator between the relation elements.
     ///
     fn add_relation(&mut self, left: Expression, right: Expression, operator: RelationOp) {
+        // TODO - for variables with multiple solutions, this should check if it can remove some
         self.relations.push(Relation {
             operands: vec![left, right],
             operators: vec![operator],
@@ -1459,7 +1657,7 @@ mod tests {
         let a = model
             .evaluate_constant_expression(
                 &model
-                    .retrieve_value(Identifier::new("a").unwrap())
+                    .retrieve_value(Identifier::new("a").unwrap(), true)
                     .expect("Failed to retrieve value"),
             )
             .expect("Failed to evaluate");
@@ -1487,7 +1685,7 @@ mod tests {
         let a = model
             .evaluate_constant_expression(
                 &model
-                    .retrieve_value(Identifier::new("a").unwrap())
+                    .retrieve_value(Identifier::new("a").unwrap(), true)
                     .expect("Failed to retrieve value"),
             )
             .expect("Failed to evaluate");
@@ -1536,7 +1734,7 @@ mod tests {
         let x = model
             .evaluate_constant_expression(
                 &model
-                    .retrieve_value(Identifier::new("x").unwrap())
+                    .retrieve_value(Identifier::new("x").unwrap(), true)
                     .expect("Failed to retrieve value"),
             )
             .expect("Failed to evaluate");
@@ -1552,7 +1750,7 @@ mod tests {
         let y = model
             .evaluate_constant_expression(
                 &model
-                    .retrieve_value(Identifier::new("y").unwrap())
+                    .retrieve_value(Identifier::new("y").unwrap(), true)
                     .expect("Failed to retrieve value"),
             )
             .expect("Failed to evaluate");

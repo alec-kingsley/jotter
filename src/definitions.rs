@@ -16,12 +16,14 @@
 
 use regex::Regex;
 use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::iter::Product;
 use std::ops::*;
+
+static EPSILON: f64 = 1e-10;
 
 #[derive(Debug, Hash, Clone)]
 pub enum Statement {
@@ -462,8 +464,10 @@ impl Expression {
                     _ => return None,
                 }
             }
-            if polynomial.coefficients.len() < degree {
-                polynomial.coefficients.resize_with(degree, || zero.clone());
+            if polynomial.coefficients.len() <= degree {
+                polynomial
+                    .coefficients
+                    .resize_with(degree + 1, || zero.clone());
             }
             polynomial.coefficients[degree] = coefficient;
         }
@@ -711,24 +715,49 @@ impl Polynomial {
         result
     }
 
+    /// Evaluate the derivative of the `Polynomial` at a point `x`.
+    ///
+    /// # Arguments
+    /// * `x` - The point at which the derivative of the `Polynomial` should be evaluated.
+    ///
+    pub fn evaluate_derivative(&self, x: &Number) -> Number {
+        let mut result = Number {
+            real: 0f64,
+            imaginary: 0f64,
+            unit: Unit {
+                exponent: 0i8,
+                constituents: HashMap::new(),
+            },
+        };
+        for degree in 1..self.coefficients.len() {
+            let mut term = self.coefficients[degree].clone() * x.powi(degree as u32 - 1);
+            term.real *= degree as f64;
+            term.imaginary *= degree as f64;
+            result += term;
+        }
+        result
+    }
+
     /// Find roots of the polynomial. That is, solutions for its
     /// variable where the polynomial is set equal to 1.
     ///
-    pub fn find_roots(&self) -> Vec<Number> {
-        // NOTE - this uses the Durand-Kerner method. The Aberth method is better, but
-        // derivatives are not yet a feature, and the current plan is to implement them all
-        // together (not just for polynomials, which would be easier)
-
+    /// NOTE - this uses the Aberth method. It does this regardless of how complicated the
+    /// polynomial is. It may be worthwhile to first see if there is a quicker way, or use
+    /// different algorithms for different degrees in general. ALSO - Initial root guesses are
+    /// arbitrarily chosen to be those that Wikipedia arbitrarily chose on its Durand-Kerner page.
+    /// Maybe there's a better way of doing that.
+    ///
+    pub fn find_roots(&self) -> HashSet<Number> {
         let mut scaled_self = self.clone();
         scaled_self.scale();
         let degree = self.coefficients.len() - 1;
         let unit = self.extract_unit().expect("Failed to extract unit");
         let super_special_number = Number {
-            // wikipedia says this number isn't special :(
-            // but I think it is
+            // wikipedia on Durand-Kerner says this number isn't special :(
+            // but I think it is 🥹
             real: 0.4,
             imaginary: 0.9,
-            unit,
+            unit: unit.clone(),
         };
         let mut roots: Vec<Number> = Vec::with_capacity(degree);
         for deg in 0..degree {
@@ -741,20 +770,38 @@ impl Polynomial {
 
             sufficient = true;
             for deg in 0..degree {
-                let mut subtrahend = scaled_self.evaluate(&roots[deg]);
+                let derivative_ratio = scaled_self.evaluate(&roots[deg])
+                    / scaled_self.evaluate_derivative(&roots[deg]);
+                let mut subtrahend = derivative_ratio.clone();
+
+                subtrahend /= Number {
+                    real: 1f64,
+                    imaginary: 0f64,
+                    unit: unit.clone(),
+                } - derivative_ratio;
+                let mut subtrahend_sum = Number {
+                    real: 0f64,
+                    imaginary: 0f64,
+                    unit: unit.clone(),
+                };
                 for foreigner in 0..degree {
                     if foreigner == deg {
                         continue;
                     }
-                    subtrahend /= roots[deg].clone() - roots[foreigner].clone();
+                    subtrahend_sum += Number {
+                        real: 1f64,
+                        imaginary: 0f64,
+                        unit: unit.clone(),
+                    } / (roots[deg].clone() - roots[foreigner].clone());
                 }
+                subtrahend /= subtrahend_sum;
 
                 roots[deg] -= subtrahend;
                 sufficient &= roots[deg] == old_roots[deg];
             }
         }
 
-        roots
+        roots.into_iter().collect()
     }
 }
 
@@ -1340,14 +1387,15 @@ impl PartialEq for Number {
             other_clone.imaginary = other_clone.imaginary * (10 as f64).powi(exp_diff as i32);
             other_clone.real *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
             other_clone.imaginary *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
-            let epsilon = 1e-8;
-            other_clone.real < self.real + epsilon
-                && other_clone.real > self.real - epsilon
-                && other_clone.imaginary < self.imaginary + epsilon
-                && other_clone.imaginary > self.imaginary - epsilon
+            other_clone.real < self.real + EPSILON
+                && other_clone.real > self.real - EPSILON
+                && other_clone.imaginary < self.imaginary + EPSILON
+                && other_clone.imaginary > self.imaginary - EPSILON
         }
     }
 }
+
+impl Eq for Number {}
 
 impl Number {
     /// Takes `self` to the `pow`'th power and returns it.
@@ -1542,12 +1590,12 @@ impl Display for Number {
         }
 
         // write final result depending on numerator/denominator contents
-        let numeric_str = if self.imaginary == 0f64 {
+        let numeric_str = if self.imaginary + EPSILON > 0f64 && 0f64 > self.imaginary - EPSILON {
             format!("{:.10}", self_clone.real)
                 .trim_end_matches('0')
                 .trim_end_matches('.')
                 .to_owned()
-        } else if self.real == 0f64 {
+        } else if self.real + EPSILON > 0f64 && 0f64 > self.real - EPSILON {
             if self_clone.imaginary == 1f64 {
                 String::from("i")
             } else if self_clone.imaginary == -1f64 {
