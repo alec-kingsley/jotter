@@ -187,11 +187,11 @@ impl Display for ProgramModel {
 #[derive(Debug, PartialEq, Eq)]
 enum RetrievalLevel {
     /// attempt to generate an expression even if it's not simplified.
-    all,
+    All,
     /// only solved variables should be resolved.
-    only_constants,
+    OnlyConstants,
     /// only solved variables which have one solution should be resolved.
-    only_single_constants,
+    OnlySingleConstants,
 }
 
 impl ProgramModel {
@@ -231,7 +231,7 @@ impl ProgramModel {
                 for i in 0..arguments.len() {
                     // assign each variable name to its argument
                     let simplified_expressions = self
-                        .simplify_expression(&call.arguments[i], RetrievalLevel::only_constants)
+                        .simplify_expression(&call.arguments[i], RetrievalLevel::OnlyConstants)
                         .expect("Failed to simplify call argument");
                     assert_eq!(
                         1,
@@ -268,7 +268,7 @@ impl ProgramModel {
                                 subtrahend: Vec::new(),
                             };
                             if evaluated.operands.len() == 1 && evaluated.operands[0] == true_expr {
-                                result = Some(model.simplify_expression(&expression, RetrievalLevel::only_constants)?);
+                                result = Some(model.simplify_expression(&expression, RetrievalLevel::OnlyConstants)?);
                             }
                         }
                     }
@@ -555,7 +555,7 @@ impl ProgramModel {
             }
             if add_to_denominator {
                 denominator_factors = self
-                    .simplify_factor(operand, retrieval_level)?
+                    .simplify_factor(operand, RetrievalLevel::OnlyConstants)?
                     .iter()
                     .flat_map(|&divisor| {
                         denominator_factors
@@ -616,7 +616,7 @@ impl ProgramModel {
                 no_special_treatment = true;
             }
             if no_special_treatment {
-                self.simplify_factor(&numerator_factor, RetrievalLevel::only_constants)?
+                self.simplify_factor(&numerator_factor, RetrievalLevel::OnlyConstants)?
                     .iter()
                     .for_each(|&factor| new_term.numerator.push(factor));
             }
@@ -648,7 +648,7 @@ impl ProgramModel {
                     no_special_treatment = true;
                 }
                 if no_special_treatment {
-                    self.simplify_factor(&denominator_factor, false)?
+                    self.simplify_factor(&denominator_factor, RetrievalLevel::OnlyConstants)?
                         .iter()
                         .for_each(|&factor| new_term.denominator.push(factor));
                 }
@@ -684,7 +684,7 @@ impl ProgramModel {
         // re-add the original terms after simplifying
         for operand in &expression.minuend {
             new_expressions = self
-                .simplify_term(operand, make_substitutions)?
+                .simplify_term(operand, retrieval_level)?
                 .iter()
                 .flat_map(|&off| {
                     new_expressions.into_iter().map(move |mut original| {
@@ -697,7 +697,7 @@ impl ProgramModel {
 
         for operand in &expression.subtrahend {
             new_expressions = self
-                .simplify_term(operand, make_substitutions)?
+                .simplify_term(operand, retrieval_level)?
                 .iter()
                 .flat_map(|&off| {
                     new_expressions.into_iter().map(move |mut original| {
@@ -743,7 +743,7 @@ impl ProgramModel {
         for operand in &relation.operands {
             new_relation
                 .operands
-                .push(self.simplify_expression(operand, true)?);
+                .push(self.simplify_expression(operand, RetrievalLevel::All)?);
         }
         new_relation.operators.clone_from(&relation.operators);
 
@@ -873,7 +873,7 @@ impl ProgramModel {
         // first, attempt to get out of already solved variables
         if self.solved_variables.contains_key(&name) {
             if self.solved_variables.get(&name).unwrap().len() > 1
-                || retrieval_level != RetrievalLevel::only_single_constants
+                || retrieval_level != RetrievalLevel::OnlySingleConstants
             {
                 Ok(self
                     .solved_variables
@@ -972,8 +972,8 @@ impl ProgramModel {
                     }
                 }
                 result /= self.augmented_matrix[best_row.unwrap()][value_col].clone();
-                if retrieval_level == RetrievalLevel::all {
-                    self.simplify_expression(&result, false)
+                if retrieval_level == RetrievalLevel::All {
+                    self.simplify_expression(&result, RetrievalLevel::OnlyConstants)
                 } else {
                     let resulting_set = self
                         .evaluate_constant_expression(&result)?
@@ -986,7 +986,7 @@ impl ProgramModel {
                             subtrahend: Vec::new(),
                         })
                         .collect::<HashSet<_>>();
-                    if retrieval_level == RetrievalLevel::only_constants {
+                    if retrieval_level == RetrievalLevel::OnlyConstants {
                         Ok(resulting_set)
                     } else {
                         // retrieval_level is only_single_constants
@@ -1277,7 +1277,7 @@ impl ProgramModel {
                                 subtrahend: Vec::new(),
                             })
                             - self.augmented_matrix[row][col_ct - 1].clone()),
-                        false, // since at least this far should've been taken care of already
+                        RetrievalLevel::OnlyConstants, // since at least this far should've been taken care of already
                     );
                     if zero_equivalent.is_ok() {
                         if let Some((polynomial, name)) =
@@ -1381,7 +1381,7 @@ impl ProgramModel {
         for row in 0..row_ct {
             for col in 0..col_ct {
                 self.augmented_matrix[row][col] = self
-                    .simplify_expression(&self.augmented_matrix[row][col], true)
+                    .simplify_expression(&self.augmented_matrix[row][col], RetrievalLevel::OnlyConstants)
                     .unwrap();
             }
         }
