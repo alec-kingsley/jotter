@@ -1,6 +1,6 @@
-use crate::definitions::*;
 use crate::tokenizer::*;
 use crate::unit_parser::*;
+use crate::math_structs::*;
 
 use std::collections::HashMap;
 

@@ -4,13 +4,14 @@ use std::io;
 use std::io::*;
 
 mod ast;
-mod definitions;
+mod math_structs;
+
 mod math_engine;
 mod tokenizer;
 mod unit_parser;
 
+use crate::math_structs::Statement;
 use crate::ast::*;
-use crate::definitions::Statement;
 use crate::math_engine::*;
 
 /// Interprets an entire Jotter program.

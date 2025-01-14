@@ -1,5 +1,7 @@
-use crate::definitions::*;
+//use crate::definitions::*;
+//use crate::math_structs::*;
 use std::cmp;
+use crate::math_structs::*;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::Display;
@@ -553,7 +555,7 @@ impl ProgramModel {
                             .entry(name.clone())
                             .and_modify(|(_, ct)| *ct += 1);
                     }
-                } else if self.could_be_0(name) || self.solved_variables.contains_key(&name) {
+                } else if self.could_be_0(&name) || self.solved_variables.contains_key(&name) {
                     identifier_counts.insert(name.clone(), (true, 0));
                 } else {
                     add_to_numerator = false;
