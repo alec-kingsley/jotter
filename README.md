@@ -292,7 +292,7 @@ Expected output:
 x ∈ {- 11, - 5, 1, 2, 3, 7, 8}
 ```
 
-Issues:
+#### Issues:
 
 If in the above examples, x were used more than once in an expression after this (EX: `xx?`), it would treat those x values as though they could each be two different values from that set.
 
