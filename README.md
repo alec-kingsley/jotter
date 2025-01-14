@@ -218,47 +218,117 @@ For piecewise functions, the relations are evaluated top-to-bottom, with the fir
 
 ### Supported Units
 
-* meter
-* inch
-* foot
-* yard
-* mile
-* liter
-* cup
-* pint
-* quart
-* gallon
-* gram
-* pound
-* second
-* minute
-* hour
-* day
-* ampere
-* kelvin
-* mole
-* candela
-* radian
-* steradian
-* hertz
-* newton
-* pascal
-* joule
-* watt
-* coulomb
-* volt
-* farad
-* ohm
-* siemens
-* weber
-* tesla
-* henry
-* lumen
-* lux
-* becquerel
-* gray
-* sievert
-* katal
+#### Length
+
+- meter (m), inch (in), foot (ft), yard (yd), mile (mi)
+
+#### Volume
+
+- liter (l), cup (c), pint (pt), quart (qt), gallon (gal)
+
+#### Mass
+
+- gram (g), pound (lb)
+
+#### Time
+
+- second (s), minute (min), hour (h), day (d)
+
+#### Electric Current
+
+- ampere (A)
+
+#### Temperature
+
+- kelvin (K)
+
+#### Amount of Substance
+
+- mole (mol)
+
+#### Luminous Intensity
+
+- candela (cd)
+
+#### Unitless
+
+- radian (rad), steradian (sr)
+
+#### Frequency
+
+- hertz (Hz)
+
+#### Force
+
+- newton (N)
+
+#### Pressure
+
+- pascal (Pa)
+
+#### Energy
+
+- joule (J)
+
+#### Power
+
+- watt (W)
+
+#### Electric Charge
+
+- coulomb (C)
+
+#### Voltage
+
+- volt (V)
+
+#### Capacitance
+
+- farad (F)
+
+#### Electric Resistance
+
+- ohm (Ω)
+
+#### Electric Conductance
+
+- siemens (S)
+
+#### Magnetic Flux
+
+- weber (Wb)
+
+#### Magnetic Flux Density
+
+- tesla (T)
+
+#### Electric Inductance
+
+- henry (H)
+
+#### Luminous Flux
+
+- lumen (lm)
+
+#### Illuminance
+
+- lux (lx)
+
+#### Radioactivity
+
+- becquerel (Bq)
+
+#### Absorbed Dose of Ionizing Radiation
+
+- gray (Gy)
+
+#### Stochastic Health Effect of Ionizing Radiation
+
+- sievert (Sv)
+
+#### Catalytic Enzyme/Catalyst Activity
+
+- katal (Kat)
 
 All units support all SI prefixes. This includes the US customary units, so "kilofoot" is equivalent to 1000 feet. (This will likely be changed)
 
