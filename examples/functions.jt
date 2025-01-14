@@ -7,5 +7,4 @@ g(x) = {
 
 g(4) ?
 
-Expected output: `g(4) : 8`
-
+Expected output: `g(4) ≡ 8`

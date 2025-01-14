@@ -32,8 +32,8 @@ y ?
 Expected output:
 
 ```
-x : 3
-y : -1
+x ≡ 3
+y ≡ -1
 ```
 
 Jotter will also simplify expressions for you. As an example:
@@ -45,7 +45,7 @@ Jotter will also simplify expressions for you. As an example:
 Expected output:
 
 ```
-(a + b)(a + b) : aa + 2ab + bb
+(a + b)(a + b) ≡ aa + 2ab + bb
 ```
 
 ## Units
@@ -61,7 +61,7 @@ tv ?
 Expected output:
 
 ```
-tv : 0.6 [mm]
+tv ≡ 0.6 [mm]
 ```
 
 Units can also have different powers and sub-units. So
@@ -95,9 +95,9 @@ Example:
 (3 + 2i)(1 - 5i)?
 
 Expected output:
-(23i - 15)/(5 + 2i) : -1 + 5i
-(25 - 60i)/(8 - i) : 4 - 7i
-(3 + 2i)(1 - 5i) : 13 - 13i
+(23i - 15)/(5 + 2i) ≡ -1 + 5i
+(25 - 60i)/(8 - i) ≡ 4 - 7i
+(3 + 2i)(1 - 5i) ≡ 13 - 13i
 ```
 
 Note that it will initially parse all imaginary and real numbers independently, hence why it would display `23i - 15` instead of the more standard `-15 + 23i`. It will combine these in the simplification process, so by itself,
@@ -106,7 +106,7 @@ Note that it will initially parse all imaginary and real numbers independently, 
 -15 + 23i?
 
 yields:
-23i - 15 : -15 + 23i
+23i - 15 ≡ -15 + 23i
 ```
 
 A consequence of this is that units work weirdly with imaginary numbers. You can either specify the unit after each term, or multiply by the unit you want. For example,
@@ -115,8 +115,8 @@ A consequence of this is that units work weirdly with imaginary numbers. You can
 3[km] + 2i[km]?
 
 Expected output:
-(3 + 2i)*1 [km] = 3 [km] + 2i [km] : True
-3 [km] + 2i [km] : (3 + 2i) [km]
+(3 + 2i)*1 [km] = 3 [km] + 2i [km] ≡ True
+3 [km] + 2i [km] ≡ (3 + 2i) [km]
 ```
 
 ## Comments and Page Breaks
@@ -159,8 +159,8 @@ g(4) ?
 Expected output:
 
 ```
-f(1) : 5
-g(4) : 8
+f(1) ≡ 5
+g(4) ≡ 8
 ```
 
 Note that any comments within a multi-line function definition must be in the (\*\*) format.
@@ -176,7 +176,7 @@ Expected output: a/a: a/a
 
 a > 0
 a/a?
-Expected output: a/a: 1
+Expected output: a/a ≡ 1
 (it can now safely perform this operation)
 ```
 
@@ -279,3 +279,35 @@ Currently, quantity units are treated as though they were unitless. Technically 
 ### Functions
 
 * Add integrals and derivatives, as well as a differential equation solver
+
+## Beta (not yet fully functional)
+
+### Polynomial Solver
+
+Jotter can solve polynomials. Example:
+
+Square root:
+```
+xx = 4
+x?
+```
+Expected output:
+```
+x ∈ {- 2, 2}
+```
+
+Complex polynomial:
+```
+xxxxxxx + 850xxxx + 1229xxx + 33454x - 5xxxxxx - 124xxxxx - 16925xx = 18480
+x?
+```
+Expected output:
+```
+x ∈ {- 11, -5, 1, 2, 3, 7, 8}
+```
+
+Issues:
+
+If in the above examples, x were used more than once in an expression after this (EX: xx?), it would treat those x values as though they could each be two different values from that set.
+
+
