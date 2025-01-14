@@ -328,7 +328,7 @@ For piecewise functions, the relations are evaluated top-to-bottom, with the fir
 
 #### Catalytic Enzyme/Catalyst Activity
 
-- katal (Kat)
+- katal (kat)
 
 All units support all SI prefixes. This includes the US customary units, so "kilofoot" is equivalent to 1000 feet. (This will likely be changed)
 
