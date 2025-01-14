@@ -183,9 +183,10 @@ impl Display for ProgramModel {
     }
 }
 
-// TODO - implement this in retrieve_values and in all simplify functions
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 enum RetrievalLevel {
+    /// do not retrieve anything.
+    Preserve,
     /// attempt to generate an expression even if it's not simplified.
     All,
     /// only solved variables should be resolved.
@@ -231,7 +232,7 @@ impl ProgramModel {
                 for i in 0..arguments.len() {
                     // assign each variable name to its argument
                     let simplified_expressions = self
-                        .simplify_expression(&call.arguments[i], RetrievalLevel::OnlyConstants)
+                        .simplify_expression(&call.arguments[i], &RetrievalLevel::OnlyConstants)
                         .expect("Failed to simplify call argument");
                     assert_eq!(
                         1,
@@ -268,7 +269,10 @@ impl ProgramModel {
                                 subtrahend: Vec::new(),
                             };
                             if evaluated.operands.len() == 1 && evaluated.operands[0] == true_expr {
-                                result = Some(model.simplify_expression(&expression, RetrievalLevel::OnlyConstants)?);
+                                result = Some(model.simplify_expression(
+                                    &expression,
+                                    &RetrievalLevel::OnlyConstants,
+                                )?);
                             }
                         }
                     }
@@ -310,7 +314,7 @@ impl ProgramModel {
     ///
     fn evaluate_constant_term(&self, term: &Term) -> Result<HashSet<Number>, String> {
         // value to return
-        let mut value = Number {
+        let value = Number {
             real: 1f64,
             imaginary: 0f64,
             unit: Unit {
@@ -325,10 +329,10 @@ impl ProgramModel {
             resulting_set = self
                 .evaluate_constant_factor(&operand)?
                 .iter()
-                .flat_map(|&multiplicand| {
+                .flat_map(|multiplicand| {
                     resulting_set
                         .iter()
-                        .map(move |&original| original * multiplicand)
+                        .map(move |original| original.clone() * multiplicand.clone())
                 })
                 .collect::<HashSet<_>>();
         }
@@ -337,10 +341,10 @@ impl ProgramModel {
             resulting_set = self
                 .evaluate_constant_factor(&operand)?
                 .iter()
-                .flat_map(|&divisor| {
+                .flat_map(|divisor| {
                     resulting_set
                         .iter()
-                        .map(move |&original| original / divisor)
+                        .map(move |original| original.clone() / divisor.clone())
                 })
                 .collect::<HashSet<_>>();
         }
@@ -358,7 +362,7 @@ impl ProgramModel {
         expression: &Expression,
     ) -> Result<HashSet<Number>, String> {
         // value to return
-        let mut value = Number {
+        let value = Number {
             real: 0f64,
             imaginary: 0f64,
             unit: Unit {
@@ -373,14 +377,22 @@ impl ProgramModel {
             resulting_set = self
                 .evaluate_constant_term(&operand)?
                 .iter()
-                .flat_map(|&off| resulting_set.iter().map(move |&original| original + off))
+                .flat_map(|off| {
+                    resulting_set
+                        .iter()
+                        .map(move |original| original.clone() + off.clone())
+                })
                 .collect::<HashSet<_>>();
         }
         for operand in &expression.subtrahend {
             resulting_set = self
                 .evaluate_constant_term(&operand)?
                 .iter()
-                .flat_map(|&negoff| resulting_set.iter().map(move |&original| original - negoff))
+                .flat_map(|negoff| {
+                    resulting_set
+                        .iter()
+                        .map(move |original| original.clone() - negoff.clone())
+                })
                 .collect::<HashSet<_>>();
         }
         Ok(resulting_set)
@@ -390,19 +402,21 @@ impl ProgramModel {
     ///
     /// # Arguments
     /// * `factor` - The `Factor` to simplify.
-    /// * `make_substitutions` - True iff it should substitute known variables.
+    /// * `retrieval_level` - RetrievalLevel for identifiers.
     ///
     fn simplify_factor(
         &self,
         factor: &Factor,
-        retrieval_level: RetrievalLevel,
+        retrieval_level: &RetrievalLevel,
     ) -> Result<HashSet<Factor>, String> {
         let result = Ok(match factor {
             Factor::Parenthetical(expression) => {
                 if expression.minuend.len() + expression.subtrahend.len() > 1 {
                     self.simplify_expression(expression, retrieval_level)?
                         .iter()
-                        .map(|&simplified_expression| Factor::Parenthetical(simplified_expression))
+                        .map(|simplified_expression| {
+                            Factor::Parenthetical(simplified_expression.clone())
+                        })
                         .collect::<HashSet<_>>()
                 } else if expression.minuend.len() + expression.subtrahend.len() == 1 {
                     if expression.subtrahend.is_empty() {
@@ -413,9 +427,9 @@ impl ProgramModel {
                         } else {
                             self.simplify_term(&sub_term, retrieval_level)?
                                 .iter()
-                                .map(|&simplified_term| {
+                                .map(|simplified_term| {
                                     Factor::Parenthetical(Expression {
-                                        minuend: Vec::from([simplified_term]),
+                                        minuend: Vec::from([simplified_term.clone()]),
                                         subtrahend: Vec::new(),
                                     })
                                 })
@@ -424,10 +438,10 @@ impl ProgramModel {
                     } else {
                         self.simplify_term(&expression.subtrahend[0].clone(), retrieval_level)?
                             .iter()
-                            .map(|&simplified_term| {
+                            .map(|simplified_term| {
                                 Factor::Parenthetical(Expression {
                                     minuend: Vec::new(),
-                                    subtrahend: Vec::from([simplified_term]),
+                                    subtrahend: Vec::from([simplified_term.clone()]),
                                 })
                             })
                             .collect::<HashSet<_>>()
@@ -445,29 +459,24 @@ impl ProgramModel {
             }
             Factor::Number(number) => HashSet::from([Factor::Number(number.clone())]),
             Factor::Identifier(identifier) => {
-                if make_substitutions {
-                    // TODO - once retrieve value logic improves, this could be false sometimes
-                    match self.retrieve_values(identifier.clone(), true) {
-                        Ok(values) => values
-                            .iter()
-                            .map(|&value| Factor::Parenthetical(value))
-                            .collect::<HashSet<_>>(),
-                        Err(_) => HashSet::from([Factor::Identifier(identifier.clone())]),
-                    }
-                } else {
-                    HashSet::from([Factor::Identifier(identifier.clone())])
+                match self.retrieve_values(identifier.clone(), retrieval_level) {
+                    Ok(values) => values
+                        .iter()
+                        .map(|value| Factor::Parenthetical(value.clone()))
+                        .collect::<HashSet<_>>(),
+                    Err(_) => HashSet::from([Factor::Identifier(identifier.clone())]),
                 }
             }
             Factor::Call(call) => self
                 .make_call(call)?
                 .iter()
-                .map(|&call_result| {
-                    self.simplify_expression(&call_result, retrieval_level)
+                .map(|call_result| {
+                    self.simplify_expression(&call_result.clone(), retrieval_level)
                         .map(|simplified| {
                             simplified
                                 .iter()
-                                .map(|&simplified_call_result| {
-                                    Factor::Parenthetical(simplified_call_result)
+                                .map(|simplified_call_result| {
+                                    Factor::Parenthetical(simplified_call_result.clone())
                                 })
                                 .collect::<Vec<_>>()
                         })
@@ -485,18 +494,13 @@ impl ProgramModel {
     ///
     /// # Arguments
     /// * `term` - The `Term` to simplify.
-    /// * `make_substitutions` - True iff it should substitute known variables.
+    /// * `retrieval_level` - RetrievalLevel for identifiers.
     ///
     fn simplify_term(
         &self,
         term: &Term,
-        retrieval_level: RetrievalLevel,
+        retrieval_level: &RetrievalLevel,
     ) -> Result<HashSet<Term>, String> {
-        let mut new_term = Term {
-            numerator: Vec::new(),
-            denominator: Vec::new(),
-        };
-
         let mut identifier_counts: HashMap<Identifier, (bool, isize)> = HashMap::new();
 
         // simplify original factors in term and throw them back in
@@ -532,10 +536,10 @@ impl ProgramModel {
                 numerator_factors = self
                     .simplify_factor(operand, retrieval_level)?
                     .iter()
-                    .flat_map(|&multiplicand| {
+                    .flat_map(|multiplicand| {
                         numerator_factors
                             .iter()
-                            .map(move |&original| original * multiplicand)
+                            .map(move |original| original.clone() * multiplicand.clone())
                     })
                     .collect::<HashSet<_>>();
             }
@@ -555,13 +559,13 @@ impl ProgramModel {
             }
             if add_to_denominator {
                 denominator_factors = self
-                    .simplify_factor(operand, RetrievalLevel::OnlyConstants)?
+                    .simplify_factor(operand, &RetrievalLevel::OnlyConstants)?
                     .iter()
-                    .flat_map(|&divisor| {
+                    .flat_map(|divisor| {
                         denominator_factors
                             .iter()
                             // NOTE - the `*` is intentional
-                            .map(move |&original| original * divisor)
+                            .map(move |original| original.clone() * divisor.clone())
                     })
                     .collect::<HashSet<_>>();
             }
@@ -571,14 +575,14 @@ impl ProgramModel {
             while count > 0 {
                 numerator_factors = numerator_factors
                     .iter()
-                    .map(|&original| original * Factor::Identifier(name.clone()))
+                    .map(|original| original.clone() * Factor::Identifier(name.clone()))
                     .collect::<HashSet<_>>();
                 count -= 1;
             }
             while count < 0 {
                 denominator_factors = denominator_factors
                     .iter()
-                    .map(|&original| original * Factor::Identifier(name.clone()))
+                    .map(|original| original.clone() * Factor::Identifier(name.clone()))
                     .collect::<HashSet<_>>();
                 count += 1;
             }
@@ -616,9 +620,9 @@ impl ProgramModel {
                 no_special_treatment = true;
             }
             if no_special_treatment {
-                self.simplify_factor(&numerator_factor, RetrievalLevel::OnlyConstants)?
+                self.simplify_factor(&numerator_factor, &RetrievalLevel::OnlyConstants)?
                     .iter()
-                    .for_each(|&factor| new_term.numerator.push(factor));
+                    .for_each(|factor| new_term.numerator.push(factor.clone()));
             }
 
             for denominator_factor in &denominator_factors {
@@ -648,9 +652,9 @@ impl ProgramModel {
                     no_special_treatment = true;
                 }
                 if no_special_treatment {
-                    self.simplify_factor(&denominator_factor, RetrievalLevel::OnlyConstants)?
+                    self.simplify_factor(&denominator_factor, &RetrievalLevel::OnlyConstants)?
                         .iter()
-                        .for_each(|&factor| new_term.denominator.push(factor));
+                        .for_each(|factor| new_term.denominator.push(factor.clone()));
                 }
 
                 // combine all the numeric literals and return if not one
@@ -669,12 +673,12 @@ impl ProgramModel {
     ///
     /// # Arguments
     /// * `expression` - The `Expression` to simplify.
-    /// * `make_substitutions` - True iff it should substitute known variables.
+    /// * `retrieval_level` - RetrievalLevel for identifiers.
     ///
     fn simplify_expression(
         &self,
         expression: &Expression,
-        retrieval_level: RetrievalLevel,
+        retrieval_level: &RetrievalLevel,
     ) -> Result<HashSet<Expression>, String> {
         let mut new_expressions = HashSet::from([Expression {
             minuend: Vec::new(),
@@ -686,9 +690,9 @@ impl ProgramModel {
             new_expressions = self
                 .simplify_term(operand, retrieval_level)?
                 .iter()
-                .flat_map(|&off| {
-                    new_expressions.into_iter().map(move |mut original| {
-                        original.minuend.push(off);
+                .flat_map(|off| {
+                    new_expressions.clone().into_iter().map(|mut original| {
+                        original.minuend.push(off.clone());
                         original
                     })
                 })
@@ -699,11 +703,14 @@ impl ProgramModel {
             new_expressions = self
                 .simplify_term(operand, retrieval_level)?
                 .iter()
-                .flat_map(|&off| {
-                    new_expressions.into_iter().map(move |mut original| {
-                        original.subtrahend.push(off);
-                        original
-                    })
+                .flat_map(|off| {
+                    new_expressions
+                        .clone()
+                        .into_iter()
+                        .map(move |mut original| {
+                            original.subtrahend.push(off.clone());
+                            original
+                        })
                 })
                 .collect::<HashSet<_>>();
         }
@@ -731,7 +738,7 @@ impl ProgramModel {
     ///
     /// # Arguments
     /// * `expression` - The `Expression` to simplify.
-    /// * `make_substitutions` - True iff it should substitute known variables.
+    /// * `retrieval_level` - RetrievalLevel for identifiers.
     ///
     pub fn simplify_relation(&self, relation: &Relation) -> Result<Relation, String> {
         let mut new_relation = Relation {
@@ -741,9 +748,13 @@ impl ProgramModel {
 
         // re-add the original expressions after simplifying
         for operand in &relation.operands {
-            new_relation
-                .operands
-                .push(self.simplify_expression(operand, RetrievalLevel::All)?);
+            new_relation.operands.push(
+                self.simplify_expression(operand, &RetrievalLevel::OnlySingleConstants)?
+                    .iter()
+                    .next()
+                    .unwrap()
+                    .clone(),
+            );
         }
         new_relation.operators.clone_from(&relation.operators);
 
@@ -755,11 +766,13 @@ impl ProgramModel {
             let left_result = self.evaluate_constant_expression(&new_relation.operands[op_i]);
             let right_result = self.evaluate_constant_expression(&new_relation.operands[op_i + 1]);
             if left_result.is_ok() && right_result.is_ok() {
-                if !compare(
-                    left_result.unwrap(),
-                    right_result.unwrap(),
-                    &new_relation.operators[op_i],
-                ) {
+                let left_set = left_result.unwrap();
+                let right_set = right_result.unwrap();
+                let op = &new_relation.operators[op_i];
+                if !left_set
+                    .iter()
+                    .all(|left| right_set.iter().all(|right| compare(left, right, op)))
+                {
                     // short circuit if any false ones found
                     has_false = true;
                     break;
@@ -843,14 +856,14 @@ impl ProgramModel {
             let mut test_model = self.clone();
             test_model.solved_variables.insert(
                 name.clone(),
-                vec![Number {
+                HashSet::from([Number {
                     real: 0f64,
                     imaginary: 0f64,
                     unit: Unit {
                         exponent: 0i8,
                         constituents: HashMap::new(),
                     },
-                }],
+                }]),
             );
             // if this breaks, then it can't be 0
             test_model.assert_relations_hold()
@@ -868,21 +881,32 @@ impl ProgramModel {
     fn retrieve_values(
         &self,
         name: Identifier,
-        retrieval_level: RetrievalLevel,
+        retrieval_level: &RetrievalLevel,
     ) -> Result<HashSet<Expression>, String> {
+        // if it's just preserve, it should return the identifier
+        if retrieval_level == &RetrievalLevel::Preserve {
+            return Ok(HashSet::from([Expression {
+                minuend: vec![Term {
+                    numerator: vec![Factor::Identifier(name)],
+                    denominator: Vec::new(),
+                }],
+                subtrahend: Vec::new(),
+            }]));
+        }
+
         // first, attempt to get out of already solved variables
         if self.solved_variables.contains_key(&name) {
             if self.solved_variables.get(&name).unwrap().len() > 1
-                || retrieval_level != RetrievalLevel::OnlySingleConstants
+                || retrieval_level != &RetrievalLevel::OnlySingleConstants
             {
                 Ok(self
                     .solved_variables
                     .get(&name)
                     .unwrap()
                     .iter()
-                    .map(|&number| Expression {
+                    .map(|number| Expression {
                         minuend: vec![Term {
-                            numerator: vec![Factor::Number(number)],
+                            numerator: vec![Factor::Number(number.clone())],
                             denominator: Vec::new(),
                         }],
                         subtrahend: Vec::new(),
@@ -972,21 +996,21 @@ impl ProgramModel {
                     }
                 }
                 result /= self.augmented_matrix[best_row.unwrap()][value_col].clone();
-                if retrieval_level == RetrievalLevel::All {
-                    self.simplify_expression(&result, RetrievalLevel::OnlyConstants)
+                if retrieval_level == &RetrievalLevel::All {
+                    self.simplify_expression(&result, &RetrievalLevel::OnlyConstants)
                 } else {
                     let resulting_set = self
                         .evaluate_constant_expression(&result)?
                         .iter()
-                        .map(|&number| Expression {
+                        .map(|number| Expression {
                             minuend: vec![Term {
-                                numerator: vec![Factor::Number(number)],
+                                numerator: vec![Factor::Number(number.clone())],
                                 denominator: Vec::new(),
                             }],
                             subtrahend: Vec::new(),
                         })
                         .collect::<HashSet<_>>();
-                    if retrieval_level == RetrievalLevel::OnlyConstants {
+                    if retrieval_level == &RetrievalLevel::OnlyConstants {
                         Ok(resulting_set)
                     } else {
                         // retrieval_level is only_single_constants
@@ -1019,7 +1043,7 @@ impl ProgramModel {
         let mut result: Option<usize> = None;
         for switcher in row..row_ct {
             if match self.evaluate_constant_expression(&self.augmented_matrix[switcher][col]) {
-                Ok(number) => !number.is_zero(),
+                Ok(numbers) => !numbers.iter().all(|number| number.is_zero()),
                 Err(_) => false,
             } {
                 // we want to prioritize getting a row with all constants
@@ -1065,7 +1089,7 @@ impl ProgramModel {
                 let factor = &self.augmented_matrix[row_update][col].clone();
                 if match self.evaluate_constant_expression(factor) {
                     // don't subtract anything if it's already 0
-                    Ok(number) => !number.is_zero(),
+                    Ok(numbers) => !numbers.iter().all(|number| number.is_zero()),
                     // don't subtract anything if there's an equation there
                     Err(_) => false,
                 } {
@@ -1120,10 +1144,10 @@ impl ProgramModel {
             let mut lonely_rows: Vec<usize> = Vec::new();
             for row in 0..row_ct {
                 // only consider expressions which cannot evaluate to 0
-                let is_zero = if let Ok(number) =
+                let is_zero = if let Ok(numbers) =
                     self.evaluate_constant_expression(&self.augmented_matrix[row][col])
                 {
-                    number.is_zero()
+                    numbers.iter().all(|number| number.is_zero())
                 } else {
                     false
                 };
@@ -1134,10 +1158,10 @@ impl ProgramModel {
                         if sub_col == col {
                             continue;
                         }
-                        let is_zero = if let Ok(number) =
+                        let is_zero = if let Ok(numbers) =
                             self.evaluate_constant_expression(&self.augmented_matrix[row][sub_col])
                         {
-                            number.is_zero()
+                            numbers.iter().all(|number| number.is_zero())
                         } else {
                             false
                         };
@@ -1163,7 +1187,13 @@ impl ProgramModel {
                         .len()
                         == 1
                 {
-                    let value = &self.solved_variables.get(&self.variables[col]).unwrap()[0];
+                    let value = self
+                        .solved_variables
+                        .get(&self.variables[col])
+                        .unwrap()
+                        .iter()
+                        .next()
+                        .unwrap();
                     for left_idx in 0..lonely_groups[col].len() {
                         let left_row_idx = lonely_groups[col][left_idx];
                         new_equations.push((
@@ -1218,13 +1248,13 @@ impl ProgramModel {
             if self.augmented_matrix[row][0..col_ct - 1]
                 .iter()
                 .all(|expr| match self.evaluate_constant_expression(&expr) {
-                    Ok(number) => number.is_zero(),
+                    Ok(numbers) => numbers.iter().all(|number| number.is_zero()),
                     Err(_) => false,
                 })
             {
                 if self
                     .evaluate_constant_expression(&self.augmented_matrix[row][col_ct - 1])
-                    .is_ok_and(|n| n.is_zero())
+                    .is_ok_and(|numbers| numbers.iter().all(|number| number.is_zero()))
                 {
                     self.augmented_matrix.remove(row);
                 } else {
@@ -1255,10 +1285,10 @@ impl ProgramModel {
                     if sub_col == col {
                         continue;
                     }
-                    let is_zero = if let Ok(number) =
+                    let is_zero = if let Ok(numbers) =
                         self.evaluate_constant_expression(&self.augmented_matrix[row][sub_col])
                     {
-                        number.is_zero()
+                        numbers.iter().all(|number| number.is_zero())
                     } else {
                         false
                     };
@@ -1277,25 +1307,31 @@ impl ProgramModel {
                                 subtrahend: Vec::new(),
                             })
                             - self.augmented_matrix[row][col_ct - 1].clone()),
-                        RetrievalLevel::OnlyConstants, // since at least this far should've been taken care of already
+                        &RetrievalLevel::OnlySingleConstants,
                     );
                     if zero_equivalent.is_ok() {
-                        if let Some((polynomial, name)) =
-                            zero_equivalent.unwrap().extract_polynomial()
+                        if let Some((polynomial, name)) = zero_equivalent
+                            .unwrap()
+                            .iter()
+                            .next()
+                            .unwrap()
+                            .extract_polynomial()
                         {
                             let equivalencies = polynomial.find_roots();
-                            self.solved_variables.insert(name.clone(), Vec::new());
+                            self.solved_variables.insert(name.clone(), HashSet::new());
                             self.augmented_matrix.remove(row);
                             let mut test_model = self.clone();
                             for equivalency in equivalencies {
                                 // only add if solution does not break pre-order
                                 test_model
                                     .solved_variables
-                                    .insert(name.clone(), vec![equivalency.clone()]);
+                                    .insert(name.clone(), HashSet::from([equivalency.clone()]));
                                 if test_model.assert_relations_hold() {
-                                    self.solved_variables
-                                        .entry(name.clone())
-                                        .and_modify(|values| values.push(equivalency));
+                                    self.solved_variables.entry(name.clone()).and_modify(
+                                        |values| {
+                                            values.insert(equivalency);
+                                        },
+                                    );
                                 }
                             }
                         }
@@ -1325,9 +1361,12 @@ impl ProgramModel {
                 for col in 0..(col_ct - 1) {
                     let constant_result =
                         self.evaluate_constant_expression(&self.augmented_matrix[row][col]);
-                    if constant_result.as_ref().is_ok_and(|n| !n.is_zero()) {
+                    if constant_result.as_ref().is_ok_and(|numbers| {
+                        numbers.len() == 1 && !numbers.iter().next().unwrap().is_zero()
+                    }) {
                         if lonely_col_option.is_none() {
-                            lonely_col_option = Some((col, constant_result.unwrap()));
+                            lonely_col_option =
+                                Some((col, constant_result.unwrap().iter().next().unwrap().clone()));
                         } else {
                             too_many_non_zero_constants = true;
                         }
@@ -1339,7 +1378,11 @@ impl ProgramModel {
                     // throw that sucker in the solved variables!
                     self.solved_variables.insert(
                         self.variables[lonely_col].clone(),
-                        vec![equivalence_result.unwrap() / constant],
+                        equivalence_result
+                            .unwrap()
+                            .iter()
+                            .map(|equivalency| equivalency.clone() / constant.clone())
+                            .collect::<HashSet<_>>(),
                     );
 
                     // that information is no longer needed!
@@ -1381,8 +1424,15 @@ impl ProgramModel {
         for row in 0..row_ct {
             for col in 0..col_ct {
                 self.augmented_matrix[row][col] = self
-                    .simplify_expression(&self.augmented_matrix[row][col], RetrievalLevel::OnlyConstants)
-                    .unwrap();
+                    .simplify_expression(
+                        &self.augmented_matrix[row][col],
+                        &RetrievalLevel::OnlySingleConstants,
+                    )
+                    .unwrap()
+                    .iter()
+                    .next()
+                    .unwrap()
+                    .clone();
             }
         }
 
@@ -1586,9 +1636,12 @@ mod tests {
         };
         assert_eq!(
             expected,
-            model
+            *model
                 .evaluate_constant_term(&term)
                 .expect("Failed to evaluate")
+                .iter()
+                .next()
+                .unwrap()
         );
     }
 
@@ -1612,9 +1665,12 @@ mod tests {
         };
         assert_eq!(
             expected,
-            model
+            *model
                 .evaluate_constant_expression(&expression)
                 .expect("Failed to evaluate")
+                .iter()
+                .next()
+                .unwrap()
         );
     }
 
@@ -1637,10 +1693,13 @@ mod tests {
         };
         assert_eq!(
             a_expected,
-            model
+            *model
                 .solved_variables
                 .get(&Identifier::new("a").unwrap())
-                .unwrap()[0]
+                .unwrap()
+                .iter()
+                .next()
+                .unwrap()
         );
     }
 
@@ -1657,10 +1716,20 @@ mod tests {
         let a = model
             .evaluate_constant_expression(
                 &model
-                    .retrieve_value(Identifier::new("a").unwrap(), true)
-                    .expect("Failed to retrieve value"),
+                    .retrieve_values(
+                        Identifier::new("a").unwrap(),
+                        &RetrievalLevel::OnlySingleConstants,
+                    )
+                    .expect("Failed to retrieve value")
+                    .iter()
+                    .next()
+                    .unwrap(),
             )
-            .expect("Failed to evaluate");
+            .expect("Failed to evaluate")
+            .iter()
+            .next()
+            .unwrap()
+            .clone();
         let a_expected = Number {
             real: 2f64,
             imaginary: 0f64,
@@ -1685,10 +1754,20 @@ mod tests {
         let a = model
             .evaluate_constant_expression(
                 &model
-                    .retrieve_value(Identifier::new("a").unwrap(), true)
-                    .expect("Failed to retrieve value"),
+                    .retrieve_values(
+                        Identifier::new("a").unwrap(),
+                        &RetrievalLevel::OnlySingleConstants,
+                    )
+                    .expect("Failed to retrieve value")
+                    .iter()
+                    .next()
+                    .unwrap(),
             )
-            .expect("Failed to evaluate");
+            .expect("Failed to evaluate")
+            .iter()
+            .next()
+            .unwrap()
+            .clone();
         let a_expected = Number {
             real: 1f64,
             imaginary: 0f64,
@@ -1734,10 +1813,20 @@ mod tests {
         let x = model
             .evaluate_constant_expression(
                 &model
-                    .retrieve_value(Identifier::new("x").unwrap(), true)
-                    .expect("Failed to retrieve value"),
+                    .retrieve_values(
+                        Identifier::new("x").unwrap(),
+                        &RetrievalLevel::OnlySingleConstants,
+                    )
+                    .expect("Failed to retrieve value")
+                    .iter()
+                    .next()
+                    .unwrap(),
             )
-            .expect("Failed to evaluate");
+            .expect("Failed to evaluate")
+            .iter()
+            .next()
+            .unwrap()
+            .clone();
         let x_expected = Number {
             real: 3f64,
             imaginary: 0f64,
@@ -1750,10 +1839,20 @@ mod tests {
         let y = model
             .evaluate_constant_expression(
                 &model
-                    .retrieve_value(Identifier::new("y").unwrap(), true)
-                    .expect("Failed to retrieve value"),
+                    .retrieve_values(
+                        Identifier::new("y").unwrap(),
+                        &RetrievalLevel::OnlySingleConstants,
+                    )
+                    .expect("Failed to retrieve value")
+                    .iter()
+                    .next()
+                    .unwrap(),
             )
-            .expect("Failed to evaluate");
+            .expect("Failed to evaluate")
+            .iter()
+            .next()
+            .unwrap()
+            .clone();
         let y_expected = Number {
             real: -1f64,
             imaginary: 0f64,
