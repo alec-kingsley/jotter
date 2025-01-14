@@ -126,14 +126,18 @@ impl Display for ProgramModel {
             self.solved_variables
                 .iter()
                 .map(|(name, values)| {
-                    format!(
-                        "{name} = {}",
-                        values
-                            .iter()
-                            .map(|n| n.to_string())
-                            .collect::<Vec<_>>()
-                            .join(" OR ")
-                    )
+                    if values.len() == 1 {
+                        format!("{name} = {}", values.iter().next().unwrap().to_string())
+                    } else {
+                        format!(
+                            "{name} ∈ {{{}}}",
+                            values
+                                .iter()
+                                .map(|n| n.to_string())
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        )
+                    }
                 })
                 .collect::<Vec<_>>()
                 .join(", ")
@@ -203,6 +207,17 @@ enum RetrievalLevel {
     OnlyConstants,
     /// only solved variables which have one solution should be resolved.
     OnlySingleConstants,
+}
+
+impl Display for RetrievalLevel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RetrievalLevel::Preserve => write!(f, "Preserve"),
+            RetrievalLevel::All => write!(f, "All"),
+            RetrievalLevel::OnlyConstants => write!(f, "OnlyConstants"),
+            RetrievalLevel::OnlySingleConstants => write!(f, "OnlySingleConstants"),
+        }
+    }
 }
 
 impl ProgramModel {
@@ -847,8 +862,9 @@ impl ProgramModel {
                         new_relations
                             .iter()
                             .map(|new_relation| {
-                                new_relation.clone().operands.push(simplified.clone());
-                                new_relation.clone()
+                                let mut new_relation = new_relation.clone();
+                                new_relation.operands.push(simplified.clone());
+                                new_relation
                             })
                             .collect::<Vec<_>>()
                     })
@@ -858,11 +874,9 @@ impl ProgramModel {
             new_relations
                 .iter()
                 .map(|new_relation| {
+                    let mut new_relation = new_relation.clone();
+                    new_relation.operators.clone_from(&relation.operators);
                     new_relation
-                        .clone()
-                        .operators
-                        .clone_from(&relation.operators);
-                    new_relation.clone()
                 })
                 .collect::<HashSet<_>>()
         })

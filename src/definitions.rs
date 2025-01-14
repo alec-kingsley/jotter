@@ -506,7 +506,11 @@ impl Expression {
             }
             polynomial.coefficients[degree] = coefficient;
         }
-        Some((polynomial, variable_name_option.unwrap()))
+        if variable_name_option.is_some() {
+            Some((polynomial, variable_name_option.unwrap()))
+        } else {
+            None
+        }
     }
 }
 
@@ -675,7 +679,7 @@ impl Polynomial {
         // extract unit ;)
         for deg in 0..degree {
             let coefficient = &self.coefficients[deg];
-            if !(coefficient.real == 0f64 && coefficient.imaginary == 0f64) {
+            if !coefficient.is_zero() {
                 let found_unit = Unit {
                     exponent: 0i8,
                     constituents: coefficient
@@ -774,11 +778,6 @@ impl Polynomial {
                     / scaled_self.evaluate_derivative(&roots[deg]);
                 let mut subtrahend = derivative_ratio.clone();
 
-                subtrahend /= Number {
-                    real: 1f64,
-                    imaginary: 0f64,
-                    unit: unit.clone(),
-                } - derivative_ratio;
                 let mut subtrahend_sum = Number {
                     real: 0f64,
                     imaginary: 0f64,
@@ -794,7 +793,12 @@ impl Polynomial {
                         unit: unit.clone(),
                     } / (roots[deg].clone() - roots[foreigner].clone());
                 }
-                subtrahend /= subtrahend_sum;
+
+                subtrahend /= Number {
+                    real: 1f64,
+                    imaginary: 0f64,
+                    unit: unit.clone(),
+                } - (derivative_ratio * subtrahend_sum);
 
                 roots[deg] -= subtrahend;
                 sufficient &= roots[deg] == old_roots[deg];
@@ -1430,7 +1434,8 @@ impl Number {
     ///
     pub fn is_unitless_one(&self) -> bool {
         self.real * 10f64.powi(self.unit.exponent as i32) as f64 == 1f64
-            && self.imaginary == 0f64
+            && self.imaginary - EPSILON < 0f64
+            && 0f64 < self.imaginary + EPSILON
             && self.unit
                 == Unit {
                     exponent: 0,
@@ -1441,7 +1446,16 @@ impl Number {
     /// Returns true iff the number has a value of 0
     ///
     pub fn is_zero(&self) -> bool {
-        self.real == 0f64 && self.imaginary == 0f64
+        self.real - EPSILON < 0f64
+            && 0f64 < self.real + EPSILON
+            && self.imaginary - EPSILON < 0f64
+            && 0f64 < self.imaginary + EPSILON
+    }
+
+    /// Returns true iff the number is in the real set.
+    ///
+    pub fn is_real(&self) -> bool {
+        self.imaginary - EPSILON < 0f64 && 0f64 < self.imaginary + EPSILON
     }
 
     /// Refactor the unit such that its `unit.exponent` is divisible by `subunit_exponent`.
@@ -1878,7 +1892,7 @@ impl PartialOrd for Number {
 
         if self == other {
             Some(Ordering::Equal)
-        } else if self.imaginary == 0f64 && other.imaginary == 0f64 {
+        } else if self.is_real() && other.is_real() {
             let mut other_clone = other.clone();
             let exp_diff = other_clone.unit.exponent - self.unit.exponent;
             other_clone.unit.exponent -= exp_diff;
