@@ -15,14 +15,26 @@ pub fn process_prompt(model: &ProgramModel, prompt: Relation) {
     let simplified_result = model.simplify_relation(&prompt);
     if simplified_result.is_ok() {
         let simplified = simplified_result.unwrap();
-        if prompt.operands.len() > 1 && simplified.operands.len() == 1 {
-            if simplified.operands[0].minuend.len() == 1 {
-                println!("{prompt} : True");
+        if prompt.operands.len() > 1
+            && simplified.len() == 1
+            && simplified.iter().next().unwrap().operands.len() == 1
+        {
+            if simplified.iter().next().unwrap().operands[0].minuend.len() == 1 {
+                println!("{prompt} ≡ True");
             } else {
-                println!("{prompt} : False");
+                println!("{prompt} ≡ False");
             }
+        } else if simplified.len() == 1 {
+            println!("{prompt} ≡ {}", simplified.iter().next().unwrap());
         } else {
-            println!("{prompt} : {}", simplified);
+            println!(
+                "{prompt} ∈ {{{}}}",
+                simplified
+                    .iter()
+                    .map(|option| option.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
         }
     } else {
         println!("{prompt} : ERROR - {}", simplified_result.unwrap_err());
@@ -78,8 +90,6 @@ pub fn process_equation(model: &mut ProgramModel, relation: Relation) {
             model.add_relation(left, right, relation.operators[i].clone());
         }
     }
-
-    println!("DEBUG - PROGRAM STATE: {model}");
 }
 
 /// Model for program.
@@ -268,7 +278,10 @@ impl ProgramModel {
                                 }]),
                                 subtrahend: Vec::new(),
                             };
-                            if evaluated.operands.len() == 1 && evaluated.operands[0] == true_expr {
+                            if evaluated.len() == 1
+                                && evaluated.iter().next().unwrap().operands.len() == 1
+                                && evaluated.iter().next().unwrap().operands[0] == true_expr
+                            {
                                 result = Some(model.simplify_expression(
                                     &expression,
                                     &RetrievalLevel::OnlyConstants,
@@ -740,35 +753,18 @@ impl ProgramModel {
     /// * `expression` - The `Expression` to simplify.
     /// * `retrieval_level` - RetrievalLevel for identifiers.
     ///
-    pub fn simplify_relation(&self, relation: &Relation) -> Result<Relation, String> {
-        let mut new_relation = Relation {
-            operands: Vec::new(),
-            operators: Vec::new(),
-        };
-
-        // re-add the original expressions after simplifying
-        for operand in &relation.operands {
-            new_relation.operands.push(
-                self.simplify_expression(operand, &RetrievalLevel::OnlySingleConstants)?
-                    .iter()
-                    .next()
-                    .unwrap()
-                    .clone(),
-            );
-        }
-        new_relation.operators.clone_from(&relation.operators);
-
+    pub fn simplify_relation(&self, relation: &Relation) -> Result<HashSet<Relation>, String> {
         let mut all_true = !relation.operators.is_empty();
         let mut has_false = false;
         // attempt to evaluate to constant boolean value
-        for op_i in 0..new_relation.operators.len() {
+        for op_i in 0..relation.operators.len() {
             // evaluate left and right
-            let left_result = self.evaluate_constant_expression(&new_relation.operands[op_i]);
-            let right_result = self.evaluate_constant_expression(&new_relation.operands[op_i + 1]);
+            let left_result = self.evaluate_constant_expression(&relation.operands[op_i]);
+            let right_result = self.evaluate_constant_expression(&relation.operands[op_i + 1]);
             if left_result.is_ok() && right_result.is_ok() {
                 let left_set = left_result.unwrap();
                 let right_set = right_result.unwrap();
-                let op = &new_relation.operators[op_i];
+                let op = &relation.operators[op_i];
                 if !left_set
                     .iter()
                     .all(|left| right_set.iter().all(|right| compare(left, right, op)))
@@ -778,14 +774,14 @@ impl ProgramModel {
                     break;
                 }
             } else {
-                match &new_relation.operators[op_i] {
+                match &relation.operators[op_i] {
                     RelationOp::Less | RelationOp::Greater => all_true = false,
                     RelationOp::Equal | RelationOp::LessEqual | RelationOp::GreaterEqual => {
-                        if &new_relation.operands[op_i] != &new_relation.operands[op_i + 1] {
+                        if &relation.operands[op_i] != &relation.operands[op_i + 1] {
                             let mut model = self.clone();
                             let logic_result = model.add_matrix_row(
-                                new_relation.operands[op_i].clone(),
-                                new_relation.operands[op_i + 1].clone(),
+                                relation.operands[op_i].clone(),
+                                relation.operands[op_i + 1].clone(),
                             );
                             if logic_result.is_err() || !model.assert_relations_hold() {
                                 // stuff breaks if they were to be equal, so they are not equal
@@ -796,13 +792,13 @@ impl ProgramModel {
                         }
                     }
                     RelationOp::NotEqual => {
-                        if &new_relation.operands[op_i] == &new_relation.operands[op_i + 1] {
+                        if &relation.operands[op_i] == &relation.operands[op_i + 1] {
                             has_false = true;
                         } else {
                             let mut model = self.clone();
                             let logic_result = model.add_matrix_row(
-                                new_relation.operands[op_i].clone(),
-                                new_relation.operands[op_i + 1].clone(),
+                                relation.operands[op_i].clone(),
+                                relation.operands[op_i + 1].clone(),
                             );
                             if logic_result.is_ok() && model.assert_relations_hold() {
                                 // nothing breaks if we add it, so we can't say anything
@@ -816,16 +812,16 @@ impl ProgramModel {
 
         Ok(if has_false {
             // return false
-            Relation {
+            HashSet::from([Relation {
                 operands: vec![Expression {
                     minuend: Vec::new(),
                     subtrahend: Vec::new(),
                 }],
                 operators: Vec::new(),
-            }
+            }])
         } else if all_true {
             // return true
-            Relation {
+            HashSet::from([Relation {
                 operands: vec![Expression {
                     minuend: Vec::from([Term {
                         numerator: Vec::new(),
@@ -834,10 +830,41 @@ impl ProgramModel {
                     subtrahend: Vec::new(),
                 }],
                 operators: Vec::new(),
-            }
+            }])
         } else {
             // return relation as simplified as it can be
-            new_relation
+            let mut new_relations = HashSet::from([Relation {
+                operands: Vec::new(),
+                operators: Vec::new(),
+            }]);
+
+            // re-add the original expressions after simplifying
+            for operand in &relation.operands {
+                new_relations = self
+                    .simplify_expression(operand, &RetrievalLevel::All)?
+                    .iter()
+                    .map(|simplified| {
+                        new_relations
+                            .iter()
+                            .map(|new_relation| {
+                                new_relation.clone().operands.push(simplified.clone());
+                                new_relation.clone()
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .flatten()
+                    .collect::<HashSet<_>>();
+            }
+            new_relations
+                .iter()
+                .map(|new_relation| {
+                    new_relation
+                        .clone()
+                        .operators
+                        .clone_from(&relation.operators);
+                    new_relation.clone()
+                })
+                .collect::<HashSet<_>>()
         })
     }
 
@@ -1365,8 +1392,10 @@ impl ProgramModel {
                         numbers.len() == 1 && !numbers.iter().next().unwrap().is_zero()
                     }) {
                         if lonely_col_option.is_none() {
-                            lonely_col_option =
-                                Some((col, constant_result.unwrap().iter().next().unwrap().clone()));
+                            lonely_col_option = Some((
+                                col,
+                                constant_result.unwrap().iter().next().unwrap().clone(),
+                            ));
                         } else {
                             too_many_non_zero_constants = true;
                         }
@@ -1461,8 +1490,11 @@ impl ProgramModel {
                 all_true = false;
             } else {
                 let simplified = simplified_result.unwrap();
-                if simplified.operands.len() == 1 {
-                    if simplified.operands[0].minuend.is_empty() {
+                if simplified.len() == 1 && simplified.iter().next().unwrap().operands.len() == 1 {
+                    if simplified.iter().next().unwrap().operands[0]
+                        .minuend
+                        .is_empty()
+                    {
                         all_true = false;
                     }
                 }
