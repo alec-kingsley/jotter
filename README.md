@@ -264,21 +264,7 @@ All units support all SI prefixes. This includes the US customary units, so "kil
 
 Currently, quantity units are treated as though they were unitless. Technically this may be true, but it is not useful for display purposes, and so it will likely be updated. (if I say `1 [rad / s]?` it should print `1 [rad / s]`, whereas it currently prints `1 [1 / s]`).
 
-## Planned Features
-
-### Units
-
-* Ability to add user-defined units
-* Better units chosen for complex numbers
-
-### Solver
-
-* Ability to solve non-linear systems of equations, and show multiple solutions accordingly
-* Add common math functions such as `sin`, `cos`, `tan`, `log`, `mod`
-
-### Functions
-
-* Add integrals and derivatives, as well as a differential equation solver
+Polynomial solver uses the Aberth method.
 
 ## Beta (not yet fully functional)
 
@@ -310,4 +296,23 @@ Issues:
 
 If in the above examples, x were used more than once in an expression after this (EX: xx?), it would treat those x values as though they could each be two different values from that set.
 
+## Planned Features
+
+### Sets
+
+* Ability to define sets and define variables as belonging to a set
+
+### Units
+
+* Ability to add user-defined units
+* Better units chosen for complex numbers
+
+### Solver
+
+* Ability to solve non-linear systems of equations (this can use polynomial solver)
+* Add common math functions such as `sin`, `cos`, `tan`, `log`, `mod`
+
+### Functions
+
+* Add integrals and derivatives, as well as a differential equation solver
 
