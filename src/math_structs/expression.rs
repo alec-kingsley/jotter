@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 use std::ops::*;
@@ -8,7 +7,6 @@ use crate::math_structs::identifier::*;
 use crate::math_structs::number::*;
 use crate::math_structs::polynomial::*;
 use crate::math_structs::term::*;
-use crate::math_structs::unit::*;
 
 #[derive(Debug, Clone, Hash)]
 pub struct Expression {
@@ -231,14 +229,7 @@ impl Expression {
         }
 
         // restore self
-        let one = Number {
-            real: 1f64,
-            imaginary: 0f64,
-            unit: Unit {
-                exponent: 0i8,
-                constituents: HashMap::new(),
-            },
-        };
+        let one = Number::unitless_one();
 
         let zero = one.clone() - one.clone();
 
@@ -273,27 +264,13 @@ impl Expression {
         let mut polynomial = Polynomial {
             coefficients: Vec::new(),
         };
-        let zero = Number {
-            real: 0f64,
-            imaginary: 0f64,
-            unit: Unit {
-                exponent: 0i8,
-                constituents: HashMap::new(),
-            },
-        };
+        let zero = Number::unitless_zero();
         for term in &self.minuend {
             if term.has_denominator() {
                 return None;
             }
             let mut degree = 0;
-            let mut coefficient = Number {
-                real: 1f64,
-                imaginary: 0f64,
-                unit: Unit {
-                    exponent: 0i8,
-                    constituents: HashMap::new(),
-                },
-            };
+            let mut coefficient = Number::unitless_one();
             for factor in term.numerator_ref() {
                 match factor {
                     Factor::Identifier(name) => {
@@ -323,14 +300,7 @@ impl Expression {
                 return None;
             }
             let mut degree = 0;
-            let mut coefficient = Number {
-                real: -1f64,
-                imaginary: 0f64,
-                unit: Unit {
-                    exponent: 0i8,
-                    constituents: HashMap::new(),
-                },
-            };
+            let mut coefficient = -Number::unitless_one();
             for factor in term.numerator_ref() {
                 match factor {
                     Factor::Identifier(name) => {

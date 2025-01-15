@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use crate::math_structs::number::*;
 use crate::math_structs::unit::*;
@@ -37,7 +37,7 @@ impl Polynomial {
                 let found_unit = Unit {
                     exponent: 0i8,
                     constituents: coefficient
-                        .unit
+                        .get_unit()
                         .constituents
                         .clone()
                         .into_iter()
@@ -79,19 +79,9 @@ impl Polynomial {
     /// * `x` - The point at which the derivative of the `Polynomial` should be evaluated.
     ///
     pub fn evaluate_derivative(&self, x: &Number) -> Number {
-        let mut result = Number {
-            real: 0f64,
-            imaginary: 0f64,
-            unit: Unit {
-                exponent: 0i8,
-                constituents: HashMap::new(),
-            },
-        };
+        let mut result = Number::unitless_zero();
         for degree in 1..self.coefficients.len() {
-            let mut term = self.coefficients[degree].clone() * x.powi(degree as u32 - 1);
-            term.real *= degree as f64;
-            term.imaginary *= degree as f64;
-            result += term;
+            result += self.coefficients[degree].clone() * x.powi(degree as u32 - 1) * degree as f64;
         }
         result
     }
@@ -110,13 +100,13 @@ impl Polynomial {
         scaled_self.scale();
         let degree = self.coefficients.len() - 1;
         let unit = self.extract_unit().expect("Failed to extract unit");
-        let super_special_number = Number {
+        let super_special_number = Number::complex(
             // wikipedia on Durand-Kerner says this number isn't special :(
             // but I think it is 🥹
-            real: 0.4,
-            imaginary: 0.9,
-            unit: unit.clone(),
-        };
+            0.4,
+            0.9,
+            unit.clone(),
+        );
         let mut roots: Vec<Number> = Vec::with_capacity(degree);
         for deg in 0..degree {
             roots.push(super_special_number.clone().powi(deg as u32));
@@ -132,27 +122,16 @@ impl Polynomial {
                     / scaled_self.evaluate_derivative(&roots[deg]);
                 let mut subtrahend = derivative_ratio.clone();
 
-                let mut subtrahend_sum = Number {
-                    real: 0f64,
-                    imaginary: 0f64,
-                    unit: unit.clone(),
-                };
+                let mut subtrahend_sum = Number::unitless_zero();
                 for foreigner in 0..degree {
                     if foreigner == deg {
                         continue;
                     }
-                    subtrahend_sum += Number {
-                        real: 1f64,
-                        imaginary: 0f64,
-                        unit: unit.clone(),
-                    } / (roots[deg].clone() - roots[foreigner].clone());
+                    subtrahend_sum +=
+                        Number::unitless_one() / (roots[deg].clone() - roots[foreigner].clone());
                 }
 
-                subtrahend /= Number {
-                    real: 1f64,
-                    imaginary: 0f64,
-                    unit: unit.clone(),
-                } - (derivative_ratio * subtrahend_sum);
+                subtrahend /= Number::unitless_one() - (derivative_ratio * subtrahend_sum);
 
                 roots[deg] -= subtrahend;
                 sufficient &= roots[deg] == old_roots[deg];

@@ -12,11 +12,11 @@ static EPSILON: f64 = 1e-10;
 #[derive(Debug, Clone)]
 pub struct Number {
     /// Real component of numeric literal.
-    pub real: f64,
+    real: f64,
     /// Imaginary component of numeric literal.
-    pub imaginary: f64,
+    imaginary: f64,
     /// Unit of the numeric literal.
-    pub unit: Unit,
+    unit: Unit,
 }
 
 impl Hash for Number {
@@ -53,10 +53,71 @@ impl PartialEq for Number {
 impl Eq for Number {}
 
 impl Number {
+    /// Constructor for a real number.
+    ///
+    /// # Arguments
+    /// * `value` - value of the number
+    /// * `unit` - unit of the number
+    ///
+    pub fn real(value: f64, unit: Unit) -> Self {
+        Self {
+            real: value,
+            imaginary: 0f64,
+            unit,
+        }
+    }
+
+    /// Constructor for a complex number.
+    ///
+    /// # Arguments
+    /// * `real` - real component of the number
+    /// * `imaginary` - imaginary component of the number
+    /// * `unit` - unit of the number
+    ///
+    pub fn complex(real: f64, imaginary: f64, unit: Unit) -> Self {
+        Self {
+            real,
+            imaginary,
+            unit,
+        }
+    }
+
+    /// Constructor for unitless one.
+    ///
+    pub fn unitless_one() -> Self {
+        Self {
+            real: 1f64,
+            imaginary: 0f64,
+            unit: Unit {
+                exponent: 0i8,
+                constituents: HashMap::new(),
+            },
+        }
+    }
+
+    /// Constructor for unitless zero.
+    ///
+    pub fn unitless_zero() -> Self {
+        Self {
+            real: 0f64,
+            imaginary: 0f64,
+            unit: Unit {
+                exponent: 0i8,
+                constituents: HashMap::new(),
+            },
+        }
+    }
+
+    /// Get an immutable reference to `self.unit`.
+    ///
+    pub fn get_unit(&self) -> &Unit {
+        &self.unit
+    }
+
     /// Takes `self` to the `pow`'th power and returns it.
     ///
     /// # Arguments:
-    /// * pow - the power to be raised to
+    /// * `pow` - the power to be raised to
     ///
     pub fn powi(&self, pow: u32) -> Number {
         let mut builder = Number {
@@ -451,6 +512,24 @@ impl MulAssign for Number {
     }
 }
 
+impl Mul<f64> for Number {
+    type Output = Self;
+
+    fn mul(self, rhs: f64) -> Self {
+        Self {
+            real: self.real * rhs,
+            imaginary: self.imaginary * rhs,
+            unit: self.unit,
+        }
+    }
+}
+
+impl MulAssign<f64> for Number {
+    fn mul_assign(&mut self, rhs: f64) {
+        self.clone_from(&(self.clone() * rhs));
+    }
+}
+
 impl Div for Number {
     type Output = Self;
 
@@ -480,6 +559,24 @@ impl DivAssign for Number {
     ///
     fn div_assign(&mut self, other: Self) {
         self.clone_from(&(self.clone() / other));
+    }
+}
+
+impl Div<f64> for Number {
+    type Output = Self;
+
+    fn div(self, rhs: f64) -> Self {
+        Self {
+            real: self.real / rhs,
+            imaginary: self.imaginary / rhs,
+            unit: self.unit,
+        }
+    }
+}
+
+impl DivAssign<f64> for Number {
+    fn div_assign(&mut self, rhs: f64) {
+        self.clone_from(&(self.clone() / rhs));
     }
 }
 

@@ -320,14 +320,7 @@ impl ProgramModel {
     ///
     fn evaluate_constant_term(&self, term: &Term) -> Result<HashSet<Number>, String> {
         // value to return
-        let value = Number {
-            real: 1f64,
-            imaginary: 0f64,
-            unit: Unit {
-                exponent: 0i8,
-                constituents: HashMap::new(),
-            },
-        };
+        let value = Number::unitless_one();
 
         let mut resulting_set = HashSet::from([value]);
 
@@ -378,7 +371,8 @@ impl ProgramModel {
                     } else {
                         resulting_set
                             .iter()
-                            .map(move |original| original.clone() + off.clone()).collect::<Vec<_>>()
+                            .map(move |original| original.clone() + off.clone())
+                            .collect::<Vec<_>>()
                     }
                 })
                 .collect::<HashSet<_>>();
@@ -422,14 +416,7 @@ impl ProgramModel {
                             .collect::<HashSet<_>>()
                     }
                 } else {
-                    HashSet::from([Factor::Number(Number {
-                        real: 0f64,
-                        imaginary: 0f64,
-                        unit: Unit {
-                            exponent: 0i8,
-                            constituents: HashMap::new(),
-                        },
-                    })])
+                    HashSet::from([Factor::Number(Number::unitless_zero())])
                 }
             }
             Factor::Number(number) => HashSet::from([Factor::Number(number.clone())]),
@@ -479,14 +466,7 @@ impl ProgramModel {
         let mut identifier_counts: HashMap<Identifier, (bool, isize)> = HashMap::new();
 
         // simplify original factors in term and throw them back in
-        let one = Factor::Number(Number {
-            real: 1f64,
-            imaginary: 0f64,
-            unit: Unit {
-                exponent: 0i8,
-                constituents: HashMap::new(),
-            },
-        });
+        let one = Factor::Number(Number::unitless_one());
         let mut numerator_factors = HashSet::from([one.clone()]);
         let mut denominator_factors = HashSet::from([one.clone()]);
         for operand in term.numerator_ref() {
@@ -778,17 +758,9 @@ impl ProgramModel {
                 .is_some()
         } else {
             let mut test_model = self.clone();
-            test_model.solved_variables.insert(
-                name.clone(),
-                HashSet::from([Number {
-                    real: 0f64,
-                    imaginary: 0f64,
-                    unit: Unit {
-                        exponent: 0i8,
-                        constituents: HashMap::new(),
-                    },
-                }]),
-            );
+            test_model
+                .solved_variables
+                .insert(name.clone(), HashSet::from([Number::unitless_zero()]));
             // if this breaks, then it can't be 0
             test_model.assert_relations_hold()
         }
@@ -1255,9 +1227,7 @@ impl ProgramModel {
                         equivalence_result
                             .unwrap()
                             .iter()
-                            .map(|equivalency| {
-                                equivalency.clone() / constant.clone()
-                            })
+                            .map(|equivalency| equivalency.clone() / constant.clone())
                             .collect::<HashSet<_>>(),
                     );
 
@@ -1491,14 +1461,7 @@ mod tests {
     fn evaluate_constant_term_test1() {
         let model = ProgramModel::new(0);
         let term = Term::new();
-        let expected = Number {
-            real: 1f64,
-            imaginary: 0f64,
-            unit: Unit {
-                exponent: 0i8,
-                constituents: HashMap::new(),
-            },
-        };
+        let expected = Number::unitless_one();
         assert_eq!(
             expected,
             *model
@@ -1514,14 +1477,7 @@ mod tests {
     fn evaluate_constant_expression_test1() {
         let model = ProgramModel::new(0);
         let expression = Expression::from_term(Term::new());
-        let expected = Number {
-            real: 1f64,
-            imaginary: 0f64,
-            unit: Unit {
-                exponent: 0i8,
-                constituents: HashMap::new(),
-            },
-        };
+        let expected = Number::unitless_one();
         assert_eq!(
             expected,
             *model
@@ -1542,14 +1498,7 @@ mod tests {
             .add_matrix_row(expression_a, expression_2.clone())
             .unwrap();
 
-        let a_expected = Number {
-            real: 2f64,
-            imaginary: 0f64,
-            unit: Unit {
-                exponent: 0i8,
-                constituents: HashMap::new(),
-            },
-        };
+        let a_expected = Number::unitless_one() + Number::unitless_one();
         assert_eq!(
             a_expected,
             *model
@@ -1589,14 +1538,7 @@ mod tests {
             .next()
             .unwrap()
             .clone();
-        let a_expected = Number {
-            real: 2f64,
-            imaginary: 0f64,
-            unit: Unit {
-                exponent: 0i8,
-                constituents: HashMap::new(),
-            },
-        };
+        let a_expected = Number::unitless_one() + Number::unitless_one();
         assert_eq!(a_expected, a)
     }
 
@@ -1627,14 +1569,7 @@ mod tests {
             .next()
             .unwrap()
             .clone();
-        let a_expected = Number {
-            real: 1f64,
-            imaginary: 0f64,
-            unit: Unit {
-                exponent: 0i8,
-                constituents: HashMap::new(),
-            },
-        };
+        let a_expected = Number::unitless_one();
         assert_eq!(a_expected, a)
     }
 
@@ -1686,14 +1621,13 @@ mod tests {
             .next()
             .unwrap()
             .clone();
-        let x_expected = Number {
-            real: 3f64,
-            imaginary: 0f64,
-            unit: Unit {
+        let x_expected = Number::real(
+            3f64,
+            Unit {
                 exponent: 0i8,
                 constituents: HashMap::new(),
             },
-        };
+        );
         assert_eq!(x_expected, x);
         let y = model
             .evaluate_constant_expression(
@@ -1712,14 +1646,7 @@ mod tests {
             .next()
             .unwrap()
             .clone();
-        let y_expected = Number {
-            real: -1f64,
-            imaginary: 0f64,
-            unit: Unit {
-                exponent: 0i8,
-                constituents: HashMap::new(),
-            },
-        };
+        let y_expected = -Number::unitless_one();
         assert_eq!(y_expected, y);
     }
 }

@@ -7,7 +7,6 @@ use crate::math_structs::factor::*;
 use crate::math_structs::identifier::*;
 use crate::math_structs::number::*;
 use crate::math_structs::term::*;
-use crate::math_structs::unit::*;
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
 pub struct Relation {
@@ -150,14 +149,7 @@ impl Display for Relation {
 /// get a general true relation
 ///
 pub fn get_true_relation() -> Relation {
-    let zero = Expression::from_number(Number {
-        real: 0f64,
-        imaginary: 0f64,
-        unit: Unit {
-            exponent: 0,
-            constituents: HashMap::new(),
-        },
-    });
+    let zero = Expression::from_number(Number::unitless_zero());
     Relation {
         operands: vec![zero.clone(), zero.clone()],
         operators: vec![RelationOp::Equal],

@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 use std::ops::*;
@@ -7,7 +6,6 @@ use crate::math_structs::expression::*;
 use crate::math_structs::factor::*;
 use crate::math_structs::identifier::*;
 use crate::math_structs::number::*;
-use crate::math_structs::unit::*;
 
 #[derive(Debug, Clone, Hash)]
 pub struct Term {
@@ -237,14 +235,7 @@ impl Term {
     ///
     pub fn extract_number(&mut self) -> Number {
         // initialize base variables
-        let mut value = Number {
-            real: 1f64,
-            imaginary: 0f64,
-            unit: Unit {
-                exponent: 0i8,
-                constituents: HashMap::new(),
-            },
-        };
+        let mut value = Number::unitless_one();
 
         let mut new_term = Term {
             numerator: Vec::new(),
@@ -306,14 +297,9 @@ impl Neg for Term {
 
     fn neg(self) -> Self {
         let mut result = self.clone();
-        result.numerator.push(Factor::Number(Number {
-            real: -1f64,
-            imaginary: 0f64,
-            unit: Unit {
-                exponent: 0,
-                constituents: HashMap::new(),
-            },
-        }));
+        result
+            .numerator
+            .push(Factor::Number(-Number::unitless_one()));
         result
     }
 }

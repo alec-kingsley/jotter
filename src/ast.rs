@@ -365,20 +365,20 @@ pub fn parse_factor(
         if unit_result.is_ok() {
             *i = j;
             let (unit, factor) = unit_result.unwrap();
-            Ok(Factor::Number(Number {
-                real: value * factor * (1f64 - is_imaginary),
-                imaginary: value * factor * is_imaginary,
+            Ok(Factor::Number(Number::complex(
+                value * factor * (1f64 - is_imaginary),
+                value * factor * is_imaginary,
                 unit,
-            }))
+            )))
         } else {
-            Ok(Factor::Number(Number {
-                real: value * (1f64 - is_imaginary),
-                imaginary: value * is_imaginary,
-                unit: Unit {
+            Ok(Factor::Number(Number::complex(
+                value * (1f64 - is_imaginary),
+                value * is_imaginary,
+                Unit {
                     exponent: 0i8,
                     constituents: HashMap::new(),
                 },
-            }))
+            )))
         }
     } else {
         // must be an identifier, could be for a variable or a call.
