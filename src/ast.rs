@@ -374,10 +374,7 @@ pub fn parse_factor(
             Ok(Factor::Number(Number::complex(
                 value * (1f64 - is_imaginary),
                 value * is_imaginary,
-                Unit {
-                    exponent: 0i8,
-                    constituents: HashMap::new(),
-                },
+                Unit::unitless(),
             )))
         }
     } else {

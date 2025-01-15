@@ -1621,13 +1621,7 @@ mod tests {
             .next()
             .unwrap()
             .clone();
-        let x_expected = Number::real(
-            3f64,
-            Unit {
-                exponent: 0i8,
-                constituents: HashMap::new(),
-            },
-        );
+        let x_expected = Number::real(3f64, Unit::unitless());
         assert_eq!(x_expected, x);
         let y = model
             .evaluate_constant_expression(

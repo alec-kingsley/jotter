@@ -88,10 +88,7 @@ impl Number {
         Self {
             real: 1f64,
             imaginary: 0f64,
-            unit: Unit {
-                exponent: 0i8,
-                constituents: HashMap::new(),
-            },
+            unit: Unit::unitless(),
         }
     }
 
@@ -101,10 +98,7 @@ impl Number {
         Self {
             real: 0f64,
             imaginary: 0f64,
-            unit: Unit {
-                exponent: 0i8,
-                constituents: HashMap::new(),
-            },
+            unit: Unit::unitless(),
         }
     }
 
@@ -123,10 +117,7 @@ impl Number {
         let mut builder = Number {
             real: 1f64,
             imaginary: 0f64,
-            unit: Unit {
-                exponent: 0i8,
-                constituents: HashMap::new(),
-            },
+            unit: Unit::unitless(),
         };
         for _ in 0..pow {
             builder *= self.clone();
@@ -148,11 +139,7 @@ impl Number {
         self.real * 10f64.powi(self.unit.exponent as i32) as f64 == 1f64
             && self.imaginary - EPSILON < 0f64
             && 0f64 < self.imaginary + EPSILON
-            && self.unit
-                == Unit {
-                    exponent: 0,
-                    constituents: HashMap::new(),
-                }
+            && self.unit.is_unitless()
     }
 
     /// Returns true iff the number has a value of 0

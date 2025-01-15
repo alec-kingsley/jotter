@@ -12,6 +12,23 @@ pub struct Unit {
     pub constituents: HashMap<BaseUnit, i8>,
 }
 
+impl Unit {
+    /// Constructor for a unitless `Unit`.
+    ///
+    pub fn unitless() -> Self {
+        Self {
+            exponent: 0i8,
+            constituents: HashMap::new(),
+        }
+    }
+
+    /// Returns `true` iff `self` is unitless.
+    /// 
+    pub fn is_unitless(&self) -> bool {
+        self.constituents.len() == 0
+    }
+}
+
 impl Hash for Unit {
     /// Hash for a `Unit`.
     /// Necesarry since HashMap.hash() does not exist.
