@@ -2,3 +2,4 @@ t = 3 [ns]
 v = 200 [km/s]
 tv ?
 Expected output: `tv ≡ 0.6 [mm]`
+
