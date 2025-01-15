@@ -1,7 +1,5 @@
-//use crate::definitions::*;
-//use crate::math_structs::*;
-use std::cmp;
 use crate::math_structs::*;
+use std::cmp;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::Display;
@@ -17,11 +15,9 @@ pub fn process_prompt(model: &ProgramModel, prompt: Relation) {
     let simplified_result = model.simplify_relation(&prompt);
     if simplified_result.is_ok() {
         let simplified = simplified_result.unwrap();
-        if prompt.operands.len() > 1
-            && simplified.len() == 1
-            && simplified.iter().next().unwrap().operands.len() == 1
+        if prompt.len() > 1 && simplified.len() == 1 && simplified.iter().next().unwrap().len() == 1
         {
-            if simplified.iter().next().unwrap().operands[0].minuend.len() == 1 {
+            if let Some(true) = simplified.iter().next().unwrap().as_bool() {
                 println!("{prompt} ≡ True");
             } else {
                 println!("{prompt} ≡ False");
@@ -70,26 +66,18 @@ pub fn process_function(
 /// * `equation` - A `Relation` representing the relation to evaluate.
 ///
 pub fn process_equation(model: &mut ProgramModel, relation: Relation) {
-    assert!(
-        relation.operands.len() == relation.operators.len() + 1,
-        "Invalid Relation"
-    );
-
     // loop through operators
-    for i in 0..relation.operators.len() {
-        // extract each side of operator as clone
-        let left = relation.operands[i].clone();
-        let right = relation.operands[i + 1].clone();
+    for (left, operator, right) in relation.into_iter() {
         // if equality, call add_matrix_row
-        if relation.operators[i] == RelationOp::Equal {
-            let equal_result = model.add_matrix_row(left, right);
+        if operator == &RelationOp::Equal {
+            let equal_result = model.add_matrix_row(left.clone(), right.clone());
             if equal_result.is_err() {
                 eprintln!("ERROR - {}", equal_result.unwrap_err());
                 process::exit(0);
             }
         } else {
             // else, call add_relation
-            model.add_relation(left, right, relation.operators[i].clone());
+            model.add_relation(left.clone(), operator.clone(), right.clone());
         }
     }
 }
@@ -269,15 +257,7 @@ impl ProgramModel {
                     model
                         .add_matrix_row(
                             simplified_expressions.iter().next().unwrap().clone(),
-                            Expression {
-                                minuend: Vec::from([Term {
-                                    numerator: Vec::from([Factor::Identifier(
-                                        arguments[i].clone(),
-                                    )]),
-                                    denominator: Vec::new(),
-                                }]),
-                                subtrahend: Vec::new(),
-                            },
+                            Expression::from_identifier(arguments[i].clone()),
                         )
                         .unwrap();
                 }
@@ -288,17 +268,13 @@ impl ProgramModel {
                         let evaluated_result = model.simplify_relation(&relation);
                         if evaluated_result.is_ok() {
                             let evaluated = evaluated_result.unwrap();
-                            let true_expr = Expression {
-                                minuend: Vec::from([Term {
-                                    numerator: Vec::new(),
-                                    denominator: Vec::new(),
-                                }]),
-                                subtrahend: Vec::new(),
-                            };
-                            if evaluated.len() == 1
-                                && evaluated.iter().next().unwrap().operands.len() == 1
-                                && evaluated.iter().next().unwrap().operands[0] == true_expr
-                            {
+                            if evaluated.iter().all(|relation| {
+                                if let Some(true) = relation.as_bool() {
+                                    true
+                                } else {
+                                    false
+                                }
+                            }) {
                                 result = Some(model.simplify_expression(
                                     &expression,
                                     &RetrievalLevel::OnlyConstants,
@@ -355,7 +331,7 @@ impl ProgramModel {
 
         let mut resulting_set = HashSet::from([value]);
 
-        for operand in &term.numerator {
+        for operand in term.numerator_ref() {
             resulting_set = self
                 .evaluate_constant_factor(&operand)?
                 .iter()
@@ -367,7 +343,7 @@ impl ProgramModel {
                 .collect::<HashSet<_>>();
         }
 
-        for operand in &term.denominator {
+        for operand in term.denominator_ref() {
             resulting_set = self
                 .evaluate_constant_factor(&operand)?
                 .iter()
@@ -391,37 +367,19 @@ impl ProgramModel {
         &self,
         expression: &Expression,
     ) -> Result<HashSet<Number>, String> {
-        // value to return
-        let value = Number {
-            real: 0f64,
-            imaginary: 0f64,
-            unit: Unit {
-                exponent: 0i8,
-                constituents: HashMap::new(),
-            },
-        };
-
-        let mut resulting_set = HashSet::from([value]);
-
-        for operand in &expression.minuend {
+        let mut resulting_set: HashSet<Number> = HashSet::new();
+        for operand in expression {
             resulting_set = self
                 .evaluate_constant_term(&operand)?
                 .iter()
                 .flat_map(|off| {
-                    resulting_set
-                        .iter()
-                        .map(move |original| original.clone() + off.clone())
-                })
-                .collect::<HashSet<_>>();
-        }
-        for operand in &expression.subtrahend {
-            resulting_set = self
-                .evaluate_constant_term(&operand)?
-                .iter()
-                .flat_map(|negoff| {
-                    resulting_set
-                        .iter()
-                        .map(move |original| original.clone() - negoff.clone())
+                    if resulting_set.is_empty() {
+                        vec![off.clone()]
+                    } else {
+                        resulting_set
+                            .iter()
+                            .map(move |original| original.clone() + off.clone()).collect::<Vec<_>>()
+                    }
                 })
                 .collect::<HashSet<_>>();
         }
@@ -441,38 +399,25 @@ impl ProgramModel {
     ) -> Result<HashSet<Factor>, String> {
         let result = Ok(match factor {
             Factor::Parenthetical(expression) => {
-                if expression.minuend.len() + expression.subtrahend.len() > 1 {
+                if expression.len() > 1 {
                     self.simplify_expression(expression, retrieval_level)?
                         .iter()
                         .map(|simplified_expression| {
                             Factor::Parenthetical(simplified_expression.clone())
                         })
                         .collect::<HashSet<_>>()
-                } else if expression.minuend.len() + expression.subtrahend.len() == 1 {
-                    if expression.subtrahend.is_empty() {
-                        let sub_term = expression.minuend[0].clone();
-                        if sub_term.numerator.len() == 1 && sub_term.denominator.is_empty() {
-                            // if the parenthetical is just a factor, return it
-                            HashSet::from([sub_term.numerator[0].clone()])
-                        } else {
-                            self.simplify_term(&sub_term, retrieval_level)?
-                                .iter()
-                                .map(|simplified_term| {
-                                    Factor::Parenthetical(Expression {
-                                        minuend: Vec::from([simplified_term.clone()]),
-                                        subtrahend: Vec::new(),
-                                    })
-                                })
-                                .collect::<HashSet<_>>()
-                        }
+                } else if expression.len() == 1 {
+                    let sub_term = expression.into_iter().next().unwrap();
+                    if sub_term.len() == 1 && !sub_term.has_denominator() {
+                        // if the parenthetical is just a factor, return it
+                        HashSet::from([sub_term.numerator_ref()[0].clone()])
                     } else {
-                        self.simplify_term(&expression.subtrahend[0].clone(), retrieval_level)?
+                        self.simplify_term(&sub_term, retrieval_level)?
                             .iter()
                             .map(|simplified_term| {
-                                Factor::Parenthetical(Expression {
-                                    minuend: Vec::new(),
-                                    subtrahend: Vec::from([simplified_term.clone()]),
-                                })
+                                Factor::Parenthetical(Expression::from_term(
+                                    simplified_term.clone(),
+                                ))
                             })
                             .collect::<HashSet<_>>()
                     }
@@ -544,7 +489,7 @@ impl ProgramModel {
         });
         let mut numerator_factors = HashSet::from([one.clone()]);
         let mut denominator_factors = HashSet::from([one.clone()]);
-        for operand in &term.numerator {
+        for operand in term.numerator_ref() {
             let mut add_to_numerator = true;
             if let Factor::Identifier(name) = operand {
                 if identifier_counts.contains_key(&name) {
@@ -574,7 +519,7 @@ impl ProgramModel {
                     .collect::<HashSet<_>>();
             }
         }
-        for operand in &term.denominator {
+        for operand in term.denominator_ref() {
             let mut add_to_denominator = true;
             if let Factor::Identifier(name) = operand {
                 if identifier_counts.contains_key(&name) {
@@ -589,7 +534,7 @@ impl ProgramModel {
             }
             if add_to_denominator {
                 denominator_factors = self
-                    .simplify_factor(operand, &RetrievalLevel::OnlyConstants)?
+                    .simplify_factor(&operand, &RetrievalLevel::OnlyConstants)?
                     .iter()
                     .flat_map(|divisor| {
                         denominator_factors
@@ -620,29 +565,11 @@ impl ProgramModel {
 
         let mut new_terms: HashSet<Term> = HashSet::new();
         for numerator_factor in numerator_factors {
-            let mut new_term = Term {
-                numerator: Vec::new(),
-                denominator: Vec::new(),
-            };
+            let mut new_term = Term::new();
             let mut no_special_treatment = false;
             if let Factor::Parenthetical(expression) = &numerator_factor {
-                if expression.subtrahend.is_empty() {
-                    if expression.minuend.len() == 1 {
-                        new_term *= expression.minuend[0].clone();
-                    } else {
-                        // must be false since substitutions were already made
-                        no_special_treatment = true;
-                    }
-                } else if expression.minuend.is_empty() {
-                    if expression.subtrahend.len() == 1 {
-                        new_term *= expression.subtrahend[0].clone()
-                            * -Term {
-                                numerator: vec![one.clone()],
-                                denominator: Vec::new(),
-                            };
-                    } else if expression.subtrahend.len() > 1 {
-                        no_special_treatment = true;
-                    }
+                if expression.len() == 1 {
+                    new_term *= expression.into_iter().next().unwrap();
                 } else {
                     no_special_treatment = true;
                 }
@@ -652,29 +579,15 @@ impl ProgramModel {
             if no_special_treatment {
                 self.simplify_factor(&numerator_factor, &RetrievalLevel::OnlyConstants)?
                     .iter()
-                    .for_each(|factor| new_term.numerator.push(factor.clone()));
+                    .for_each(|factor| new_term *= factor.clone());
             }
 
             for denominator_factor in &denominator_factors {
                 let mut new_term = new_term.clone();
                 let mut no_special_treatment = false;
                 if let Factor::Parenthetical(expression) = &denominator_factor {
-                    if expression.subtrahend.is_empty() {
-                        if expression.minuend.len() == 1 {
-                            new_term /= expression.minuend[0].clone();
-                        } else {
-                            no_special_treatment = true;
-                        }
-                    } else if expression.minuend.is_empty() {
-                        if expression.subtrahend.len() == 1 {
-                            new_term /= expression.subtrahend[0].clone()
-                                * -Term {
-                                    numerator: vec![one.clone()],
-                                    denominator: Vec::new(),
-                                };
-                        } else if expression.subtrahend.len() > 1 {
-                            no_special_treatment = true;
-                        }
+                    if expression.len() == 1 {
+                        new_term /= expression.into_iter().next().unwrap();
                     } else {
                         no_special_treatment = true;
                     }
@@ -684,13 +597,13 @@ impl ProgramModel {
                 if no_special_treatment {
                     self.simplify_factor(&denominator_factor, &RetrievalLevel::OnlyConstants)?
                         .iter()
-                        .for_each(|factor| new_term.denominator.push(factor.clone()));
+                        .for_each(|factor| new_term /= factor.clone());
                 }
 
                 // combine all the numeric literals and return if not one
                 let number = new_term.extract_number();
                 if !number.is_unitless_one() {
-                    new_term.numerator.insert(0, Factor::Number(number));
+                    new_term *= Factor::Number(number);
                 }
                 new_terms.insert(new_term);
             }
@@ -710,26 +623,23 @@ impl ProgramModel {
         expression: &Expression,
         retrieval_level: &RetrievalLevel,
     ) -> Result<HashSet<Expression>, String> {
-        let mut new_expressions = HashSet::from([Expression {
-            minuend: Vec::new(),
-            subtrahend: Vec::new(),
-        }]);
+        let mut new_expressions = HashSet::from([Expression::new()]);
 
         // re-add the original terms after simplifying
-        for operand in &expression.minuend {
+        for operand in expression.minuend_ref() {
             new_expressions = self
                 .simplify_term(operand, retrieval_level)?
                 .iter()
                 .flat_map(|off| {
                     new_expressions.clone().into_iter().map(|mut original| {
-                        original.minuend.push(off.clone());
+                        original += off.clone();
                         original
                     })
                 })
                 .collect::<HashSet<_>>();
         }
 
-        for operand in &expression.subtrahend {
+        for operand in expression.subtrahend_ref() {
             new_expressions = self
                 .simplify_term(operand, retrieval_level)?
                 .iter()
@@ -738,7 +648,7 @@ impl ProgramModel {
                         .clone()
                         .into_iter()
                         .map(move |mut original| {
-                            original.subtrahend.push(off.clone());
+                            original -= off.clone();
                             original
                         })
                 })
@@ -771,35 +681,31 @@ impl ProgramModel {
     /// * `retrieval_level` - RetrievalLevel for identifiers.
     ///
     pub fn simplify_relation(&self, relation: &Relation) -> Result<HashSet<Relation>, String> {
-        let mut all_true = !relation.operators.is_empty();
+        let mut all_true = relation.len() > 1;
         let mut has_false = false;
         // attempt to evaluate to constant boolean value
-        for op_i in 0..relation.operators.len() {
+        for (left, operator, right) in relation.into_iter() {
             // evaluate left and right
-            let left_result = self.evaluate_constant_expression(&relation.operands[op_i]);
-            let right_result = self.evaluate_constant_expression(&relation.operands[op_i + 1]);
+            let left_result = self.evaluate_constant_expression(&left);
+            let right_result = self.evaluate_constant_expression(&right);
             if left_result.is_ok() && right_result.is_ok() {
                 let left_set = left_result.unwrap();
                 let right_set = right_result.unwrap();
-                let op = &relation.operators[op_i];
                 if !left_set
                     .iter()
-                    .all(|left| right_set.iter().all(|right| compare(left, right, op)))
+                    .all(|left| right_set.iter().all(|right| compare(left, operator, right)))
                 {
                     // short circuit if any false ones found
                     has_false = true;
                     break;
                 }
             } else {
-                match &relation.operators[op_i] {
+                match operator {
                     RelationOp::Less | RelationOp::Greater => all_true = false,
                     RelationOp::Equal | RelationOp::LessEqual | RelationOp::GreaterEqual => {
-                        if &relation.operands[op_i] != &relation.operands[op_i + 1] {
+                        if left != right {
                             let mut model = self.clone();
-                            let logic_result = model.add_matrix_row(
-                                relation.operands[op_i].clone(),
-                                relation.operands[op_i + 1].clone(),
-                            );
+                            let logic_result = model.add_matrix_row(left.clone(), right.clone());
                             if logic_result.is_err() || !model.assert_relations_hold() {
                                 // stuff breaks if they were to be equal, so they are not equal
                                 has_false = true;
@@ -809,14 +715,11 @@ impl ProgramModel {
                         }
                     }
                     RelationOp::NotEqual => {
-                        if &relation.operands[op_i] == &relation.operands[op_i + 1] {
+                        if left == right {
                             has_false = true;
                         } else {
                             let mut model = self.clone();
-                            let logic_result = model.add_matrix_row(
-                                relation.operands[op_i].clone(),
-                                relation.operands[op_i + 1].clone(),
-                            );
+                            let logic_result = model.add_matrix_row(left.clone(), right.clone());
                             if logic_result.is_ok() && model.assert_relations_hold() {
                                 // nothing breaks if we add it, so we can't say anything
                                 all_true = false;
@@ -829,43 +732,28 @@ impl ProgramModel {
 
         Ok(if has_false {
             // return false
-            HashSet::from([Relation {
-                operands: vec![Expression {
-                    minuend: Vec::new(),
-                    subtrahend: Vec::new(),
-                }],
-                operators: Vec::new(),
-            }])
+            HashSet::from([Relation::from_expression(Expression::new())])
         } else if all_true {
             // return true
-            HashSet::from([Relation {
-                operands: vec![Expression {
-                    minuend: Vec::from([Term {
-                        numerator: Vec::new(),
-                        denominator: Vec::new(),
-                    }]),
-                    subtrahend: Vec::new(),
-                }],
-                operators: Vec::new(),
-            }])
+            HashSet::from([Relation::from_term(Term::new())])
         } else {
             // return relation as simplified as it can be
-            let mut new_relations = HashSet::from([Relation {
-                operands: Vec::new(),
-                operators: Vec::new(),
-            }]);
-
+            let mut new_relations = self
+                .simplify_expression(relation.first_operand(), &RetrievalLevel::All)?
+                .iter()
+                .map(|simplified| Relation::from_expression(simplified.clone()))
+                .collect::<HashSet<_>>();
             // re-add the original expressions after simplifying
-            for operand in &relation.operands {
+            for (_, operator, right) in relation.into_iter() {
                 new_relations = self
-                    .simplify_expression(operand, &RetrievalLevel::All)?
+                    .simplify_expression(right, &RetrievalLevel::All)?
                     .iter()
                     .map(|simplified| {
                         new_relations
                             .iter()
                             .map(|new_relation| {
                                 let mut new_relation = new_relation.clone();
-                                new_relation.operands.push(simplified.clone());
+                                new_relation.extend(operator.clone(), simplified.clone());
                                 new_relation
                             })
                             .collect::<Vec<_>>()
@@ -874,13 +762,6 @@ impl ProgramModel {
                     .collect::<HashSet<_>>();
             }
             new_relations
-                .iter()
-                .map(|new_relation| {
-                    let mut new_relation = new_relation.clone();
-                    new_relation.operators.clone_from(&relation.operators);
-                    new_relation
-                })
-                .collect::<HashSet<_>>()
         })
     }
 
@@ -928,13 +809,7 @@ impl ProgramModel {
     ) -> Result<HashSet<Expression>, String> {
         // if it's just preserve, it should return the identifier
         if retrieval_level == &RetrievalLevel::Preserve {
-            return Ok(HashSet::from([Expression {
-                minuend: vec![Term {
-                    numerator: vec![Factor::Identifier(name)],
-                    denominator: Vec::new(),
-                }],
-                subtrahend: Vec::new(),
-            }]));
+            return Ok(HashSet::from([Expression::from_identifier(name)]));
         }
 
         // first, attempt to get out of already solved variables
@@ -947,35 +822,17 @@ impl ProgramModel {
                     .get(&name)
                     .unwrap()
                     .iter()
-                    .map(|number| Expression {
-                        minuend: vec![Term {
-                            numerator: vec![Factor::Number(number.clone())],
-                            denominator: Vec::new(),
-                        }],
-                        subtrahend: Vec::new(),
-                    })
+                    .map(|number| Expression::from_number(number.clone()))
                     .collect::<HashSet<_>>())
             } else {
-                Ok(HashSet::from([Expression {
-                    minuend: vec![Term {
-                        numerator: vec![Factor::Identifier(name)],
-                        denominator: Vec::new(),
-                    }],
-                    subtrahend: Vec::new(),
-                }]))
+                Ok(HashSet::from([Expression::from_identifier(name)]))
             }
         } else {
             let value_col_result = self.variables.iter().position(|var| var == &name);
             if value_col_result.is_none() {
                 // TODO - we don't need to give up here. Try to find some term in the augmented matrix
                 // which uses this. There could be something.
-                Ok(HashSet::from([Expression {
-                    minuend: vec![Term {
-                        numerator: vec![Factor::Identifier(name)],
-                        denominator: Vec::new(),
-                    }],
-                    subtrahend: Vec::new(),
-                }]))
+                Ok(HashSet::from([Expression::from_identifier(name)]))
             } else {
                 let value_col = value_col_result.unwrap();
                 let row_ct = self.augmented_matrix.len();
@@ -1027,15 +884,7 @@ impl ProgramModel {
                 for col in 0..(col_ct - 1) {
                     if col != value_col {
                         result -= self.augmented_matrix[best_row.unwrap()][col].clone()
-                            * Expression {
-                                minuend: vec![Term {
-                                    numerator: vec![Factor::Identifier(
-                                        self.variables[col].clone(),
-                                    )],
-                                    denominator: Vec::new(),
-                                }],
-                                subtrahend: Vec::new(),
-                            };
+                            * Expression::from_identifier(self.variables[col].clone());
                     }
                 }
                 result /= self.augmented_matrix[best_row.unwrap()][value_col].clone();
@@ -1045,13 +894,7 @@ impl ProgramModel {
                     let resulting_set = self
                         .evaluate_constant_expression(&result)?
                         .iter()
-                        .map(|number| Expression {
-                            minuend: vec![Term {
-                                numerator: vec![Factor::Number(number.clone())],
-                                denominator: Vec::new(),
-                            }],
-                            subtrahend: Vec::new(),
-                        })
+                        .map(|number| Expression::from_number(number.clone()))
                         .collect::<HashSet<_>>();
                     if retrieval_level == &RetrievalLevel::OnlyConstants {
                         Ok(resulting_set)
@@ -1119,7 +962,7 @@ impl ProgramModel {
 
         // divide the row by the `col` element to get a 1
         {
-            let factor = &self.augmented_matrix[row][col].clone();
+            let factor = self.augmented_matrix[row][col].clone();
             for col_update in col..col_ct {
                 self.augmented_matrix[row][col_update] /= factor.clone();
             }
@@ -1129,8 +972,8 @@ impl ProgramModel {
         for row_update in 0..row_ct {
             // skip the current row
             if row_update != row {
-                let factor = &self.augmented_matrix[row_update][col].clone();
-                if match self.evaluate_constant_expression(factor) {
+                let factor = self.augmented_matrix[row_update][col].clone();
+                if match self.evaluate_constant_expression(&factor) {
                     // don't subtract anything if it's already 0
                     Ok(numbers) => !numbers.iter().all(|number| number.is_zero()),
                     // don't subtract anything if there's an equation there
@@ -1241,13 +1084,7 @@ impl ProgramModel {
                         let left_row_idx = lonely_groups[col][left_idx];
                         new_equations.push((
                             self.augmented_matrix[left_row_idx][col].clone()
-                                * Expression {
-                                    minuend: vec![Term {
-                                        numerator: vec![Factor::Number(value.clone())],
-                                        denominator: Vec::new(),
-                                    }],
-                                    subtrahend: Vec::new(),
-                                },
+                                * Expression::from_number(value.clone()),
                             self.augmented_matrix[left_row_idx][col_ct - 1].clone(),
                         ));
                     }
@@ -1339,16 +1176,8 @@ impl ProgramModel {
                 }
                 if lonely_row {
                     let zero_equivalent = self.simplify_expression(
-                        &((self.augmented_matrix[row][col].clone()
-                            * Expression {
-                                minuend: vec![Term {
-                                    numerator: vec![Factor::Identifier(
-                                        self.variables[col].clone(),
-                                    )],
-                                    denominator: Vec::new(),
-                                }],
-                                subtrahend: Vec::new(),
-                            })
+                        &(self.augmented_matrix[row][col].clone()
+                            * Expression::from_identifier(self.variables[col].clone())
                             - self.augmented_matrix[row][col_ct - 1].clone()),
                         &RetrievalLevel::OnlySingleConstants,
                     );
@@ -1426,7 +1255,9 @@ impl ProgramModel {
                         equivalence_result
                             .unwrap()
                             .iter()
-                            .map(|equivalency| equivalency.clone() / constant.clone())
+                            .map(|equivalency| {
+                                equivalency.clone() / constant.clone()
+                            })
                             .collect::<HashSet<_>>(),
                     );
 
@@ -1506,11 +1337,8 @@ impl ProgramModel {
                 all_true = false;
             } else {
                 let simplified = simplified_result.unwrap();
-                if simplified.len() == 1 && simplified.iter().next().unwrap().operands.len() == 1 {
-                    if simplified.iter().next().unwrap().operands[0]
-                        .minuend
-                        .is_empty()
-                    {
+                for element in simplified {
+                    if let Some(false) = element.as_bool() {
                         all_true = false;
                     }
                 }
@@ -1533,10 +1361,7 @@ impl ProgramModel {
             // if the variable is yet to be seen, create an entry for it
             self.variables.insert(0, identifier);
             // expression of value zero to cleanly insert
-            let zero_expr = Expression {
-                minuend: Vec::new(),
-                subtrahend: Vec::new(),
-            };
+            let zero_expr = Expression::new();
             for row in &mut self.augmented_matrix {
                 row.insert(0, zero_expr.clone());
             }
@@ -1559,33 +1384,29 @@ impl ProgramModel {
         zero_equivalent.flatten();
 
         // extract the terms which have no identifiers in numerator
-        let mut column_vector_element = Expression {
-            minuend: Vec::new(),
-            subtrahend: Vec::new(),
-        };
+        let mut column_vector_element = Expression::new();
 
-        let zero_expr = Expression {
-            minuend: Vec::new(),
-            subtrahend: Vec::new(),
-        };
+        let zero_expr = Expression::new();
 
         let mut row_vector = vec![zero_expr.clone(); self.variables.len()];
 
         // extract terms and place in augmented matrix
-        for mut term in zero_equivalent.minuend {
+        for term in zero_equivalent.minuend_ref() {
+            let mut term = term.clone();
             if let Some(identifier) = term.extract_identifier() {
                 let index = self.get_index(&mut row_vector, identifier);
-                row_vector[index].minuend.push(term);
+                row_vector[index] += term;
             } else {
-                column_vector_element.subtrahend.push(term);
+                column_vector_element -= term;
             }
         }
-        for mut term in zero_equivalent.subtrahend {
+        for term in zero_equivalent.subtrahend_ref() {
+            let mut term = term.clone();
             if let Some(identifier) = term.extract_identifier() {
                 let index = self.get_index(&mut row_vector, identifier);
-                row_vector[index].subtrahend.push(term);
+                row_vector[index] -= term;
             } else {
-                column_vector_element.minuend.push(term);
+                column_vector_element += term;
             }
         }
 
@@ -1606,12 +1427,11 @@ impl ProgramModel {
     /// * `right` - The right-hand side of the relation.
     /// * `operator` - The operator between the relation elements.
     ///
-    fn add_relation(&mut self, left: Expression, right: Expression, operator: RelationOp) {
+    fn add_relation(&mut self, left: Expression, operator: RelationOp, right: Expression) {
         // TODO - for variables with multiple solutions, this should check if it can remove some
-        self.relations.push(Relation {
-            operands: vec![left, right],
-            operators: vec![operator],
-        });
+        let mut new_relation = Relation::from_expression(left);
+        new_relation.extend(operator, right);
+        self.relations.push(new_relation);
     }
 
     /// Add a function to the model.
@@ -1670,10 +1490,7 @@ mod tests {
     #[test]
     fn evaluate_constant_term_test1() {
         let model = ProgramModel::new(0);
-        let term = Term {
-            numerator: Vec::new(),
-            denominator: Vec::new(),
-        };
+        let term = Term::new();
         let expected = Number {
             real: 1f64,
             imaginary: 0f64,
@@ -1696,13 +1513,7 @@ mod tests {
     #[test]
     fn evaluate_constant_expression_test1() {
         let model = ProgramModel::new(0);
-        let expression = Expression {
-            minuend: Vec::from([Term {
-                numerator: Vec::new(),
-                denominator: Vec::new(),
-            }]),
-            subtrahend: Vec::new(),
-        };
+        let expression = Expression::from_term(Term::new());
         let expected = Number {
             real: 1f64,
             imaginary: 0f64,

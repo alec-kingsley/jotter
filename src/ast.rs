@@ -1,6 +1,6 @@
+use crate::math_structs::*;
 use crate::tokenizer::*;
 use crate::unit_parser::*;
-use crate::math_structs::*;
 
 use std::collections::HashMap;
 
@@ -148,9 +148,7 @@ pub fn parse_function(code: &str, i: &mut usize) -> Result<Statement, String> {
 /// ```
 ///
 pub fn parse_relation(code: &str, i: &mut usize) -> Result<Relation, String> {
-    let mut operands: Vec<Expression> = Vec::new();
-    let mut operators: Vec<RelationOp> = Vec::new();
-    operands.push(parse_expression(code, i)?);
+    let mut result = Relation::from_expression(parse_expression(code, i)?);
 
     // setup map for `RelationOp`s
     let relation_op_map = HashMap::from([
@@ -165,21 +163,18 @@ pub fn parse_relation(code: &str, i: &mut usize) -> Result<Relation, String> {
     // get each operand as long as `RelationOp`s are seen
     let mut relation_op_string = next_token(code, i).unwrap_or_default();
     while relation_op_map.contains_key(&relation_op_string.as_str()) {
-        operators.push(
+        result.extend(
             relation_op_map
-            .get(&relation_op_string.as_str())
-            .unwrap()
-            .clone(),
+                .get(&relation_op_string.as_str())
+                .unwrap()
+                .clone(),
+            parse_expression(code, i)?,
         );
-        operands.push(parse_expression(code, i)?);
         relation_op_string = next_token(code, i).unwrap_or_default();
     }
     *i -= relation_op_string.chars().count();
 
-    Ok(Relation {
-        operands,
-        operators,
-    })
+    Ok(result)
 }
 
 /// Parse expression into ast.
@@ -199,32 +194,28 @@ pub fn parse_relation(code: &str, i: &mut usize) -> Result<Relation, String> {
 /// ```
 ///
 pub fn parse_expression(code: &str, i: &mut usize) -> Result<Expression, String> {
-    let mut minuend: Vec<Term> = Vec::new();
-    let mut subtrahend: Vec<Term> = Vec::new();
+    let mut result = Expression::new();
 
     if next_token(code, &mut i.clone()).unwrap_or_default() == "-" {
         let _ = next_token(code, i);
-        subtrahend.push(parse_term(code, i)?);
+        result -= parse_term(code, i)?;
     } else {
-        minuend.push(parse_term(code, i)?);
+        result += parse_term(code, i)?;
     }
 
     // build minuend and subtrahend from - and + until none left seen
     let mut token = next_token(code, i).unwrap_or_default();
     while token == "+" || token == "-" {
         if token == "+" {
-            minuend.push(parse_term(code, i)?);
+            result += parse_term(code, i)?;
         } else {
-            subtrahend.push(parse_term(code, i)?);
+            result -= parse_term(code, i)?;
         }
         token = next_token(code, i).unwrap_or_default();
     }
     *i -= token.chars().count();
 
-    Ok(Expression {
-        minuend,
-        subtrahend,
-    })
+    Ok(result)
 }
 
 /// Parse term into ast.
@@ -246,15 +237,14 @@ pub fn parse_expression(code: &str, i: &mut usize) -> Result<Expression, String>
 /// ```
 ///
 pub fn parse_term(code: &str, i: &mut usize) -> Result<Term, String> {
-    let mut numerator: Vec<Factor> = Vec::new();
-    let mut denominator: Vec<Factor> = Vec::new();
+    let mut result = Term::new();
 
     let mut preceding_identifier = false;
     let factor = parse_factor(code, i, preceding_identifier)?;
     if let Factor::Identifier(_) = factor {
         preceding_identifier = true;
     }
-    numerator.push(factor);
+    result *= factor;
 
     // build numerator and denominator from / and + and lack thereof until none left seen
     loop {
@@ -268,7 +258,7 @@ pub fn parse_term(code: &str, i: &mut usize) -> Result<Term, String> {
             } else {
                 false
             };
-            numerator.push(factor);
+            result *= factor;
         } else {
             preceding_identifier = false;
             let token = next_token(code, i).unwrap_or_default();
@@ -280,9 +270,9 @@ pub fn parse_term(code: &str, i: &mut usize) -> Result<Term, String> {
                     false
                 };
                 if token == "*" {
-                    numerator.push(factor);
+                    result *= factor;
                 } else {
-                    denominator.push(factor);
+                    result /= factor;
                 }
             } else {
                 *i -= token.chars().count();
@@ -291,10 +281,7 @@ pub fn parse_term(code: &str, i: &mut usize) -> Result<Term, String> {
         }
     }
 
-    Ok(Term {
-        numerator,
-        denominator,
-    })
+    Ok(result)
 }
 
 /// Parse factor into ast.
@@ -350,9 +337,9 @@ pub fn parse_factor(
             Ok(Factor::Parenthetical(expression))
         }
     } else if token.parse::<f64>().is_ok() || token == "i" || token == "[" {
-        let value = if token == "i" { 
+        let value = if token == "i" {
             *i -= "i".chars().count();
-            1f64 
+            1f64
         } else if token == "[" {
             *i -= "[".chars().count();
             1f64
@@ -447,10 +434,10 @@ mod tests {
             \t3x,     x < 3\n\
             \t2x + 3, x ≥ 3\n\
             }";
-    let mut i: usize = 0;
-    let function = parse_function(code, &mut i).unwrap();
-    println!("{code} == {function}");
-    assert_eq!(i, code.chars().count());
+        let mut i: usize = 0;
+        let function = parse_function(code, &mut i).unwrap();
+        println!("{code} == {function}");
+        assert_eq!(i, code.chars().count());
     }
 
     #[test]

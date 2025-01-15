@@ -3,6 +3,7 @@ use std::fmt;
 use std::fmt::Display;
 use std::ops::*;
 
+use crate::math_structs::expression::*;
 use crate::math_structs::factor::*;
 use crate::math_structs::identifier::*;
 use crate::math_structs::number::*;
@@ -13,12 +14,12 @@ pub struct Term {
     /// operands being multiplied.
     /// if empty, value is 1.
     ///
-    pub numerator: Vec<Factor>,
+    numerator: Vec<Factor>,
 
     /// operands being divided.
     /// if empty, value is 1.
     ///
-    pub denominator: Vec<Factor>,
+    denominator: Vec<Factor>,
 }
 
 impl PartialEq for Term {
@@ -100,6 +101,80 @@ impl Display for Term {
 }
 
 impl Term {
+    /// Default constructor. Returns a `Term` of value 1 (unitless).
+    ///
+    pub fn new() -> Self {
+        Self {
+            numerator: Vec::new(),
+            denominator: Vec::new(),
+        }
+    }
+
+    /// Construct a `Term` from a `Factor`.
+    ///
+    pub fn from_factor(factor: Factor) -> Self {
+        Self {
+            numerator: vec![factor],
+            denominator: Vec::new(),
+        }
+    }
+
+    /// Construct a `Term` from a `Number`.
+    ///
+    pub fn from_number(number: Number) -> Self {
+        Self {
+            numerator: vec![Factor::Number(number)],
+            denominator: Vec::new(),
+        }
+    }
+
+    /// Construct a `Term` from an `Identifier`.
+    ///
+    pub fn from_identifier(identifier: Identifier) -> Self {
+        Self {
+            numerator: vec![Factor::Identifier(identifier)],
+            denominator: Vec::new(),
+        }
+    }
+
+    /// Get the # of terms in `self`.
+    ///
+    pub fn len(&self) -> usize {
+        self.numerator.len() + self.denominator.len()
+    }
+
+    /// Return `true` iff `self` has a denominator.
+    ///
+    pub fn has_denominator(&self) -> bool {
+        self.denominator.len() > 0
+    }
+
+    /// Get an immutable reference to `self`'s numerator.
+    ///
+    pub fn numerator_ref(&self) -> &Vec<Factor> {
+        &self.numerator
+    }
+
+    /// Get an immutable reference to `self`'s denominator.
+    ///
+    pub fn denominator_ref(&self) -> &Vec<Factor> {
+        &self.denominator
+    }
+
+    /// If `self` is just a Parenthetical, return the inner `Expression`. Otherwise `None`.
+    ///
+    pub fn collapse_parenthetical(&self) -> Option<Expression> {
+        if self.numerator.len() == 1 {
+            if let Factor::Parenthetical(expression) = self.numerator[0].clone() {
+                Some(expression)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
     /// "flatten" the `Term`.
     ///
     /// remove a many parentheticals as possible, such that it's just a sum of terms.
@@ -116,13 +191,8 @@ impl Term {
         for self_factor in self.numerator.clone() {
             if let Factor::Parenthetical(mut self_expression) = self_factor.clone() {
                 self_expression.flatten();
-                // if it's just one term
-                if self_expression.minuend.len() + self_expression.subtrahend.len() == 1 {
-                    if self_expression.subtrahend.is_empty() {
-                        new_term *= self_expression.minuend[0].clone();
-                    } else {
-                        new_term *= -self_expression.subtrahend[0].clone();
-                    }
+                if self_expression.len() == 1 {
+                    new_term *= self_expression.into_iter().next().unwrap();
                 } else {
                     new_term
                         .numerator
@@ -142,12 +212,8 @@ impl Term {
             if let Factor::Parenthetical(mut self_expression) = self_factor.clone() {
                 self_expression.flatten();
                 // if it's just one term
-                if self_expression.minuend.len() + self_expression.subtrahend.len() == 1 {
-                    if self_expression.subtrahend.is_empty() {
-                        new_term /= self_expression.minuend[0].clone();
-                    } else {
-                        new_term /= -self_expression.subtrahend[0].clone();
-                    }
+                if self_expression.len() == 1 {
+                    new_term /= self_expression.into_iter().next().unwrap();
                 } else {
                     new_term
                         .denominator
@@ -277,6 +343,21 @@ impl MulAssign for Term {
     }
 }
 
+impl Mul<Factor> for Term {
+    type Output = Term;
+    fn mul(self, rhs: Factor) -> Term {
+        let mut result = self.clone();
+        result.numerator.insert(0, rhs);
+        result
+    }
+}
+
+impl MulAssign<Factor> for Term {
+    fn mul_assign(&mut self, rhs: Factor) {
+        self.numerator.push(rhs);
+    }
+}
+
 impl Div for Term {
     type Output = Self;
 
@@ -299,5 +380,20 @@ impl DivAssign for Term {
     ///
     fn div_assign(&mut self, other: Self) {
         self.clone_from(&(self.clone() / other));
+    }
+}
+
+impl Div<Factor> for Term {
+    type Output = Term;
+    fn div(self, rhs: Factor) -> Term {
+        let mut result = self.clone();
+        result.denominator.push(rhs);
+        result
+    }
+}
+
+impl DivAssign<Factor> for Term {
+    fn div_assign(&mut self, rhs: Factor) {
+        self.denominator.push(rhs);
     }
 }

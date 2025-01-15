@@ -15,12 +15,12 @@ pub struct Expression {
     /// operands to be added.
     /// if empty, value is 0.
     ///
-    pub minuend: Vec<Term>,
+    minuend: Vec<Term>,
 
     /// operands to be subtracted.
     /// if empty, value is 0.
     ///
-    pub subtrahend: Vec<Term>,
+    subtrahend: Vec<Term>,
 }
 
 impl PartialEq for Expression {
@@ -93,6 +93,69 @@ impl Display for Expression {
 }
 
 impl Expression {
+    /// Default constructor. Returns an `Expression` of value 0.
+    ///
+    pub fn new() -> Self {
+        Self {
+            minuend: Vec::new(),
+            subtrahend: Vec::new(),
+        }
+    }
+
+    /// Construct an `Expression` from a `Term`.
+    ///
+    pub fn from_term(term: Term) -> Self {
+        Self {
+            minuend: vec![term],
+            subtrahend: Vec::new(),
+        }
+    }
+
+    /// Construct an `Expression` from a `Factor`.
+    ///
+    pub fn from_factor(factor: Factor) -> Self {
+        Self {
+            minuend: vec![Term::from_factor(factor)],
+            subtrahend: Vec::new(),
+        }
+    }
+
+    /// Construct an `Expression` from a `Number`.
+    ///
+    pub fn from_number(number: Number) -> Self {
+        Self {
+            minuend: vec![Term::from_number(number)],
+            subtrahend: Vec::new(),
+        }
+    }
+
+    /// Construct an `Expression` from an `Identifier`.
+    ///
+    pub fn from_identifier(identifier: Identifier) -> Self {
+        Self {
+            minuend: vec![Term::from_identifier(identifier)],
+            subtrahend: Vec::new(),
+        }
+    }
+
+    /// Get the # of terms in `self`.
+    ///
+    pub fn len(&self) -> usize {
+        self.minuend.len() + self.subtrahend.len()
+    }
+
+    /// Get an immutable reference to `self`'s minuend.
+    ///
+    pub fn minuend_ref(&self) -> &Vec<Term> {
+        &self.minuend
+    }
+
+    /// Get an immutable reference to `self`'s subtrahend.
+    ///
+    pub fn subtrahend_ref(&self) -> &Vec<Term> {
+        &self.subtrahend
+    }
+
     /// "flatten" the `Expression`.
     ///
     /// remove a many parentheticals as possible, such that it's just a sum of terms.
@@ -106,19 +169,7 @@ impl Expression {
 
         for mut self_term in self.minuend.clone() {
             self_term.flatten();
-            if let Factor::Parenthetical(mut child_expression) = self_term
-                .numerator
-                .get(0)
-                .cloned()
-                .unwrap_or(Factor::Number(Number {
-                    real: 1f64,
-                    imaginary: 0f64,
-                    unit: Unit {
-                        exponent: 0i8,
-                        constituents: HashMap::new(),
-                    },
-                }))
-            {
+            if let Some(mut child_expression) = self_term.collapse_parenthetical() {
                 child_expression.flatten();
                 for child_term in child_expression.minuend {
                     father_expression.minuend.push(child_term.clone());
@@ -133,19 +184,7 @@ impl Expression {
 
         for mut self_term in self.subtrahend.clone() {
             self_term.flatten();
-            if let Factor::Parenthetical(mut child_expression) = self_term
-                .numerator
-                .get(0)
-                .cloned()
-                .unwrap_or(Factor::Number(Number {
-                    real: 1f64,
-                    imaginary: 0f64,
-                    unit: Unit {
-                        exponent: 0i8,
-                        constituents: HashMap::new(),
-                    },
-                }))
-            {
+            if let Some(mut child_expression) = self_term.collapse_parenthetical() {
                 child_expression.flatten();
                 for child_term in child_expression.minuend {
                     father_expression.subtrahend.push(child_term.clone());
@@ -209,14 +248,11 @@ impl Expression {
             let number = numbers[i].clone();
             let mut operand = terms[i].clone();
             if number != one && number != -one.clone() {
-                operand.numerator.insert(
-                    0,
-                    Factor::Number(if number < zero.clone() {
-                        -number.clone()
-                    } else {
-                        number.clone()
-                    }),
-                );
+                operand *= Factor::Number(if number < zero.clone() {
+                    -number.clone()
+                } else {
+                    number.clone()
+                });
             }
             if number > zero.clone() {
                 self.minuend.push(operand);
@@ -246,7 +282,7 @@ impl Expression {
             },
         };
         for term in &self.minuend {
-            if term.denominator.len() > 0 {
+            if term.has_denominator() {
                 return None;
             }
             let mut degree = 0;
@@ -258,7 +294,7 @@ impl Expression {
                     constituents: HashMap::new(),
                 },
             };
-            for factor in &term.numerator {
+            for factor in term.numerator_ref() {
                 match factor {
                     Factor::Identifier(name) => {
                         if variable_name_option == None {
@@ -283,7 +319,7 @@ impl Expression {
             polynomial.coefficients[degree] = coefficient;
         }
         for term in &self.subtrahend {
-            if term.denominator.len() > 0 {
+            if term.has_denominator() {
                 return None;
             }
             let mut degree = 0;
@@ -295,7 +331,7 @@ impl Expression {
                     constituents: HashMap::new(),
                 },
             };
-            for factor in &term.numerator {
+            for factor in term.numerator_ref() {
                 match factor {
                     Factor::Identifier(name) => {
                         if variable_name_option == None {
@@ -350,6 +386,21 @@ impl AddAssign for Expression {
     }
 }
 
+impl Add<Term> for Expression {
+    type Output = Expression;
+    fn add(self, rhs: Term) -> Expression {
+        let mut result = self.clone();
+        result.minuend.push(rhs);
+        result
+    }
+}
+
+impl AddAssign<Term> for Expression {
+    fn add_assign(&mut self, rhs: Term) {
+        self.minuend.push(rhs);
+    }
+}
+
 impl Sub for Expression {
     type Output = Self;
 
@@ -372,6 +423,21 @@ impl SubAssign for Expression {
     ///
     fn sub_assign(&mut self, other: Self) {
         self.clone_from(&(self.clone() - other));
+    }
+}
+
+impl Sub<Term> for Expression {
+    type Output = Expression;
+    fn sub(self, rhs: Term) -> Expression {
+        let mut result = self.clone();
+        result.subtrahend.push(rhs);
+        result
+    }
+}
+
+impl SubAssign<Term> for Expression {
+    fn sub_assign(&mut self, rhs: Term) {
+        self.subtrahend.push(rhs);
     }
 }
 
@@ -429,9 +495,7 @@ impl Div for Expression {
             .minuend
             .into_iter()
             .map(|mut result_term| {
-                result_term
-                    .denominator
-                    .push(Factor::Parenthetical(other.clone()));
+                result_term /= Factor::Parenthetical(other.clone());
                 result_term
             })
             .collect();
@@ -441,9 +505,7 @@ impl Div for Expression {
             .subtrahend
             .into_iter()
             .map(|mut result_term| {
-                result_term
-                    .denominator
-                    .push(Factor::Parenthetical(other.clone()));
+                result_term /= Factor::Parenthetical(other.clone());
                 result_term
             })
             .collect();
@@ -457,5 +519,41 @@ impl DivAssign for Expression {
     ///
     fn div_assign(&mut self, other: Self) {
         self.clone_from(&(self.clone() / other));
+    }
+}
+
+pub struct ExpressionIterator<'a> {
+    collection: &'a Expression,
+    index: usize,
+}
+
+impl<'a> Iterator for ExpressionIterator<'a> {
+    // Not a reference to a `Term` since the subtrahend iterator modifies it
+    type Item = Term;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < self.collection.minuend.len() {
+            let result = self.collection.minuend[self.index].clone();
+            self.index += 1;
+            Some(result)
+        } else if self.index - self.collection.minuend.len() < self.collection.subtrahend.len() {
+            let subtrahend_index = self.index - self.collection.minuend.len();
+            let result = -self.collection.subtrahend[subtrahend_index].clone();
+            self.index += 1;
+            Some(result)
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a> IntoIterator for &'a Expression {
+    type Item = Term;
+    type IntoIter = ExpressionIterator<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        ExpressionIterator {
+            collection: self,
+            index: 0,
+        }
     }
 }

@@ -7,7 +7,6 @@ use crate::math_structs::call::*;
 use crate::math_structs::expression::*;
 use crate::math_structs::identifier::*;
 use crate::math_structs::number::*;
-use crate::math_structs::term::*;
 
 #[derive(Hash, Debug, Clone)]
 pub enum Factor {
@@ -95,36 +94,14 @@ impl Mul for Factor {
                     if let Factor::Parenthetical(other_expression) = other.clone() {
                         Factor::Parenthetical(self_expression * other_expression)
                     } else {
-                        Factor::Parenthetical(
-                            self_expression
-                                * Expression {
-                                    minuend: Vec::from([Term {
-                                        numerator: vec![other],
-                                        denominator: Vec::new(),
-                                    }]),
-                                    subtrahend: Vec::new(),
-                                },
-                        )
+                        Factor::Parenthetical(self_expression * Expression::from_factor(other))
                     }
                 } else if let Factor::Parenthetical(other_expression) = other.clone() {
-                    Factor::Parenthetical(
-                        other_expression
-                            * Expression {
-                                minuend: Vec::from([Term {
-                                    numerator: vec![self],
-                                    denominator: Vec::new(),
-                                }]),
-                                subtrahend: Vec::new(),
-                            },
-                    )
+                    Factor::Parenthetical(other_expression * Expression::from_factor(self))
                 } else {
-                    Factor::Parenthetical(Expression {
-                        minuend: Vec::from([Term {
-                            numerator: vec![self, other],
-                            denominator: Vec::new(),
-                        }]),
-                        subtrahend: Vec::new(),
-                    })
+                    Factor::Parenthetical(
+                        Expression::from_factor(self) * Expression::from_factor(other),
+                    )
                 },
             );
         }
@@ -166,35 +143,14 @@ impl Div for Factor {
                     if let Factor::Parenthetical(other_expression) = other.clone() {
                         Factor::Parenthetical(self_expression / other_expression)
                     } else {
-                        Factor::Parenthetical(
-                            self_expression
-                                / Expression {
-                                    minuend: Vec::from([Term {
-                                        numerator: vec![other],
-                                        denominator: Vec::new(),
-                                    }]),
-                                    subtrahend: Vec::new(),
-                                },
-                        )
+                        Factor::Parenthetical(self_expression / Expression::from_factor(other))
                     }
                 } else if let Factor::Parenthetical(other_expression) = other.clone() {
-                    Factor::Parenthetical(
-                        Expression {
-                            minuend: Vec::from([Term {
-                                numerator: vec![other],
-                                denominator: Vec::new(),
-                            }]),
-                            subtrahend: Vec::new(),
-                        } / other_expression,
-                    )
+                    Factor::Parenthetical(Expression::from_factor(other) / other_expression)
                 } else {
-                    Factor::Parenthetical(Expression {
-                        minuend: Vec::from([Term {
-                            numerator: vec![self],
-                            denominator: vec![other],
-                        }]),
-                        subtrahend: Vec::new(),
-                    })
+                    Factor::Parenthetical(
+                        Expression::from_factor(self) / Expression::from_factor(other),
+                    )
                 },
             );
         }
