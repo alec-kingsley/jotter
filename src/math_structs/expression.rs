@@ -70,12 +70,22 @@ impl Display for Expression {
             .join(" + ");
 
         // format subtrahend elements, each preceded by `-`
-        let subtrahend_str = self
-            .subtrahend
-            .iter()
-            .map(|x| format!("- {}", x))
-            .collect::<Vec<_>>()
-            .join(" ");
+        let subtrahend_str = if self.minuend.is_empty() && !self.subtrahend.is_empty() {
+            format!(
+                "-{}",
+                self.subtrahend
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<_>>()
+                    .join(" - ")
+            )
+        } else {
+            self.subtrahend
+                .iter()
+                .map(|x| format!("- {}", x))
+                .collect::<Vec<_>>()
+                .join(" ")
+        };
 
         // combine the two parts
         if subtrahend_str.is_empty() {
@@ -351,7 +361,7 @@ impl Expression {
         } else if self.minuend.len() == 0 {
             if self.subtrahend.len() == 1 {
                 if let Some(number) = self.subtrahend[0].as_number() {
-                    Some(- number)
+                    Some(-number)
                 } else {
                     None
                 }
