@@ -192,9 +192,35 @@ x = 3
 ```
 (This will fail)
 
+### Polynomial Solver
+
+Jotter can solve polynomials. Example:
+
+Square root:
+```
+xx = 4
+x?
+```
+Expected output:
+```
+x ∈ {- 2, 2}
+```
+
+Complex polynomial:
+```
+xxxxxxx + 850xxxx + 1229xxx + 33454x - 5xxxxxx - 124xxxxx - 16925xx = 18480
+x?
+```
+Expected output:
+```
+x ∈ {- 11, - 5, 1, 2, 3, 7, 8}
+```
+
 ## Implementation Details
 
 ### Grammar
+
+Tabs and spaces are ignored, but new lines do separate lines.
 
 ```
 statement   ::=   prompt | function | relation | reset
@@ -339,36 +365,6 @@ All units support all SI prefixes. This includes the US customary units, so "kil
 Currently, quantity units are treated as though they were unitless. Technically this may be true, but it is not useful for display purposes, and so it will likely be updated. (if I say `1 [rad / s]?` it should print `1 [rad / s]`, whereas it currently prints `1 [1 / s]`).
 
 Polynomial solver uses the Aberth method.
-
-## Beta (not yet fully functional)
-
-### Polynomial Solver
-
-Jotter can solve polynomials. Example:
-
-Square root:
-```
-xx = 4
-x?
-```
-Expected output:
-```
-x ∈ {- 2, 2}
-```
-
-Complex polynomial:
-```
-xxxxxxx + 850xxxx + 1229xxx + 33454x - 5xxxxxx - 124xxxxx - 16925xx = 18480
-x?
-```
-Expected output:
-```
-x ∈ {- 11, - 5, 1, 2, 3, 7, 8}
-```
-
-#### Issues:
-
-If in the above examples, x were used more than once in an expression after this (EX: `xx?`), it would treat those x values as though they could each be two different values from that set.
 
 ## Planned Features
 
