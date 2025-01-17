@@ -1,9 +1,11 @@
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::Display;
 use std::ops::*;
 
 use crate::math_structs::factor::*;
 use crate::math_structs::identifier::*;
+use crate::math_structs::model::*;
 use crate::math_structs::number::*;
 use crate::math_structs::polynomial::*;
 use crate::math_structs::term::*;
@@ -321,6 +323,11 @@ impl Expression {
             if polynomial.coefficients.len() < degree {
                 polynomial.coefficients.resize_with(degree, || zero.clone());
             }
+            if polynomial.coefficients.len() <= degree {
+                polynomial
+                    .coefficients
+                    .resize_with(degree + 1, || zero.clone());
+            }
             polynomial.coefficients[degree] = coefficient;
         }
         if variable_name_option.is_some() {
@@ -328,6 +335,121 @@ impl Expression {
         } else {
             None
         }
+    }
+
+    /// Tries to extract `self` as just a `Number`.
+    ///
+    pub fn as_number(&self) -> Option<Number> {
+        if self.subtrahend.len() == 0 {
+            if self.minuend.len() == 0 {
+                Some(Number::unitless_zero())
+            } else if self.minuend.len() == 1 {
+                self.minuend[0].as_number()
+            } else {
+                None
+            }
+        } else if self.minuend.len() == 0 {
+            if self.subtrahend.len() == 1 {
+                if let Some(number) = self.subtrahend[0].as_number() {
+                    Some(- number)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Simplify `self` to the result which only includes KNOWN knowns.
+    ///
+    /// # Arguments
+    /// * `model` - Program model
+    ///
+    pub fn simplify_whole_loose(&self, model: &Model) -> Result<Expression, String> {
+        self.simplify(
+            &model
+                .solved_variables
+                .clone()
+                .into_iter()
+                .filter_map(|(key, value_set)| {
+                    if value_set.len() == 1 {
+                        value_set.into_iter().next().map(|value| (key, value))
+                    } else {
+                        None
+                    }
+                })
+                .collect::<HashMap<_, _>>(),
+            model,
+            false,
+        )
+    }
+
+    /// Simplify `self` to every possible result.
+    ///
+    /// # Arguments
+    /// * `model` - Program model
+    /// * `force_retrieve` - `true` iff it should force a retrieval
+    ///
+    pub fn simplify_whole(
+        &self,
+        model: &Model,
+        force_retrieve: bool,
+    ) -> Result<HashSet<Expression>, String> {
+        model
+            .generate_possible_knowns()
+            .iter()
+            .map(|knowns| self.simplify(knowns, model, force_retrieve))
+            .collect::<Result<HashSet<Expression>, String>>()
+    }
+
+    /// Simplify `self` to every possible constant result. Returns Err() if any possible result is
+    /// non-constant.
+    ///
+    /// # Arguments
+    /// * `model` - Program model
+    ///
+    pub fn simplify_whole_as_constants(&self, model: &Model) -> Result<HashSet<Number>, String> {
+        model
+            .generate_possible_knowns()
+            .iter()
+            .map(|knowns| {
+                self.simplify(knowns, model, false)
+                    .and_then(|expr| expr.as_number().ok_or(String::from("Expected a number")))
+            })
+            .collect::<Result<HashSet<_>, _>>()
+    }
+
+    /// Simplify `self`.
+    ///
+    /// # Arguments
+    /// * `knowns` - Known variables
+    /// * `model` - Program model
+    /// * `force_retrieve` - `true` iff it should force a retrieval
+    ///
+    pub fn simplify(
+        &self,
+        knowns: &HashMap<Identifier, Number>,
+        model: &Model,
+        force_retrieve: bool,
+    ) -> Result<Expression, String> {
+        let mut new_expression = Expression::new();
+
+        // re-add the original terms after simplifying
+        for operand in &self.minuend {
+            new_expression += operand.simplify(knowns, model, force_retrieve)?;
+        }
+
+        for operand in &self.subtrahend {
+            new_expression -= operand.simplify(knowns, model, force_retrieve)?;
+        }
+
+        // remove parentheticals and combine like terms
+        new_expression.flatten();
+
+        Ok(new_expression)
     }
 }
 
@@ -525,5 +647,416 @@ impl<'a> IntoIterator for &'a Expression {
             collection: self,
             index: 0,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::math_structs::*;
+    use crate::*;
+
+    #[test]
+    fn test_new_1() {
+        assert_eq!(0, Expression::new().len());
+    }
+
+    #[test]
+    fn test_from_term_1() {
+        let expected = ast::parse_expression("3", &mut 0).expect("ast::parse_expression - failure");
+        let actual = Expression::from_term(Term::from_number(Number::unitless_one() * 3f64));
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_from_factor_1() {
+        let expected = ast::parse_expression("3", &mut 0).expect("ast::parse_expression - failure");
+        let actual = Expression::from_factor(Factor::Number(Number::unitless_one() * 3f64));
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_from_number_1() {
+        let expected = ast::parse_expression("3", &mut 0).expect("ast::parse_expression - failure");
+        let actual = Expression::from_number(Number::unitless_one() * 3f64);
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_from_identifier_1() {
+        let expected = ast::parse_expression("a", &mut 0).expect("ast::parse_expression - failure");
+        let actual = Expression::from_identifier(Identifier::new("a").unwrap());
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_len_1() {
+        assert_eq!(
+            1,
+            ast::parse_expression("a", &mut 0)
+                .expect("ast::parse_expression - failure")
+                .len()
+        );
+    }
+
+    #[test]
+    fn test_len_2() {
+        assert_eq!(
+            2,
+            ast::parse_expression("a + b", &mut 0)
+                .expect("ast::parse_expression - failure")
+                .len()
+        );
+    }
+
+    #[test]
+    fn test_as_number_1() {
+        let expression =
+            ast::parse_expression("3", &mut 0).expect("ast::parse_expression - failure");
+        assert_eq!(
+            Some(Number::real(3f64, Unit::unitless())),
+            expression.as_number()
+        );
+    }
+
+    #[test]
+    fn test_as_number_2() {
+        let expression =
+            ast::parse_expression("a", &mut 0).expect("ast::parse_expression - failure");
+        assert_eq!(None, expression.as_number());
+    }
+
+    #[test]
+    fn test_add_1() {
+        let op1 = ast::parse_expression("ab", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_expression("2", &mut 0).expect("ast::parse_expression - failure");
+        let expected =
+            ast::parse_expression("2 + ab", &mut 0).expect("ast::parse_expression - failure");
+        assert_eq!(expected, op1 + op2);
+    }
+
+    #[test]
+    fn test_add_2() {
+        let op1 = ast::parse_expression("1", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_expression("2", &mut 0).expect("ast::parse_expression - failure");
+        let expected =
+            ast::parse_expression("2 + 1", &mut 0).expect("ast::parse_expression - failure");
+        assert_eq!(expected, op1 + op2);
+    }
+
+    #[test]
+    fn test_addassign_1() {
+        let mut val = ast::parse_expression("ab", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_expression("2", &mut 0).expect("ast::parse_expression - failure");
+        let expected =
+            ast::parse_expression("2 + ab", &mut 0).expect("ast::parse_expression - failure");
+        val += op2;
+        assert_eq!(expected, val);
+    }
+
+    #[test]
+    fn test_addassign_2() {
+        let mut val = ast::parse_expression("1", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_expression("2", &mut 0).expect("ast::parse_expression - failure");
+        let expected =
+            ast::parse_expression("2 + 1", &mut 0).expect("ast::parse_expression - failure");
+        val += op2;
+        assert_eq!(expected, val);
+    }
+
+    #[test]
+    fn test_add_term_1() {
+        let op1 = ast::parse_expression("ab", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_term("2", &mut 0).expect("ast::parse_term - failure");
+        let expected =
+            ast::parse_expression("2 + ab", &mut 0).expect("ast::parse_expression - failure");
+        assert_eq!(expected, op1 + op2);
+    }
+
+    #[test]
+    fn test_add_term_2() {
+        let op1 = ast::parse_expression("1", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_term("2", &mut 0).expect("ast::parse_term - failure");
+        let expected =
+            ast::parse_expression("2 + 1", &mut 0).expect("ast::parse_expression - failure");
+        assert_eq!(expected, op1 + op2);
+    }
+
+    #[test]
+    fn test_addassign_term_1() {
+        let mut val = ast::parse_expression("ab", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_term("2", &mut 0).expect("ast::parse_term - failure");
+        let expected =
+            ast::parse_expression("2 + ab", &mut 0).expect("ast::parse_expression - failure");
+        val += op2;
+        assert_eq!(expected, val);
+    }
+
+    #[test]
+    fn test_addassign_term_2() {
+        let mut val = ast::parse_expression("1", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_term("2", &mut 0).expect("ast::parse_term - failure");
+        let expected =
+            ast::parse_expression("2 + 1", &mut 0).expect("ast::parse_expression - failure");
+        val += op2;
+        assert_eq!(expected, val);
+    }
+
+    #[test]
+    fn test_sub_1() {
+        let op1 = ast::parse_expression("ab", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_expression("2", &mut 0).expect("ast::parse_expression - failure");
+        let expected =
+            ast::parse_expression("ab - 2", &mut 0).expect("ast::parse_expression - failure");
+        assert_eq!(expected, op1 - op2);
+    }
+
+    #[test]
+    fn test_sub_2() {
+        let op1 = ast::parse_expression("1", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_expression("2", &mut 0).expect("ast::parse_expression - failure");
+        let expected =
+            ast::parse_expression("1 - 2", &mut 0).expect("ast::parse_expression - failure");
+        assert_eq!(expected, op1 - op2);
+    }
+
+    #[test]
+    fn test_subassign_1() {
+        let mut val = ast::parse_expression("ab", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_expression("2", &mut 0).expect("ast::parse_expression - failure");
+        let expected =
+            ast::parse_expression("ab - 2", &mut 0).expect("ast::parse_expression - failure");
+        val -= op2;
+        assert_eq!(expected, val);
+    }
+
+    #[test]
+    fn test_subassign_2() {
+        let mut val = ast::parse_expression("1", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_expression("2", &mut 0).expect("ast::parse_expression - failure");
+        let expected =
+            ast::parse_expression("1 - 2", &mut 0).expect("ast::parse_expression - failure");
+        val -= op2;
+        assert_eq!(expected, val);
+    }
+
+    #[test]
+    fn test_sub_term_1() {
+        let op1 = ast::parse_expression("ab", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_term("2", &mut 0).expect("ast::parse_term - failure");
+        let expected =
+            ast::parse_expression("ab - 2", &mut 0).expect("ast::parse_expression - failure");
+        assert_eq!(expected, op1 - op2);
+    }
+
+    #[test]
+    fn test_sub_term_2() {
+        let op1 = ast::parse_expression("1", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_term("2", &mut 0).expect("ast::parse_term - failure");
+        let expected =
+            ast::parse_expression("1 - 2", &mut 0).expect("ast::parse_expression - failure");
+        assert_eq!(expected, op1 - op2);
+    }
+
+    #[test]
+    fn test_subassign_term_1() {
+        let mut val = ast::parse_expression("ab", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_term("2", &mut 0).expect("ast::parse_term - failure");
+        let expected =
+            ast::parse_expression("ab - 2", &mut 0).expect("ast::parse_expression - failure");
+        val -= op2;
+        assert_eq!(expected, val);
+    }
+
+    #[test]
+    fn test_subassign_term_2() {
+        let mut val = ast::parse_expression("1", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_term("2", &mut 0).expect("ast::parse_term - failure");
+        let expected =
+            ast::parse_expression("1 - 2", &mut 0).expect("ast::parse_expression - failure");
+        val -= op2;
+        assert_eq!(expected, val);
+    }
+
+    #[test]
+    fn test_mul_1() {
+        let op1 = ast::parse_expression("a + b", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_expression("c + d", &mut 0).expect("ast::parse_expression - failure");
+        let expected = ast::parse_expression("ac + ad + bc + bd", &mut 0)
+            .expect("ast::parse_expression - failure");
+        assert_eq!(expected, op1 * op2);
+    }
+
+    #[test]
+    fn test_mul_2() {
+        let op1 = ast::parse_expression("a - b", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_expression("c - d", &mut 0).expect("ast::parse_expression - failure");
+        let expected = ast::parse_expression("ac - ad - bc + bd", &mut 0)
+            .expect("ast::parse_expression - failure");
+        assert_eq!(expected, op1 * op2);
+    }
+
+    #[test]
+    fn test_mulassign_1() {
+        let mut val =
+            ast::parse_expression("a + b", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_expression("c + d", &mut 0).expect("ast::parse_expression - failure");
+        let expected = ast::parse_expression("ac + ad + bc + bd", &mut 0)
+            .expect("ast::parse_expression - failure");
+        val *= op2;
+        assert_eq!(expected, val);
+    }
+
+    #[test]
+    fn test_mulassign_2() {
+        let mut val =
+            ast::parse_expression("a - b", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_expression("c - d", &mut 0).expect("ast::parse_expression - failure");
+        let expected = ast::parse_expression("ac - ad - bc + bd", &mut 0)
+            .expect("ast::parse_expression - failure");
+        val *= op2;
+        assert_eq!(expected, val);
+    }
+
+    #[test]
+    fn test_div_1() {
+        let op1 = ast::parse_expression("a + b", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_expression("c + d", &mut 0).expect("ast::parse_expression - failure");
+        let expected = ast::parse_expression("a / (c + d) + b / (c + d)", &mut 0)
+            .expect("ast::parse_expression - failure");
+        assert_eq!(expected, op1 / op2);
+    }
+
+    #[test]
+    fn test_div_2() {
+        let op1 = ast::parse_expression("a - b", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_expression("c - d", &mut 0).expect("ast::parse_expression - failure");
+        let expected = ast::parse_expression("a / (c - d) - b / (c - d)", &mut 0)
+            .expect("ast::parse_expression - failure");
+        assert_eq!(expected, op1 / op2);
+    }
+
+    #[test]
+    fn test_divassign_1() {
+        let mut val =
+            ast::parse_expression("a + b", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_expression("c + d", &mut 0).expect("ast::parse_expression - failure");
+        let expected = ast::parse_expression("a / (c + d) + b / (c + d)", &mut 0)
+            .expect("ast::parse_expression - failure");
+        val /= op2;
+        assert_eq!(expected, val);
+    }
+
+    #[test]
+    fn test_divassign_2() {
+        let mut val =
+            ast::parse_expression("a - b", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_expression("c - d", &mut 0).expect("ast::parse_expression - failure");
+        let expected = ast::parse_expression("a / (c - d) - b / (c - d)", &mut 0)
+            .expect("ast::parse_expression - failure");
+        val /= op2;
+        assert_eq!(expected, val);
+    }
+
+    #[test]
+    fn test_simplify_1() {
+        let knowns: HashMap<Identifier, Number> = HashMap::new();
+        let model = Model::new(0);
+        let force_retrieve = false;
+        let result = ast::parse_expression("3 + 2", &mut 0)
+            .expect("ast::parse_expression - failure")
+            .simplify(&knowns, &model, force_retrieve)
+            .unwrap();
+        let expected = ast::parse_expression("5", &mut 0).expect("ast::parse_expression - failure");
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_simplify_2() {
+        let knowns: HashMap<Identifier, Number> = HashMap::new();
+        let model = Model::new(0);
+        let force_retrieve = false;
+        let result = ast::parse_expression("3a + 2a", &mut 0)
+            .expect("ast::parse_expression - failure")
+            .simplify(&knowns, &model, force_retrieve)
+            .unwrap();
+        let expected =
+            ast::parse_expression("5a", &mut 0).expect("ast::parse_expression - failure");
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_simplify_3() {
+        let knowns: HashMap<Identifier, Number> = HashMap::from([(
+            Identifier::new("a").unwrap(),
+            Number::real(3f64, Unit::unitless()),
+        )]);
+        let model = Model::new(0);
+        let force_retrieve = false;
+        let result = ast::parse_expression("3a + 2a", &mut 0)
+            .expect("ast::parse_expression - failure")
+            .simplify(&knowns, &model, force_retrieve)
+            .unwrap();
+        let expected =
+            ast::parse_expression("15", &mut 0).expect("ast::parse_expression - failure");
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_simplify_whole_1() {
+        let mut model = Model::new(0);
+        model
+            .add_matrix_row(
+                ast::parse_expression("5ax", &mut 0).expect("ast::parse_expression - failure"),
+                ast::parse_expression("10", &mut 0).expect("ast::parse_expression - failure"),
+            )
+            .unwrap();
+        let force_retrieve = true;
+        let result = ast::parse_expression("2a", &mut 0)
+            .expect("ast::parse_expression - failure")
+            .simplify_whole(&model, force_retrieve)
+            .unwrap();
+        let expected = HashSet::from([
+            ast::parse_expression("4/x", &mut 0).expect("ast::parse_expression - failure")
+        ]);
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_simplify_whole_2() {
+        let mut model = Model::new(0);
+        model
+            .add_matrix_row(
+                ast::parse_expression("5ax", &mut 0).expect("ast::parse_expression - failure"),
+                ast::parse_expression("10", &mut 0).expect("ast::parse_expression - failure"),
+            )
+            .unwrap();
+        let force_retrieve = false;
+        let result = ast::parse_expression("2a", &mut 0)
+            .expect("ast::parse_expression - failure")
+            .simplify_whole(&model, force_retrieve)
+            .unwrap();
+        let expected = HashSet::from([
+            ast::parse_expression("2a", &mut 0).expect("ast::parse_expression - failure")
+        ]);
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_simplify_whole_loose_1() {
+        let mut model = Model::new(0);
+        model
+            .add_matrix_row(
+                ast::parse_expression("5ax", &mut 0).expect("ast::parse_expression - failure"),
+                ast::parse_expression("10", &mut 0).expect("ast::parse_expression - failure"),
+            )
+            .unwrap();
+        let result = ast::parse_expression("2a", &mut 0)
+            .expect("ast::parse_expression - failure")
+            .simplify_whole_loose(&model)
+            .unwrap();
+        let expected =
+            ast::parse_expression("2a", &mut 0).expect("ast::parse_expression - failure");
+        assert_eq!(expected, result);
     }
 }

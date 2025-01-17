@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 use std::iter::Product;
@@ -6,6 +7,7 @@ use std::ops::*;
 use crate::math_structs::call::*;
 use crate::math_structs::expression::*;
 use crate::math_structs::identifier::*;
+use crate::math_structs::model::*;
 use crate::math_structs::number::*;
 
 #[derive(Hash, Debug, Clone)]
@@ -18,6 +20,62 @@ pub enum Factor {
     Identifier(Identifier),
     /// Call to a function.
     Call(Call),
+}
+
+impl Factor {
+    /// Simplify `self`.
+    ///
+    /// # Arguments
+    /// * `knowns` - Known variables
+    /// * `model` - Program model
+    /// * `force_retrieve` - `true` iff it should force a retrieval
+    ///
+    pub fn simplify(
+        &self,
+        knowns: &HashMap<Identifier, Number>,
+        model: &Model,
+        force_retrieve: bool,
+    ) -> Result<Factor, String> {
+        let result = Ok(match self {
+            Factor::Parenthetical(expression) => {
+                if expression.len() > 1 {
+                    Factor::Parenthetical(expression.simplify(knowns, model, force_retrieve)?)
+                } else if expression.len() == 1 {
+                    let sub_term = expression.into_iter().next().unwrap();
+                    if sub_term.len() == 1 && !sub_term.has_denominator() {
+                        // if the parenthetical is just a factor, return it
+                        // TODO - write expression extract_factor function
+                        sub_term.numerator_ref()[0].clone()
+                    } else {
+                        Factor::Parenthetical(Expression::from_term(sub_term.simplify(
+                            knowns,
+                            model,
+                            force_retrieve,
+                        )?))
+                    }
+                } else {
+                    Factor::Number(Number::unitless_zero())
+                }
+            }
+            Factor::Number(number) => Factor::Number(number.clone()),
+            Factor::Identifier(identifier) => {
+                if knowns.contains_key(&identifier) {
+                    Factor::Number(knowns.get(&identifier).unwrap().clone())
+                } else if force_retrieve {
+                    Factor::Parenthetical(model.force_build_expression(identifier.clone())?)
+                } else {
+                    Factor::Identifier(identifier.clone())
+                }
+            }
+            Factor::Call(call) => Factor::Parenthetical(call.execute(knowns, model)?.simplify(
+                knowns,
+                model,
+                force_retrieve,
+            )?),
+        });
+
+        result
+    }
 }
 
 impl PartialEq for Factor {
@@ -164,4 +222,84 @@ impl DivAssign for Factor {
     fn div_assign(&mut self, other: Self) {
         self.clone_from(&(self.clone() / other));
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::math_structs::*;
+
+    #[test]
+    fn test_display_1() {
+        assert_eq!("(0)", Factor::Parenthetical(Expression::new()).to_string());
+    }
+
+    #[test]
+    fn test_display_2() {
+        assert_eq!("0", Factor::Number(Number::unitless_zero()).to_string());
+    }
+
+    #[test]
+    fn test_display_3() {
+        assert_eq!(
+            "x",
+            Factor::Identifier(Identifier::new("x").unwrap()).to_string()
+        );
+    }
+
+    #[test]
+    fn test_display_4() {
+        assert_eq!(
+            "f(0)",
+            Factor::Call(Call {
+                name: Identifier::new("f").unwrap(),
+                arguments: vec![Expression::new()],
+            })
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn test_mul_1() {
+        let two = Factor::Parenthetical(Expression::from_number(Number::real(
+            2f64,
+            Unit::unitless(),
+        )));
+        let a = Factor::Parenthetical(Expression::from_identifier(Identifier::new("a").unwrap()));
+        let resulting_expression = Expression::from_number(Number::real(2f64, Unit::unitless()))
+            * Expression::from_identifier(Identifier::new("a").unwrap());
+        let expected = Factor::Parenthetical(resulting_expression);
+        assert_eq!(expected, two * a);
+    }
+
+    #[test]
+    fn test_mul_2() {
+        let two = Factor::Number(Number::real(2f64, Unit::unitless()));
+        let three = Factor::Number(Number::real(3f64, Unit::unitless()));
+        let six = Factor::Number(Number::real(6f64, Unit::unitless()));
+        assert_eq!(six, two * three);
+    }
+
+    #[test]
+    fn test_mul_3() {
+        let a = Factor::Parenthetical(Expression::from_identifier(Identifier::new("a").unwrap()));
+        let b = Factor::Parenthetical(Expression::from_identifier(Identifier::new("b").unwrap()));
+        let expected = Factor::Parenthetical(
+            Expression::from_identifier(Identifier::new("a").unwrap())
+                * Expression::from_identifier(Identifier::new("b").unwrap()),
+        );
+        assert_eq!(expected, a * b);
+    }
+
+    #[test]
+    fn test_mulassign_1() {
+        let mut val = Factor::Number(Number::real(2f64, Unit::unitless()));
+        let three = Factor::Number(Number::real(3f64, Unit::unitless()));
+        let six = Factor::Number(Number::real(6f64, Unit::unitless()));
+        val *= three;
+        assert_eq!(six, val);
+    }
+
+    // could further test mulassign, product, div, and divassign, however I am lazy.
+
 }

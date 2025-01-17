@@ -19,10 +19,7 @@ use std::collections::HashMap;
 /// ```
 ///
 pub fn parse_unit(code: &str, i: &mut usize) -> Result<(Unit, f64), String> {
-    let mut unit = Unit {
-        exponent: 0i8,
-        constituents: HashMap::new(),
-    };
+    let mut unit = Unit::unitless();
     let mut token = next_unit_token(code, i)?;
     if token != "[" {
         return Err(format!("Unexpected token: `{token}` (expected `[`)"));
@@ -375,7 +372,7 @@ pub fn parse_base_unit(token: &str, abbreviated: &mut bool) -> Result<(Unit, f64
     Ok((
         Unit {
             exponent: 0i8,
-            constituents,
+            constituents
         },
         factor,
         prefix,
@@ -442,7 +439,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_unit_test1() {
+    fn test_parse_unit_1() {
         let code = "[meter]";
         let mut i: usize = 0;
         let (unit, _) = parse_unit(code, &mut i).unwrap();
@@ -455,7 +452,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_unit_test2() {
+    fn test_parse_unit_2() {
         let code = "[m]";
         let mut i: usize = 0;
         let (unit, _) = parse_unit(code, &mut i).unwrap();
@@ -468,7 +465,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_unit_test3() {
+    fn test_parse_unit_3() {
         let code = "[km]";
         let mut i: usize = 0;
         let (unit, _) = parse_unit(code, &mut i).unwrap();
@@ -481,7 +478,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_unit_test4() {
+    fn test_parse_unit_4() {
         let code = "[mm]";
         let mut i: usize = 0;
         let (unit, _) = parse_unit(code, &mut i).unwrap();
@@ -494,7 +491,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_unit_test5() {
+    fn test_parse_unit_5() {
         let code = "[kilogram / second]";
         let mut i: usize = 0;
         let (unit, _) = parse_unit(code, &mut i).unwrap();
@@ -507,7 +504,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_unit_test6() {
+    fn test_parse_unit_6() {
         let code = "[kilogram / second ^ 2]";
         let mut i: usize = 0;
         let (unit, _) = parse_unit(code, &mut i).unwrap();
@@ -520,7 +517,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_unit_test7() {
+    fn test_parse_unit_7() {
         let code = "[kilogram / [second ^ 2]]";
         let mut i: usize = 0;
         let (unit, _) = parse_unit(code, &mut i).unwrap();
@@ -533,7 +530,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_unit_test8() {
+    fn test_parse_unit_8() {
         let code = "[kilogram / [second ^ 2 / kilogram]]";
         let mut i: usize = 0;
         let (unit, _) = parse_unit(code, &mut i).unwrap();
@@ -546,7 +543,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_unit_test9() {
+    fn test_parse_unit_9() {
         let code = "[[m / s] ^ 2]";
         let mut i: usize = 0;
         let (unit, _) = parse_unit(code, &mut i).unwrap();

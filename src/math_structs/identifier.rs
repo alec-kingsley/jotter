@@ -50,7 +50,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_identifier_new1() {
+    fn test_new_1() {
         let _ = Identifier::new("a").unwrap();
         let _ = Identifier::new("A").unwrap();
         let _ = Identifier::new("b").unwrap();
@@ -58,7 +58,7 @@ mod tests {
     }
 
     #[test]
-    fn test_identifier_new2() {
+    fn test_new_2() {
         let _ = Identifier::new("α").unwrap();
         let _ = Identifier::new("Α").unwrap();
         let _ = Identifier::new("β").unwrap();
@@ -66,7 +66,7 @@ mod tests {
     }
 
     #[test]
-    fn test_identifier_new3() {
+    fn test_new_3() {
         let _ = Identifier::new("'name'").unwrap();
         let _ = Identifier::new("'name with spaces'").unwrap();
         let _ = Identifier::new("'name_with_underscores'").unwrap();
@@ -74,7 +74,7 @@ mod tests {
     }
 
     #[test]
-    fn test_identifier_new4() {
+    fn test_new_4() {
         let _ = Identifier::new("ab").unwrap_err();
         let _ = Identifier::new("αβ").unwrap_err();
         let _ = Identifier::new("'unterminated").unwrap_err();

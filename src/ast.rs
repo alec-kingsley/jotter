@@ -408,7 +408,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_statement_test1() {
+    fn test_parse_statement_1() {
         let code = "3x + 2 = 7";
         let mut i: usize = 0;
         let statement = parse_statement(code, &mut i).unwrap();
@@ -417,7 +417,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_function_test1() {
+    fn test_parse_function_1() {
         let code = "f(x) = 3x + 2";
         let mut i: usize = 0;
         let function = parse_function(code, &mut i).unwrap();
@@ -426,7 +426,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_function_test2() {
+    fn test_parse_function_2() {
         let code = "f(x) = {\n\
             \t3x,     x < 3\n\
             \t2x + 3, x ≥ 3\n\
@@ -438,7 +438,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_relation_test1() {
+    fn test_parse_relation_1() {
         let code = "2y + 7 = 3x + 2";
         let mut i: usize = 0;
         let relation = parse_relation(code, &mut i).unwrap();
@@ -447,7 +447,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_expression_test1() {
+    fn test_parse_expression_1() {
         let code = "32x + 2ab";
         let mut i: usize = 0;
         let expression = parse_expression(code, &mut i).unwrap();
@@ -456,7 +456,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_expression_test2() {
+    fn test_parse_expression_2() {
         let code = "y - x";
         let mut i: usize = 0;
         let expression = parse_expression(code, &mut i).unwrap();
@@ -465,7 +465,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_term_test1() {
+    fn test_parse_term_1() {
         let code = "32x / 5 * 2";
         let mut i: usize = 0;
         let term = parse_term(code, &mut i).unwrap();
@@ -474,7 +474,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_factor_test1() {
+    fn test_parse_factor_1() {
         let code = "(3x + 2)";
         let mut i: usize = 0;
         let factor = parse_factor(code, &mut i, false).unwrap();
@@ -488,7 +488,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_factor_test2() {
+    fn test_parse_factor_2() {
         let code = "3";
         let mut i: usize = 0;
         let factor = parse_factor(code, &mut i, false).unwrap();
@@ -502,7 +502,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_factor_test3() {
+    fn test_parse_factor_3() {
         let code = "a";
         let mut i: usize = 0;
         let factor = parse_factor(code, &mut i, false).unwrap();
@@ -516,7 +516,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_factor_test4() {
+    fn test_parse_factor_4() {
         let code = "f(x)";
         let mut i: usize = 0;
         let factor = parse_factor(code, &mut i, false).unwrap();
@@ -530,7 +530,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_factor_test5() {
+    fn test_parse_factor_5() {
         let code = "af(x)";
         let mut i: usize = 1;
         let factor = parse_factor(code, &mut i, true).unwrap();

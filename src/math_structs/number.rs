@@ -24,8 +24,8 @@ impl Hash for Number {
     /// Necesarry since f64.hash() does not exist.
     ///
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.real.to_bits().hash(state);
-        self.imaginary.to_bits().hash(state);
+        // they're equal if they look equal
+        self.to_string().hash(state);
         self.unit.hash(state);
     }
 }
@@ -136,7 +136,9 @@ impl Number {
     /// Returns true iff the number has a value of 1
     ///
     pub fn is_unitless_one(&self) -> bool {
-        self.real * 10f64.powi(self.unit.exponent as i32) as f64 == 1f64
+        let tester = self.real * 10f64.powi(self.unit.exponent as i32) as f64;
+        tester + EPSILON > 1f64
+            && 1f64 > tester - EPSILON
             && self.imaginary - EPSILON < 0f64
             && 0f64 < self.imaginary + EPSILON
             && self.unit.is_unitless()
@@ -309,9 +311,11 @@ impl Display for Number {
                 .trim_end_matches('.')
                 .to_owned()
         } else if self.real + EPSILON > 0f64 && 0f64 > self.real - EPSILON {
-            if self_clone.imaginary == 1f64 {
+            if self_clone.imaginary + EPSILON > 1f64 && 1f64 > self_clone.imaginary - EPSILON {
                 String::from("i")
-            } else if self_clone.imaginary == -1f64 {
+            } else if self_clone.imaginary + EPSILON > -1f64
+                && -1f64 > self_clone.imaginary - EPSILON
+            {
                 String::from("-i")
             } else {
                 format!("{:.10}", self_clone.imaginary)
@@ -326,7 +330,9 @@ impl Display for Number {
                     .trim_end_matches('0')
                     .trim_end_matches('.')
                     .to_owned()
-                    + if self_clone.imaginary == 1f64 {
+                    + if self_clone.imaginary + EPSILON > 1f64
+                        && 1f64 > self_clone.imaginary - EPSILON
+                    {
                         String::from(" + i")
                     } else {
                         format!(" + {:.10}", self_clone.imaginary)
@@ -341,7 +347,9 @@ impl Display for Number {
                     .trim_end_matches('0')
                     .trim_end_matches('.')
                     .to_owned()
-                    + if self_clone.imaginary == -1f64 {
+                    + if self_clone.imaginary + EPSILON > -1f64
+                        && 1f64 > self_clone.imaginary - EPSILON
+                    {
                         String::from(" - i")
                     } else {
                         format!(" - {:.10}", -self_clone.imaginary)
@@ -593,5 +601,482 @@ impl PartialOrd for Number {
         } else {
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_constructors_1() {
+        assert_eq!(Number::unitless_one(), Number::real(1f64, Unit::unitless()));
+        assert_eq!(
+            Number::unitless_one(),
+            Number::complex(1f64, 0f64, Unit::unitless())
+        );
+
+        assert_eq!(
+            Number::unitless_zero(),
+            Number::real(0f64, Unit::unitless())
+        );
+        assert_eq!(
+            Number::unitless_zero(),
+            Number::complex(0f64, 0f64, Unit::unitless())
+        );
+    }
+
+    #[test]
+    fn test_get_unit_1() {
+        let unit = Unit {
+            exponent: 0i8,
+            constituents: HashMap::from([(BaseUnit::Meter, 1)]),
+        };
+
+        let number = Number::real(1f64, unit.clone());
+        assert_eq!(unit, number.get_unit().clone());
+    }
+
+    #[test]
+    fn test_powi_1() {
+        let unit = Unit {
+            exponent: 0i8,
+            constituents: HashMap::from([(BaseUnit::Meter, 1)]),
+        };
+
+        let number = Number::real(2f64, unit.clone()).powi(4);
+
+        let unit_expected = Unit {
+            exponent: 0i8,
+            constituents: HashMap::from([(BaseUnit::Meter, 4)]),
+        };
+
+        let number_expected = Number::real(16f64, unit_expected.clone());
+        assert_eq!(number_expected, number);
+    }
+
+    #[test]
+    fn test_powi_2() {
+        let unit = Unit {
+            exponent: 0i8,
+            constituents: HashMap::from([(BaseUnit::Meter, 1)]),
+        };
+
+        let number = Number::real(5f64, unit.clone()).powi(0);
+
+        let number_expected = Number::unitless_one();
+        assert_eq!(number_expected, number);
+    }
+
+    #[test]
+    fn test_abs_1() {
+        let expected = 4f64;
+        let real = Number::real(4f64, Unit::unitless()).abs();
+        assert!(expected - EPSILON < real && real < expected + EPSILON);
+    }
+
+    #[test]
+    fn test_abs_2() {
+        let expected = 4f64;
+        let real = Number::real(-4f64, Unit::unitless()).abs();
+        assert!(expected - EPSILON < real && real < expected + EPSILON);
+    }
+
+    #[test]
+    fn test_abs_3() {
+        let expected = 5f64;
+        let real = Number::complex(3f64, 4f64, Unit::unitless()).abs();
+        assert!(expected - EPSILON < real && real < expected + EPSILON);
+    }
+
+    #[test]
+    fn test_abs_4() {
+        let expected = 5f64;
+        let real = Number::complex(-3f64, -4f64, Unit::unitless()).abs();
+        assert!(expected - EPSILON < real && real < expected + EPSILON);
+    }
+
+    #[test]
+    fn test_abs_5() {
+        let expected = 5f64;
+        let real = Number::complex(3f64, -4f64, Unit::unitless()).abs();
+        assert!(expected - EPSILON < real && real < expected + EPSILON);
+    }
+
+    #[test]
+    fn test_abs_6() {
+        let expected = 5f64;
+        let real = Number::complex(-3f64, 4f64, Unit::unitless()).abs();
+        assert!(expected - EPSILON < real && real < expected + EPSILON);
+    }
+
+    #[test]
+    fn test_is_unitless_one_1() {
+        assert!(Number::unitless_one().is_unitless_one());
+    }
+
+    #[test]
+    fn test_is_unitless_one_2() {
+        assert!(!Number::unitless_zero().is_unitless_one());
+    }
+
+    #[test]
+    fn test_is_zero_1() {
+        assert!(Number::unitless_zero().is_zero());
+    }
+
+    #[test]
+    fn test_is_zero_2() {
+        assert!(!Number::unitless_one().is_zero());
+    }
+
+    #[test]
+    fn test_is_zero_3() {
+        assert!(Number::real(
+            0f64,
+            Unit {
+                exponent: 0i8,
+                constituents: HashMap::from([(BaseUnit::Meter, 1)]),
+            }
+        )
+        .is_zero());
+    }
+
+    #[test]
+    fn test_is_real_1() {
+        assert!(Number::unitless_one().is_real());
+    }
+
+    #[test]
+    fn test_is_real_2() {
+        assert!(Number::unitless_zero().is_real());
+    }
+
+    #[test]
+    fn test_is_real_3() {
+        assert!(Number::real(5f64, Unit::unitless()).is_real());
+    }
+
+    #[test]
+    fn test_is_real_4() {
+        assert!(Number::complex(8f64, 0f64, Unit::unitless()).is_real());
+    }
+
+    #[test]
+    fn test_is_real_5() {
+        assert!(!Number::complex(8f64, 2f64, Unit::unitless()).is_real());
+    }
+
+    #[test]
+    fn test_display_1() {
+        assert_eq!("1", Number::unitless_one().to_string());
+    }
+
+    #[test]
+    fn test_display_2() {
+        assert_eq!("5", Number::real(5f64, Unit::unitless()).to_string());
+    }
+
+    #[test]
+    fn test_display_3() {
+        assert_eq!(
+            "i",
+            Number::complex(0f64, 1f64, Unit::unitless()).to_string()
+        );
+    }
+
+    #[test]
+    fn test_display_4() {
+        assert_eq!(
+            "3i",
+            Number::complex(0f64, 3f64, Unit::unitless()).to_string()
+        );
+    }
+
+    #[test]
+    fn test_add_1() {
+        let two = Number::real(2f64, Unit::unitless());
+        let three = Number::real(3f64, Unit::unitless());
+        let five = Number::real(5f64, Unit::unitless());
+        assert_eq!(five, two + three);
+    }
+
+    #[test]
+    fn test_add_2() {
+        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
+        let three_twoi = Number::complex(3f64, 2f64, Unit::unitless());
+        let five_threei = Number::complex(5f64, 3f64, Unit::unitless());
+        assert_eq!(five_threei, two_onei + three_twoi);
+    }
+
+    #[test]
+    fn test_add_3() {
+        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
+        let zero_meters = Number::real(
+            0f64,
+            Unit {
+                exponent: 0i8,
+                constituents: HashMap::from([(BaseUnit::Meter, 1)]),
+            },
+        );
+        assert_eq!(two_onei, two_onei.clone() + zero_meters);
+    }
+
+    #[test]
+    fn test_addassign_1() {
+        let mut val = Number::real(2f64, Unit::unitless());
+        let three = Number::real(3f64, Unit::unitless());
+        let five = Number::real(5f64, Unit::unitless());
+        val += three;
+        assert_eq!(five, val);
+    }
+
+    #[test]
+    fn test_addassign_2() {
+        let mut val = Number::complex(2f64, 1f64, Unit::unitless());
+        let three_twoi = Number::complex(3f64, 2f64, Unit::unitless());
+        let five_threei = Number::complex(5f64, 3f64, Unit::unitless());
+        val += three_twoi;
+        assert_eq!(five_threei, val);
+    }
+
+    #[test]
+    fn test_addassign_3() {
+        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
+        let mut val = two_onei.clone();
+        let zero_meters = Number::real(
+            0f64,
+            Unit {
+                exponent: 0i8,
+                constituents: HashMap::from([(BaseUnit::Meter, 1)]),
+            },
+        );
+        val += zero_meters;
+        assert_eq!(two_onei, val);
+    }
+
+    #[test]
+    fn test_neg_1() {
+        let negative_one = -Number::unitless_one();
+        let expected = Number::real(-1f64, Unit::unitless());
+
+        assert_eq!(expected, negative_one);
+    }
+
+    #[test]
+    fn test_neg_2() {
+        let two_threei = -Number::complex(-1f64, -3f64, Unit::unitless());
+        let expected = Number::complex(1f64, 3f64, Unit::unitless());
+
+        assert_eq!(expected, two_threei);
+    }
+
+    #[test]
+    fn test_sub_1() {
+        let two = Number::real(2f64, Unit::unitless());
+        let three = Number::real(3f64, Unit::unitless());
+        let five = Number::real(5f64, Unit::unitless());
+        assert_eq!(two, five - three);
+    }
+
+    #[test]
+    fn test_sub_2() {
+        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
+        let three_twoi = Number::complex(3f64, 2f64, Unit::unitless());
+        let five_threei = Number::complex(5f64, 3f64, Unit::unitless());
+        assert_eq!(two_onei, five_threei - three_twoi);
+    }
+
+    #[test]
+    fn test_sub_3() {
+        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
+        let zero_meters = Number::real(
+            0f64,
+            Unit {
+                exponent: 0i8,
+                constituents: HashMap::from([(BaseUnit::Meter, 1)]),
+            },
+        );
+        assert_eq!(two_onei, two_onei.clone() - zero_meters);
+    }
+
+    #[test]
+    fn test_subassign_1() {
+        let mut val = Number::real(5f64, Unit::unitless());
+        let three = Number::real(3f64, Unit::unitless());
+        let two = Number::real(2f64, Unit::unitless());
+        val -= three;
+        assert_eq!(two, val);
+    }
+
+    #[test]
+    fn test_subassign_2() {
+        let mut val = Number::complex(5f64, 3f64, Unit::unitless());
+        let three_twoi = Number::complex(3f64, 2f64, Unit::unitless());
+        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
+        val -= three_twoi;
+        assert_eq!(two_onei, val);
+    }
+
+    #[test]
+    fn test_subassign_3() {
+        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
+        let mut val = two_onei.clone();
+        let zero_meters = Number::real(
+            0f64,
+            Unit {
+                exponent: 0i8,
+                constituents: HashMap::from([(BaseUnit::Meter, 1)]),
+            },
+        );
+        val -= zero_meters;
+        assert_eq!(two_onei, val);
+    }
+
+    #[test]
+    fn test_mul_1() {
+        let two = Number::real(2f64, Unit::unitless());
+        let three = Number::real(3f64, Unit::unitless());
+        let six = Number::real(6f64, Unit::unitless());
+        assert_eq!(six, two * three);
+    }
+
+    #[test]
+    fn test_mul_2() {
+        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
+        let three_twoi = Number::complex(3f64, 2f64, Unit::unitless());
+        let four_seveni = Number::complex(4f64, 7f64, Unit::unitless());
+        assert_eq!(four_seveni, two_onei * three_twoi);
+    }
+
+    #[test]
+    fn test_mulassign_1() {
+        let mut val = Number::real(2f64, Unit::unitless());
+        let three = Number::real(3f64, Unit::unitless());
+        let six = Number::real(6f64, Unit::unitless());
+        val *= three;
+        assert_eq!(six, val);
+    }
+
+    #[test]
+    fn test_mulassign_2() {
+        let mut val = Number::complex(2f64, 1f64, Unit::unitless());
+        let three_twoi = Number::complex(3f64, 2f64, Unit::unitless());
+        let four_seveni = Number::complex(4f64, 7f64, Unit::unitless());
+        val *= three_twoi;
+        assert_eq!(four_seveni, val);
+    }
+
+    #[test]
+    fn test_mul_f64_1() {
+        let two = Number::real(2f64, Unit::unitless());
+        let six = Number::real(6f64, Unit::unitless());
+        assert_eq!(six, two * 3f64);
+    }
+
+    #[test]
+    fn test_mul_f64_2() {
+        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
+        let six_threei = Number::complex(6f64, 3f64, Unit::unitless());
+        assert_eq!(six_threei, two_onei * 3f64);
+    }
+
+    #[test]
+    fn test_mulassign_f64_1() {
+        let mut val = Number::real(2f64, Unit::unitless());
+        let six = Number::real(6f64, Unit::unitless());
+        val *= 3f64;
+        assert_eq!(six, val);
+    }
+
+    #[test]
+    fn test_mulassign_f64_2() {
+        let mut val = Number::complex(2f64, 1f64, Unit::unitless());
+        let six_threei = Number::complex(6f64, 3f64, Unit::unitless());
+        val *= 3f64;
+        assert_eq!(six_threei, val);
+    }
+
+    #[test]
+    fn test_div_1() {
+        let two = Number::real(2f64, Unit::unitless());
+        let three = Number::real(3f64, Unit::unitless());
+        let six = Number::real(6f64, Unit::unitless());
+        assert_eq!(two, six / three);
+    }
+
+    #[test]
+    fn test_div_2() {
+        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
+        let three_twoi = Number::complex(3f64, 2f64, Unit::unitless());
+        let four_seveni = Number::complex(4f64, 7f64, Unit::unitless());
+        assert_eq!(two_onei, four_seveni / three_twoi);
+    }
+
+    #[test]
+    fn test_divassign_1() {
+        let mut val = Number::real(6f64, Unit::unitless());
+        let three = Number::real(3f64, Unit::unitless());
+        let two = Number::real(2f64, Unit::unitless());
+        val /= three;
+        assert_eq!(two, val);
+    }
+
+    #[test]
+    fn test_divassign_2() {
+        let mut val = Number::complex(4f64, 7f64, Unit::unitless());
+        let three_twoi = Number::complex(3f64, 2f64, Unit::unitless());
+        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
+        val /= three_twoi;
+        assert_eq!(two_onei, val);
+    }
+
+    #[test]
+    fn test_div_f64_1() {
+        let two = Number::real(2f64, Unit::unitless());
+        let six = Number::real(6f64, Unit::unitless());
+        assert_eq!(two, six / 3f64);
+    }
+
+    #[test]
+    fn test_div_f64_2() {
+        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
+        let six_threei = Number::complex(6f64, 3f64, Unit::unitless());
+        assert_eq!(two_onei, six_threei / 3f64);
+    }
+
+    #[test]
+    fn test_divassign_f64_1() {
+        let mut val = Number::real(6f64, Unit::unitless());
+        let two = Number::real(2f64, Unit::unitless());
+        val /= 3f64;
+        assert_eq!(two, val);
+    }
+
+    #[test]
+    fn test_divassign_f64_2() {
+        let mut val = Number::complex(6f64, 3f64, Unit::unitless());
+        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
+        val /= 3f64;
+        assert_eq!(two_onei, val);
+    }
+
+    #[test]
+    fn test_partialord_1() {
+        let four = Number::real(4f64, Unit::unitless());
+        let negone = Number::real(-1f64, Unit::unitless());
+        let eight = Number::real(8f64, Unit::unitless());
+        let six_threei = Number::complex(6f64, 3f64, Unit::unitless());
+
+        assert!(negone == negone);
+        assert!(negone < four);
+        assert!(negone < eight);
+        assert!(negone != six_threei);
+        assert!(four == four);
+        assert!(four < eight);
+        assert!(four != six_threei);
+        assert!(eight == eight);
+        assert!(eight != six_threei);
+        assert!(six_threei == six_threei);
     }
 }

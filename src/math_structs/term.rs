@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 use std::ops::*;
@@ -5,6 +6,7 @@ use std::ops::*;
 use crate::math_structs::expression::*;
 use crate::math_structs::factor::*;
 use crate::math_structs::identifier::*;
+use crate::math_structs::model::*;
 use crate::math_structs::number::*;
 
 #[derive(Debug, Clone, Hash)]
@@ -198,7 +200,7 @@ impl Term {
                     numerator_has_parenthetical = true;
                 }
             } else {
-                new_term.numerator.push(self_factor);
+                new_term *= self_factor;
             }
         }
         if numerator_has_parenthetical {
@@ -247,7 +249,7 @@ impl Term {
             if let Factor::Number(number) = operand {
                 value *= number;
             } else {
-                new_term.numerator.push(operand);
+                new_term *= operand;
             }
         }
 
@@ -255,7 +257,7 @@ impl Term {
             if let Factor::Number(number) = operand {
                 value /= number;
             } else {
-                new_term.denominator.push(operand);
+                new_term /= operand;
             }
         }
 
@@ -284,11 +286,102 @@ impl Term {
                 }
             }
             if !kill {
-                new_term.numerator.push(factor);
+                new_term *= factor;
             }
         }
         self.clone_from(&new_term);
         result
+    }
+
+    /// Tries to extract `self` as just a `Number`.
+    ///
+    pub fn as_number(&self) -> Option<Number> {
+        if self.denominator.len() == 0 {
+            if self.numerator.len() == 0 {
+                Some(Number::unitless_one())
+            } else if self.numerator.len() == 1 {
+                if let Factor::Number(number) = self.numerator[0].clone() {
+                    Some(number)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Simplify `self` by cancelling terms which can't be 0 and replacing knowns.
+    ///
+    /// # Arguments
+    /// * `knowns` - Known variables
+    /// * `model` - Program model
+    /// * `force_retrieve` - `true` iff it should force a retrieval
+    ///
+    pub fn simplify(
+        &self,
+        knowns: &HashMap<Identifier, Number>,
+        model: &Model,
+        force_retrieve: bool,
+    ) -> Result<Term, String> {
+        let mut identifier_counts: HashMap<Identifier, (bool, isize)> = HashMap::new();
+
+        // simplify original factors in term and throw them back in
+        let mut new_term = Term::new();
+        for operand in &self.numerator {
+            let mut add_to_numerator = true;
+            if let Factor::Identifier(name) = operand {
+                if identifier_counts.contains_key(&name) {
+                    let (could_be_0, _) = identifier_counts.get(&name).unwrap();
+                    if !could_be_0 {
+                        add_to_numerator = false;
+                        identifier_counts
+                            .entry(name.clone())
+                            .and_modify(|(_, ct)| *ct += 1);
+                    }
+                } else if model.could_be_0(&name) || model.solved_variables.contains_key(&name) {
+                    identifier_counts.insert(name.clone(), (true, 0));
+                } else {
+                    add_to_numerator = false;
+                    identifier_counts.insert(name.clone(), (false, 1));
+                }
+            }
+            if add_to_numerator {
+                new_term *= operand.simplify(knowns, model, force_retrieve)?;
+            }
+        }
+        for operand in &self.denominator {
+            let mut add_to_denominator = true;
+            if let Factor::Identifier(name) = operand {
+                if identifier_counts.contains_key(&name) {
+                    let (could_be_0, _) = identifier_counts.get(&name).unwrap();
+                    if !could_be_0 {
+                        add_to_denominator = false;
+                        identifier_counts
+                            .entry(name.clone())
+                            .and_modify(|(_, ct)| *ct -= 1);
+                    }
+                }
+            }
+            if add_to_denominator {
+                new_term /= operand.simplify(knowns, model, force_retrieve)?;
+            }
+        }
+        // re-add reserved and cancelled terms
+        for (name, (_, mut count)) in identifier_counts {
+            while count > 0 {
+                new_term *= Factor::Identifier(name.clone());
+                count -= 1;
+            }
+            while count < 0 {
+                new_term /= Factor::Identifier(name.clone());
+                count += 1;
+            }
+        }
+
+        Ok(new_term)
     }
 }
 
@@ -312,10 +405,18 @@ impl Mul for Term {
     fn mul(self, other: Self) -> Self {
         let mut result = self.clone();
         for operand in &other.numerator {
-            result.numerator.push(operand.clone());
+            if let Factor::Number(_) = operand {
+                result.numerator.insert(0, operand.clone());
+            } else {
+                result.numerator.push(operand.clone());
+            }
         }
         for operand in &other.denominator {
-            result.denominator.push(operand.clone());
+            if let Factor::Number(_) = operand {
+                result.denominator.insert(0, operand.clone());
+            } else {
+                result.denominator.push(operand.clone());
+            }
         }
         result
     }
@@ -333,14 +434,22 @@ impl Mul<Factor> for Term {
     type Output = Term;
     fn mul(self, rhs: Factor) -> Term {
         let mut result = self.clone();
-        result.numerator.insert(0, rhs);
+        if let Factor::Number(_) = rhs {
+            result.numerator.insert(0, rhs.clone());
+        } else {
+            result.numerator.push(rhs.clone());
+        }
         result
     }
 }
 
 impl MulAssign<Factor> for Term {
     fn mul_assign(&mut self, rhs: Factor) {
-        self.numerator.push(rhs);
+        if let Factor::Number(_) = rhs {
+            self.numerator.insert(0, rhs.clone());
+        } else {
+            self.numerator.push(rhs.clone());
+        }
     }
 }
 
@@ -352,10 +461,18 @@ impl Div for Term {
     fn div(self, other: Self) -> Self {
         let mut result = self.clone();
         for operand in &other.numerator {
-            result.denominator.push(operand.clone());
+            if let Factor::Number(_) = operand {
+                result.denominator.insert(0, operand.clone());
+            } else {
+                result.denominator.push(operand.clone());
+            }
         }
         for operand in &other.denominator {
-            result.numerator.push(operand.clone());
+            if let Factor::Number(_) = operand {
+                result.numerator.insert(0, operand.clone());
+            } else {
+                result.numerator.push(operand.clone());
+            }
         }
         result
     }
@@ -373,13 +490,335 @@ impl Div<Factor> for Term {
     type Output = Term;
     fn div(self, rhs: Factor) -> Term {
         let mut result = self.clone();
-        result.denominator.push(rhs);
+        if let Factor::Number(_) = rhs {
+            result.denominator.insert(0, rhs.clone());
+        } else {
+            result.denominator.push(rhs.clone());
+        }
         result
     }
 }
 
 impl DivAssign<Factor> for Term {
     fn div_assign(&mut self, rhs: Factor) {
-        self.denominator.push(rhs);
+        if let Factor::Number(_) = rhs {
+            self.denominator.insert(0, rhs.clone());
+        } else {
+            self.denominator.push(rhs.clone());
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::math_structs::*;
+    use crate::*;
+
+    #[test]
+    fn test_new_1() {
+        assert_eq!(0, Term::new().len());
+    }
+
+    #[test]
+    fn test_from_factor_1() {
+        let expected = ast::parse_term("3", &mut 0).expect("ast::parse_term - failure");
+        let actual = Term::from_factor(Factor::Number(Number::unitless_one() * 3f64));
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_from_number_1() {
+        let expected = ast::parse_term("3", &mut 0).expect("ast::parse_term - failure");
+        let actual = Term::from_number(Number::unitless_one() * 3f64);
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_from_identifier_1() {
+        let expected = ast::parse_term("a", &mut 0).expect("ast::parse_term - failure");
+        let actual = Term::from_identifier(Identifier::new("a").unwrap());
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_len_1() {
+        assert_eq!(
+            1,
+            ast::parse_term("a", &mut 0)
+                .expect("ast::parse_term - failure")
+                .len()
+        );
+    }
+
+    #[test]
+    fn test_len_2() {
+        assert_eq!(
+            2,
+            ast::parse_term("ab", &mut 0)
+                .expect("ast::parse_term - failure")
+                .len()
+        );
+    }
+
+    #[test]
+    fn test_len_3() {
+        assert_eq!(
+            3,
+            ast::parse_term("3ab", &mut 0)
+                .expect("ast::parse_term - failure")
+                .len()
+        );
+    }
+
+    #[test]
+    fn test_has_denominator_1() {
+        assert!(ast::parse_term("3ab/7", &mut 0)
+            .expect("ast::parse_term - failure")
+            .has_denominator());
+    }
+
+    #[test]
+    fn test_has_denominator_2() {
+        assert!(!ast::parse_term("3ab", &mut 0)
+            .expect("ast::parse_term - failure")
+            .has_denominator());
+    }
+
+    #[test]
+    fn test_collapse_parenthetical_1() {
+        assert_eq!(
+            Some(ast::parse_expression("3a+b", &mut 0).expect("ast::parse_expression - failure")),
+            ast::parse_term("(3a+b)", &mut 0)
+                .expect("ast::parse_term - failure")
+                .collapse_parenthetical()
+        )
+    }
+
+    #[test]
+    fn test_collapse_parenthetical_2() {
+        assert_eq!(
+            None,
+            ast::parse_term("3a", &mut 0)
+                .expect("ast::parse_term - failure")
+                .collapse_parenthetical()
+        )
+    }
+
+    #[test]
+    fn test_extract_number_1() {
+        let mut term = ast::parse_term("3ab", &mut 0).expect("ast::parse_term - failure");
+        let number = term.extract_number();
+        assert_eq!(Number::real(3f64, Unit::unitless()), number);
+        assert_eq!(
+            ast::parse_term("ab", &mut 0).expect("ast::parse_term - failure"),
+            term
+        );
+    }
+
+    #[test]
+    fn test_extract_identifier_1() {
+        let mut term = ast::parse_term("3a", &mut 0).expect("ast::parse_term - failure");
+        let identifier = term.extract_identifier();
+        assert_eq!(Some(Identifier::new("a").unwrap()), identifier);
+        assert_eq!(
+            ast::parse_term("3", &mut 0).expect("ast::parse_term - failure"),
+            term
+        );
+    }
+
+    #[test]
+    fn test_as_number_1() {
+        let term = ast::parse_term("3", &mut 0).expect("ast::parse_term - failure");
+        assert_eq!(Some(Number::real(3f64, Unit::unitless())), term.as_number());
+    }
+
+    #[test]
+    fn test_as_number_2() {
+        let term = ast::parse_term("a", &mut 0).expect("ast::parse_term - failure");
+        assert_eq!(None, term.as_number());
+    }
+
+    #[test]
+    fn test_mul_1() {
+        let op1 = ast::parse_term("a", &mut 0).expect("ast::parse_term - failure");
+        let op2 = ast::parse_term("2", &mut 0).expect("ast::parse_term - failure");
+        let expected = ast::parse_term("2a", &mut 0).expect("ast::parse_term - failure");
+        assert_eq!(expected, op1 * op2);
+    }
+
+    #[test]
+    fn test_mul_2() {
+        let op1 = ast::parse_term("a/b", &mut 0).expect("ast::parse_term - failure");
+        let op2 = ast::parse_term("c/d", &mut 0).expect("ast::parse_term - failure");
+        let expected = ast::parse_term("ac/b/d", &mut 0).expect("ast::parse_term - failure");
+        assert_eq!(expected, op1 * op2);
+    }
+
+    #[test]
+    fn test_mulassign_1() {
+        let mut val = ast::parse_term("a", &mut 0).expect("ast::parse_term - failure");
+        let op2 = ast::parse_term("2", &mut 0).expect("ast::parse_term - failure");
+        let expected = ast::parse_term("2a", &mut 0).expect("ast::parse_term - failure");
+        val *= op2;
+        assert_eq!(expected, val);
+    }
+
+    #[test]
+    fn test_mulassign_2() {
+        let mut val = ast::parse_term("a/b", &mut 0).expect("ast::parse_term - failure");
+        let op2 = ast::parse_term("c/d", &mut 0).expect("ast::parse_term - failure");
+        let expected = ast::parse_term("ac/b/d", &mut 0).expect("ast::parse_term - failure");
+        val *= op2;
+        assert_eq!(expected, val);
+    }
+
+    #[test]
+    fn test_mul_factor_1() {
+        let op1 = ast::parse_term("a", &mut 0).expect("ast::parse_term - failure");
+        let op2 = ast::parse_factor("2", &mut 0, false).expect("ast::parse_factor - failure");
+        let expected = ast::parse_term("2a", &mut 0).expect("ast::parse_term - failure");
+        assert_eq!(expected, op1 * op2);
+    }
+
+    #[test]
+    fn test_mul_factor_2() {
+        let op1 = ast::parse_term("a/b", &mut 0).expect("ast::parse_term - failure");
+        let op2 = ast::parse_factor("c", &mut 0, false).expect("ast::parse_factor - failure");
+        let expected = ast::parse_term("ac/b", &mut 0).expect("ast::parse_term - failure");
+        assert_eq!(expected, op1 * op2);
+    }
+
+    #[test]
+    fn test_mulassign_factor_1() {
+        let mut val = ast::parse_term("a", &mut 0).expect("ast::parse_term - failure");
+        let op2 = ast::parse_factor("2", &mut 0, false).expect("ast::parse_factor - failure");
+        let expected = ast::parse_term("2a", &mut 0).expect("ast::parse_term - failure");
+        val *= op2;
+        assert_eq!(expected, val);
+    }
+
+    #[test]
+    fn test_mulassign_factor_2() {
+        let mut val = ast::parse_term("a/b", &mut 0).expect("ast::parse_term - failure");
+        let op2 = ast::parse_factor("c", &mut 0, false).expect("ast::parse_factor - failure");
+        let expected = ast::parse_term("ac/b", &mut 0).expect("ast::parse_term - failure");
+        val *= op2;
+        assert_eq!(expected, val);
+    }
+
+    #[test]
+    fn test_div_1() {
+        let op1 = ast::parse_term("2", &mut 0).expect("ast::parse_term - failure");
+        let op2 = ast::parse_term("a", &mut 0).expect("ast::parse_term - failure");
+        let expected = ast::parse_term("2/a", &mut 0).expect("ast::parse_term - failure");
+        assert_eq!(expected, op1 / op2);
+    }
+
+    #[test]
+    fn test_div_2() {
+        let op1 = ast::parse_term("a/b", &mut 0).expect("ast::parse_term - failure");
+        let op2 = ast::parse_term("d/c", &mut 0).expect("ast::parse_term - failure");
+        let expected = ast::parse_term("ac/b/d", &mut 0).expect("ast::parse_term - failure");
+        assert_eq!(expected, op1 / op2);
+    }
+
+    #[test]
+    fn test_divassign_1() {
+        let mut val = ast::parse_term("2", &mut 0).expect("ast::parse_term - failure");
+        let op2 = ast::parse_term("a", &mut 0).expect("ast::parse_term - failure");
+        let expected = ast::parse_term("2/a", &mut 0).expect("ast::parse_term - failure");
+        val /= op2;
+        assert_eq!(expected, val);
+    }
+
+    #[test]
+    fn test_divassign_2() {
+        let mut val = ast::parse_term("a/b", &mut 0).expect("ast::parse_term - failure");
+        let op2 = ast::parse_term("d/c", &mut 0).expect("ast::parse_term - failure");
+        let expected = ast::parse_term("ac/b/d", &mut 0).expect("ast::parse_term - failure");
+        val /= op2;
+        assert_eq!(expected, val);
+    }
+
+    #[test]
+    fn test_div_factor_1() {
+        let op1 = ast::parse_term("2", &mut 0).expect("ast::parse_term - failure");
+        let op2 = ast::parse_factor("a", &mut 0, false).expect("ast::parse_factor - failure");
+        let expected = ast::parse_term("2/a", &mut 0).expect("ast::parse_term - failure");
+        assert_eq!(expected, op1 / op2);
+    }
+
+    #[test]
+    fn test_div_factor_2() {
+        let op1 = ast::parse_term("a/b", &mut 0).expect("ast::parse_term - failure");
+        let op2 = ast::parse_factor("c", &mut 0, false).expect("ast::parse_factor - failure");
+        let expected = ast::parse_term("a/c/b", &mut 0).expect("ast::parse_term - failure");
+        assert_eq!(expected, op1 / op2);
+    }
+
+    #[test]
+    fn test_divassign_factor_1() {
+        let mut val = ast::parse_term("2", &mut 0).expect("ast::parse_term - failure");
+        let op2 = ast::parse_factor("a", &mut 0, false).expect("ast::parse_factor - failure");
+        let expected = ast::parse_term("2/a", &mut 0).expect("ast::parse_term - failure");
+        val /= op2;
+        assert_eq!(expected, val);
+    }
+
+    #[test]
+    fn test_divassign_factor_2() {
+        let mut val = ast::parse_term("a/b", &mut 0).expect("ast::parse_term - failure");
+        let op2 = ast::parse_factor("c", &mut 0, false).expect("ast::parse_factor - failure");
+        let expected = ast::parse_term("a/c/b", &mut 0).expect("ast::parse_term - failure");
+        val /= op2;
+        assert_eq!(expected, val);
+    }
+
+    #[test]
+    fn test_simplify_1() {
+        let knowns: HashMap<Identifier, Number> = HashMap::new();
+        let mut model = Model::new(0);
+        model.add_relation(
+            Expression::from_identifier(Identifier::new("a").unwrap()),
+            RelationOp::NotEqual,
+            Expression::from_number(Number::unitless_zero()),
+        );
+        let force_retrieve = false;
+        let result = ast::parse_term("3a/a", &mut 0)
+            .expect("ast::parse_term - failure")
+            .simplify(&knowns, &model, force_retrieve)
+            .unwrap();
+        let expected = ast::parse_term("3", &mut 0).expect("ast::parse_term - failure");
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_simplify_2() {
+        let knowns: HashMap<Identifier, Number> = HashMap::new();
+        let model = Model::new(0);
+        let force_retrieve = false;
+        let result = ast::parse_term("3a/a", &mut 0)
+            .expect("ast::parse_term - failure")
+            .simplify(&knowns, &model, force_retrieve)
+            .unwrap();
+        let expected = ast::parse_term("3a/a", &mut 0).expect("ast::parse_term - failure");
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_simplify_3() {
+        let knowns: HashMap<Identifier, Number> = HashMap::from([(
+            Identifier::new("a").unwrap(),
+            Number::real(2f64, Unit::unitless()),
+        )]);
+        let model = Model::new(0);
+        let force_retrieve = false;
+        let result = ast::parse_term("3a", &mut 0)
+            .expect("ast::parse_term - failure")
+            .simplify(&knowns, &model, force_retrieve)
+            .unwrap();
+        let expected = ast::parse_term("3*2", &mut 0).expect("ast::parse_term - failure");
+        assert_eq!(expected, result);
     }
 }

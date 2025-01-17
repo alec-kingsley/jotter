@@ -250,7 +250,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn next_token_test1() {
+    fn test_next_token_1() {
         let code = "3x + 20\n";
 
         assert_eq!(next_token(code, &mut 0).unwrap(), "3");
@@ -266,14 +266,14 @@ mod tests {
     }
 
     #[test]
-    fn next_token_test2() {
+    fn test_next_token_2() {
         let code = "(* comment *) 1";
 
         assert_eq!(next_token(code, &mut 0).unwrap(), "1");
     }
 
     #[test]
-    fn next_token_test3() {
+    fn test_next_token_3() {
         let code = "(* bad comment";
 
         assert_eq!(
@@ -283,7 +283,7 @@ mod tests {
     }
 
     #[test]
-    fn next_token_test4() {
+    fn test_next_token_4() {
         let code = "'name";
 
         assert_eq!(
@@ -293,7 +293,7 @@ mod tests {
     }
 
     #[test]
-    fn next_token_test5() {
+    fn test_next_token_test_5() {
         let code = "3x + 'myNamedVar' - 801 * 2 = 12";
         let mut i: usize = 0;
 
@@ -310,7 +310,7 @@ mod tests {
     }
 
     #[test]
-    fn next_token_test6() {
+    fn test_next_token_6() {
         let code = "≤ ≥ ≠";
 
         let mut i: usize = 0;
@@ -321,28 +321,28 @@ mod tests {
     }
 
     #[test]
-    fn next_token_test7() {
+    fn test_next_token_7() {
         let code = "------------------------";
 
         assert_eq!(next_token(code, &mut 0).unwrap(), "----------");
     }
 
     #[test]
-    fn next_token_test8() {
+    fn test_next_token_8() {
         let code = "(* (* nested comment *) *) 5";
 
         assert_eq!(next_token(code, &mut 0).unwrap(), "5");
     }
 
     #[test]
-    fn next_token_test9() {
+    fn test_next_token_9() {
         let code = "(* comment1 *) (* comment2 *) 5";
 
         assert_eq!(next_token(code, &mut 0).unwrap(), "5");
     }
 
     #[test]
-    fn next_token_test10() {
+    fn test_next_token_10() {
         let code = "1.73 + 1.8 * .9 * 1.749.3";
 
         let mut i: usize = 0;
@@ -358,14 +358,14 @@ mod tests {
     }
 
     #[test]
-    fn next_unit_token_test1() {
+    fn test_next_unit_token_1() {
         let code = "(* comment *) kg";
 
         assert_eq!(next_unit_token(code, &mut 0).unwrap(), "kg");
     }
 
     #[test]
-    fn next_unit_token_test2() {
+    fn test_next_unit_token_2() {
         let code = "(* bad comment";
 
         assert_eq!(
@@ -375,7 +375,7 @@ mod tests {
     }
 
     #[test]
-    fn next_unit_token_test3() {
+    fn test_next_unit_token_3() {
         let code = "kg m/s^2";
         let mut i: usize = 0;
 
@@ -388,7 +388,7 @@ mod tests {
     }
 
     #[test]
-    fn next_unit_token_test4() {
+    fn test_next_unit_token_4() {
         let code = "kilogram meter/second^2";
         let mut i: usize = 0;
 
@@ -401,7 +401,7 @@ mod tests {
     }
 
     #[test]
-    fn next_unit_token_test5() {
+    fn test_next_unit_token_5() {
         let code = "kg^2μm^3";
         let mut i: usize = 0;
 

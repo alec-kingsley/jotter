@@ -65,7 +65,7 @@ impl Polynomial {
     /// # Arguments
     /// * `x` - The point at which the `Polynomial` should be evaluated.
     ///
-    pub fn evaluate(&self, x: &Number) -> Number {
+    fn evaluate(&self, x: &Number) -> Number {
         let mut result = self.coefficients[0].clone();
         for degree in 1..self.coefficients.len() {
             result += self.coefficients[degree].clone() * x.powi(degree as u32);
@@ -78,7 +78,7 @@ impl Polynomial {
     /// # Arguments
     /// * `x` - The point at which the derivative of the `Polynomial` should be evaluated.
     ///
-    pub fn evaluate_derivative(&self, x: &Number) -> Number {
+    fn evaluate_derivative(&self, x: &Number) -> Number {
         let mut result = Number::unitless_zero();
         for degree in 1..self.coefficients.len() {
             result += self.coefficients[degree].clone() * x.powi(degree as u32 - 1) * degree as f64;
@@ -103,6 +103,9 @@ impl Polynomial {
         let super_special_number = Number::complex(
             // wikipedia on Durand-Kerner says this number isn't special :(
             // but I think it is 🥹
+            //
+            // TODO - on a serious note this is problematic bc if the root's magnitude
+            // is smaller than this then it will probably not find it. Oopsies!
             0.4,
             0.9,
             unit.clone(),
@@ -139,5 +142,91 @@ impl Polynomial {
         }
 
         roots.into_iter().collect()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn polynomial_builder(coefficients: Vec<f64>) -> Polynomial {
+        Polynomial {
+            coefficients: coefficients
+                .iter()
+                .map(|&coefficient| Number::real(coefficient, Unit::unitless()))
+                .collect::<Vec<Number>>(),
+        }
+    }
+
+    #[test]
+    fn test_find_roots_1() {
+        // x - 1 = 0
+        let roots = polynomial_builder(vec![-1.0, 1.0]).find_roots();
+        println!(
+            "Roots found: {{{}}}",
+            roots
+                .iter()
+                .map(|root| root.to_string())
+                .collect::<Vec<String>>()
+                .join(", ")
+        );
+        assert_eq!(1, roots.len());
+        assert!(roots.contains(&Number::real(1.0, Unit::unitless())));
+    }
+
+    #[test]
+    fn test_find_roots_2() {
+        // x^2 - 1 = 0
+        let roots = polynomial_builder(vec![-1.0, 0.0, 1.0]).find_roots();
+        println!(
+            "Roots found: {{{}}}",
+            roots
+                .iter()
+                .map(|root| root.to_string())
+                .collect::<Vec<String>>()
+                .join(", ")
+        );
+        assert_eq!(2, roots.len());
+        assert!(roots.contains(&Number::real(1.0, Unit::unitless())));
+        assert!(roots.contains(&Number::real(-1.0, Unit::unitless())));
+    }
+
+    #[test]
+    fn test_find_roots_3() {
+        // x^4 - 1 = 0
+        let roots = polynomial_builder(vec![-1.0, 0.0, 0.0, 0.0, 1.0]).find_roots();
+        println!(
+            "Roots found: {{{}}}",
+            roots
+                .iter()
+                .map(|root| root.to_string())
+                .collect::<Vec<String>>()
+                .join(", ")
+        );
+        assert_eq!(4, roots.len());
+        assert!(roots.contains(&Number::real(1.0, Unit::unitless())));
+        assert!(roots.contains(&Number::complex(0.0, 1.0, Unit::unitless())));
+        assert!(roots.contains(&Number::real(-1.0, Unit::unitless())));
+        assert!(roots.contains(&Number::complex(0.0, -1.0, Unit::unitless())));
+    }
+
+    #[test]
+    fn test_find_roots_4() {
+        // x^5 + 6x^4 - 26x^3 - 84x^2 + 313x - 210 = 0
+        let roots = polynomial_builder(vec![-210.0, 313.0, -84.0, -26.0, 6.0, 1.0]).find_roots();
+        println!(
+            "Roots found: {{{}}}",
+            roots
+                .iter()
+                .map(|root| root.to_string())
+                .collect::<Vec<String>>()
+                .join(", ")
+        );
+        assert_eq!(5, roots.len());
+        assert!(roots.contains(&Number::real(1.0, Unit::unitless())));
+        assert!(roots.contains(&Number::real(2.0, Unit::unitless())));
+        assert!(roots.contains(&Number::real(3.0, Unit::unitless())));
+        assert!(roots.contains(&Number::real(-5.0, Unit::unitless())));
+        assert!(roots.contains(&Number::real(-7.0, Unit::unitless())));
     }
 }

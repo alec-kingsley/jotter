@@ -6,13 +6,14 @@ use std::io::*;
 mod ast;
 mod math_structs;
 
-mod math_engine;
+mod driver;
 mod tokenizer;
 mod unit_parser;
 
 use crate::math_structs::Statement;
+use crate::math_structs::Model;
 use crate::ast::*;
-use crate::math_engine::*;
+use crate::driver::*;
 
 /// Interprets an entire Jotter program.
 ///
@@ -21,7 +22,7 @@ use crate::math_engine::*;
 ///
 fn interpret_as_whole(code: &str) {
     let mut i = 0;
-    let mut model = ProgramModel::new(0);
+    let mut model = Model::new(0);
 
     // main loop
     let mut eof = false;
@@ -34,7 +35,7 @@ fn interpret_as_whole(code: &str) {
             }
             Ok(Statement::Reset) => {
                 println!("--------------------");
-                model = ProgramModel::new(0);
+                model = Model::new(0);
             }
             Err(msg) => {
                 if msg == "Not found" {
@@ -48,7 +49,7 @@ fn interpret_as_whole(code: &str) {
 /// Spawn a jotter terminal, such that it can be interpreted as it's written.
 ///
 fn spawn_jotter_terminal() {
-    let mut model = ProgramModel::new(0);
+    let mut model = Model::new(0);
     let mut user_code = String::new();
     let mut overwrite = true;
     println!("Running Jotter");
@@ -80,7 +81,7 @@ fn spawn_jotter_terminal() {
                     }
                     Ok(Statement::Reset) => {
                         println!("Program state reset.");
-                        model = ProgramModel::new(0);
+                        model = Model::new(0);
                     }
                     Err(msg) => {
                         if msg == "Expected new line" {

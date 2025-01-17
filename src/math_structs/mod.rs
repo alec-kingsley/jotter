@@ -13,6 +13,8 @@ pub mod identifier;
 
 pub mod polynomial;
 
+pub mod model;
+
 
 pub use statement::*;
 pub use call::*;
@@ -27,5 +29,5 @@ pub use unit::*;
 
 pub use identifier::*;
 
-//pub use polynomial::*;
+pub use model::*;
 
