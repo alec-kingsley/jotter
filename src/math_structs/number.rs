@@ -418,7 +418,7 @@ impl AddAssign for Number {
         // be prioritized.
         //
         // also the initial unit is prioritized for +=
-        if !other.clone().is_zero() {
+        if !other.is_zero() {
             self.clone_from(&(self.clone() + other));
         }
     }

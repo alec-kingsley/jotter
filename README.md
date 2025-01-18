@@ -123,7 +123,7 @@ Expected output:
 3 [km] + 2i [km] ≡ (3 + 2i) [km]
 ```
 
-## Comments and Page Breaks
+## Comments and Subpages
 
 Another comment format is by using parentheses with stars on the inside.
 
@@ -133,16 +133,30 @@ k = 5 [s] (*set k to 5 seconds*)
 
 This is great for inline comments, or if a comment would be otherwise valid syntax.
 
-You can only use each variable name once, but "page breaks" can separate groups.
-To insert a page break, simply create a line consisting only of "-" and at least 10 of them.
+You can only use each variable name once, but "subpages" can separate groups.
+To insert a subgroup, simply create a line with only a ">" token. Return to the previous page
+by using just the "<" token.
 
 Example:
 
 ```
 y = 3
--------------------------------------------------------------------
-y = 4
+>
+x = 2
+x + y ?
+<
+x + y ?
 ```
+
+Expected output:
+
+```
+  x + y ≡ 5
+x + y ≡ x + 3
+```
+
+Each subgroup can have its own subgroup. You may think of the `>` as a way to just
+save a program state to come back to it.
 
 ## Functions
 
@@ -203,7 +217,7 @@ x?
 ```
 Expected output:
 ```
-x ∈ {- 2, 2}
+x ∈ {-2, 2}
 ```
 
 Complex polynomial:
@@ -213,7 +227,7 @@ x?
 ```
 Expected output:
 ```
-x ∈ {- 11, - 5, 1, 2, 3, 7, 8}
+x ∈ {-11, -5, 1, 2, 3, 7, 8}
 ```
 
 ## Implementation Details
@@ -223,11 +237,12 @@ x ∈ {- 11, - 5, 1, 2, 3, 7, 8}
 Tabs and spaces are ignored, but new lines do separate lines.
 
 ```
-statement   ::=   prompt | function | relation | reset
+
+statement   ::=   prompt | function | stateswitch
 function    ::=   identifier '(' identifier ( ',' identifier ) * ')' '=' ( expression | '{' '\n' ( expression ',' relation '\n' ) + '}' )
 prompt      ::=   relation '?'
 relation    ::=   expression (( '<' | '>' | '<=' | '≤' | '>=' | '≥' | '=' | '<>' | '≠'  ) expression ) *
-reset       ::=   '-'{10,}
+stateswitch ::=   '>' | '<'
 expression  ::=   term (( '+' | '-' ) term ) *
 term        ::=   factor (( '*' | '/' ) ? factor ) *
 factor      ::=   '(' expression ')' | number | identifier | call

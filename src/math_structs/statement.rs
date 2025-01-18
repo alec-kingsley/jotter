@@ -7,11 +7,14 @@ use crate::math_structs::relation::*;
 
 #[derive(Debug, Hash, Clone)]
 pub enum Statement {
+    /// prompt
     Prompt(Relation),
+    /// equation
     Equation(Relation),
     /// name, arguments, actual function, and their relations.
     FunctionDefinition(Identifier, Vec<Identifier>, Vec<(Expression, Relation)>),
-    Reset,
+    /// false for <, true for >
+    StateSwitch(bool),
 }
 
 impl PartialEq for Statement {
@@ -38,9 +41,9 @@ impl PartialEq for Statement {
                     false
                 }
             }
-            Statement::Reset => {
-                if let Statement::Reset = other {
-                    true
+            Statement::StateSwitch(self_state) => {
+                if let Statement::StateSwitch(other_state) = other {
+                    self_state == other_state
                 } else {
                     false
                 }
@@ -55,7 +58,7 @@ impl Display for Statement {
     /// Format `Statement` appropriately.
     ///
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
+        match &self {
             Statement::Prompt(relation) => write!(f, "{} ?", relation),
             Statement::Equation(relation) => write!(f, "{}", relation),
             Statement::FunctionDefinition(name, arguments, details) => write!(
@@ -77,7 +80,7 @@ impl Display for Statement {
                     )
                 )
             ),
-            Statement::Reset => write!(f, "----------"),
+            Statement::StateSwitch(state) => if *state { write!(f,">") } else { write!(f, "<") },
         }
     }
 }

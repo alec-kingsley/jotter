@@ -32,8 +32,14 @@ pub fn parse_statement(code: &str, i: &mut usize) -> Result<Statement, String> {
         Err(String::from("Expected new line"))
     } else {
         let token = next_token(code, i)?;
-        if token == "----------" {
-            Ok(Statement::Reset)
+        if token == ">" || token == "<" {
+            if next_token(code, i).is_err() {
+                Ok(Statement::StateSwitch(token == ">"))
+            } else {
+                Err(String::from(
+                    "Line cannot begin with < or > without being < or >",
+                ))
+            }
         } else {
             *i -= token.chars().count();
             // keep i how it is, not a function definition

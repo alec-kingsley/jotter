@@ -107,8 +107,6 @@ fn skip_whitespace_and_comments(code: &str, i: &mut usize) -> Result<String, Str
 /// If not found, returns an error.
 /// If token is a nickname (such as ≤ for <=), replaces with the more accessible one to type. (in
 /// that case <= for example)
-/// If the token is a series of more than ten -'s in a row, it should return only 10
-/// (----------)
 ///
 /// # Errors
 /// * "Unterminated comment" - A comment (starting with '(*' ) had no ending ( '*)' )
@@ -176,13 +174,6 @@ pub fn next_token(code: &str, i: &mut usize) -> Result<String, String> {
         // nickname <>
         *i += 1;
         Ok(String::from("<>"))
-    } else if substring_at_pos(code, *i, "----------") {
-        // nickname family ----------
-        *i += 10;
-        while *i < code_length && code.chars().nth(*i).unwrap() == '-' {
-            *i += 1;
-        }
-        Ok(String::from("----------"))
     } else {
         // single char
         *i += 1;
@@ -322,27 +313,20 @@ mod tests {
 
     #[test]
     fn test_next_token_7() {
-        let code = "------------------------";
-
-        assert_eq!(next_token(code, &mut 0).unwrap(), "----------");
-    }
-
-    #[test]
-    fn test_next_token_8() {
         let code = "(* (* nested comment *) *) 5";
 
         assert_eq!(next_token(code, &mut 0).unwrap(), "5");
     }
 
     #[test]
-    fn test_next_token_9() {
+    fn test_next_token_8() {
         let code = "(* comment1 *) (* comment2 *) 5";
 
         assert_eq!(next_token(code, &mut 0).unwrap(), "5");
     }
 
     #[test]
-    fn test_next_token_10() {
+    fn test_next_token_9() {
         let code = "1.73 + 1.8 * .9 * 1.749.3";
 
         let mut i: usize = 0;

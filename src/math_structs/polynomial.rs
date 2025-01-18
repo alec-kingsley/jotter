@@ -104,7 +104,7 @@ impl Polynomial {
             // wikipedia on Durand-Kerner says this number isn't special :(
             // but I think it is 🥹
             //
-            // TODO - on a serious note this is problematic bc if the root's magnitude
+            // TODO - on a serious note this is problematic bc if the max coefficient
             // is smaller than this then it will probably not find it. Oopsies!
             0.4,
             0.9,

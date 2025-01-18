@@ -497,6 +497,7 @@ impl Model {
         }
         Ok(())
     }
+
     /// Remove rows which are just a pivot and store them.
     ///
     fn store_lonely_pivots(&mut self) {
