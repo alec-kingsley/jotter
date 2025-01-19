@@ -38,10 +38,8 @@ impl PartialEq for Number {
             let mut other_clone = other.clone();
             let exp_diff = other_clone.unit.exponent - self.unit.exponent;
             other_clone.unit.exponent -= exp_diff;
-            other_clone.real = other_clone.real * (10 as f64).powi(exp_diff as i32);
-            other_clone.imaginary = other_clone.imaginary * (10 as f64).powi(exp_diff as i32);
-            other_clone.real *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
-            other_clone.imaginary *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
+            other_clone.real *= (10 as f64).powi(exp_diff as i32);
+            other_clone.imaginary *= (10 as f64).powi(exp_diff as i32);
             other_clone.real < self.real + EPSILON
                 && other_clone.real > self.real - EPSILON
                 && other_clone.imaginary < self.imaginary + EPSILON
@@ -302,6 +300,12 @@ impl Display for Number {
                     denominator = format!("{denominator}^{}", -unit_power);
                 }
             }
+        }
+
+        // if unitless or whatever, put the prefix in the number
+        if !processed_prefix {
+            self_clone.real *= 10f64.powi(self_clone.unit.exponent as i32);
+            self_clone.imaginary *= 10f64.powi(self_clone.unit.exponent as i32);
         }
 
         // write final result depending on numerator/denominator contents
@@ -1011,6 +1015,26 @@ mod tests {
         let three_twoi = Number::complex(3f64, 2f64, Unit::unitless());
         let four_seveni = Number::complex(4f64, 7f64, Unit::unitless());
         assert_eq!(two_onei, four_seveni / three_twoi);
+    }
+
+    #[test]
+    fn test_div_3() {
+        let one_km = Number::real(
+            1f64,
+            Unit {
+                exponent: 3i8,
+                constituents: HashMap::from([(BaseUnit::Meter, 1)]),
+            },
+        );
+        let one_m = Number::real(
+            1f64,
+            Unit {
+                exponent: 0i8,
+                constituents: HashMap::from([(BaseUnit::Meter, 1)]),
+            },
+        );
+        let one_thousand = Number::real(1000f64, Unit::unitless());
+        assert_eq!(one_thousand, one_km / one_m);
     }
 
     #[test]

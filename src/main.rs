@@ -82,9 +82,6 @@ fn spawn_jotter_terminal(model: &mut Model, tab_ct: usize) {
             }
             Ok(_) => {
                 user_code = user_code.trim().to_string();
-                if user_code == "exit" {
-                    break;
-                }
                 match parse_statement(user_code.as_str(), &mut 0) {
                     Ok(Statement::Prompt(relation)) => process_prompt(model, relation),
                     Ok(Statement::Equation(relation)) => process_equation(model, relation),
@@ -131,7 +128,6 @@ fn main() {
         interpret_as_whole(&mut Model::new(0), code.as_str(), &mut 0, 0);
     } else {
         println!("Running Jotter");
-        println!("Type \"exit\" to quit.");
         spawn_jotter_terminal(&mut Model::new(0), 0);
     }
 }
