@@ -2,7 +2,6 @@ use crate::math_structs::*;
 use crate::tokenizer::*;
 use crate::unit_parser::*;
 
-use rust_decimal::Decimal;
 use std::collections::HashMap;
 
 /// Parse statement into ast.
@@ -351,8 +350,7 @@ pub fn parse_factor(
             *i -= "[".chars().count();
             Value::one()
         } else {
-            let value = Value::try_from(token).unwrap();
-            value
+            Value::try_from(token).unwrap()
         };
         let mut j = i.clone();
         let is_imaginary = if next_token(code, &mut j).is_ok_and(|token| token == "i") {
@@ -375,18 +373,9 @@ pub fn parse_factor(
             let (unit, factor) = unit_result.unwrap();
             Ok(Factor::Number(
                 if is_imaginary {
-                    (if factor != 1. {
-                        value * Value::from(Decimal::from_f64_retain(factor).unwrap())
-                    } else {
-                        value
-                    })
-                    .i()
+                    (value * Value::from(factor)).i()
                 } else {
-                    if factor != 1. {
-                        value * Value::from(Decimal::from_f64_retain(factor).unwrap())
-                    } else {
-                        value
-                    }
+                    value * Value::from(factor)
                 }
                 .with_unit(unit),
             ))

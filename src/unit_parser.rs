@@ -1,3 +1,4 @@
+use crate::math_structs::number::*;
 use crate::math_structs::unit::*;
 
 use crate::tokenizer::*;
@@ -18,7 +19,7 @@ use std::collections::HashMap;
 /// assert!(i == code.chars().count())
 /// ```
 ///
-pub fn parse_unit(code: &str, i: &mut usize) -> Result<(Unit, f64), String> {
+pub fn parse_unit(code: &str, i: &mut usize) -> Result<(Unit, Number), String> {
     let mut unit = Unit::unitless();
     let mut token = next_unit_token(code, i)?;
     if token != "[" {
@@ -26,7 +27,7 @@ pub fn parse_unit(code: &str, i: &mut usize) -> Result<(Unit, f64), String> {
     }
     token = next_unit_token(code, i)?;
     let mut numerator = true;
-    let mut factor = 1f64;
+    let mut factor = Number::ONE;
     while token != "]" {
         if token == "[" {
             *i -= token.chars().count();
@@ -130,7 +131,10 @@ pub fn parse_unit(code: &str, i: &mut usize) -> Result<(Unit, f64), String> {
 /// # Return
 /// On Ok, Ok(unit, factor to multiply by, prefix)
 ///
-pub fn parse_base_unit(token: &str, abbreviated: &mut bool) -> Result<(Unit, f64, String), String> {
+pub fn parse_base_unit(
+    token: &str,
+    abbreviated: &mut bool,
+) -> Result<(Unit, Number, String), String> {
     let base_unit_suffixes = vec![
         "meter",
         "inch",
@@ -181,38 +185,62 @@ pub fn parse_base_unit(token: &str, abbreviated: &mut bool) -> Result<(Unit, f64
         "S", "Wb", "T", "H", "lm", "lx", "Bq", "Gy", "Sv", "kat",
     ];
     // vec of constituents paired with order
-    let base_units: Vec<(HashMap<BaseUnit, i8>, f64)> = vec![
-        (HashMap::from([(BaseUnit::Meter, 1)]), 1.0),
-        (HashMap::from([(BaseUnit::Meter, 1)]), 0.0254),
-        (HashMap::from([(BaseUnit::Meter, 1)]), 0.3048),
-        (HashMap::from([(BaseUnit::Meter, 1)]), 0.3048),
-        (HashMap::from([(BaseUnit::Meter, 1)]), 0.9144),
-        (HashMap::from([(BaseUnit::Meter, 1)]), 1609.344),
-        (HashMap::from([(BaseUnit::Meter, 3)]), 0.001),
-        (HashMap::from([(BaseUnit::Meter, 3)]), 0.0002365882365),
-        (HashMap::from([(BaseUnit::Meter, 3)]), 0.000473176473),
-        (HashMap::from([(BaseUnit::Meter, 3)]), 0.000946352946),
-        (HashMap::from([(BaseUnit::Meter, 3)]), 0.003785411784),
-        (HashMap::from([(BaseUnit::Kilogram, 1)]), 1.0),
-        (HashMap::from([(BaseUnit::Kilogram, 1)]), 453.59237),
-        (HashMap::from([(BaseUnit::Second, 1)]), 1.0),
-        (HashMap::from([(BaseUnit::Second, 1)]), 60.0),
-        (HashMap::from([(BaseUnit::Second, 1)]), 60.0 * 60.0),
-        (HashMap::from([(BaseUnit::Second, 1)]), 60.0 * 60.0 * 24.0),
-        (HashMap::from([(BaseUnit::Ampere, 1)]), 1.0),
-        (HashMap::from([(BaseUnit::Kelvin, 1)]), 1.0),
-        (HashMap::from([(BaseUnit::Mole, 1)]), 1.0),
-        (HashMap::from([(BaseUnit::Candela, 1)]), 1.0),
-        (HashMap::from([]), 1.0),
-        (HashMap::from([]), 1.0),
-        (HashMap::from([(BaseUnit::Second, -1)]), 1.0),
+    let base_units: Vec<(HashMap<BaseUnit, i8>, Number)> = vec![
+        (HashMap::from([(BaseUnit::Meter, 1)]), Number::ONE),
+        (HashMap::from([(BaseUnit::Meter, 1)]), Number::from(0.0254)),
+        (HashMap::from([(BaseUnit::Meter, 1)]), Number::from(0.3048)),
+        (HashMap::from([(BaseUnit::Meter, 1)]), Number::from(0.3048)),
+        (HashMap::from([(BaseUnit::Meter, 1)]), Number::from(0.9144)),
+        (
+            HashMap::from([(BaseUnit::Meter, 1)]),
+            Number::from(1609.344),
+        ),
+        (HashMap::from([(BaseUnit::Meter, 3)]), Number::from(0.001)),
+        (
+            HashMap::from([(BaseUnit::Meter, 3)]),
+            Number::from(0.0002365882365),
+        ),
+        (
+            HashMap::from([(BaseUnit::Meter, 3)]),
+            Number::from(0.000473176473),
+        ),
+        (
+            HashMap::from([(BaseUnit::Meter, 3)]),
+            Number::from(0.000946352946),
+        ),
+        (
+            HashMap::from([(BaseUnit::Meter, 3)]),
+            Number::from(0.003785411784),
+        ),
+        (HashMap::from([(BaseUnit::Kilogram, 1)]), Number::ONE),
+        (
+            HashMap::from([(BaseUnit::Kilogram, 1)]),
+            Number::from(0.45359237),
+        ),
+        (HashMap::from([(BaseUnit::Second, 1)]), Number::ONE),
+        (HashMap::from([(BaseUnit::Second, 1)]), Number::from(60)),
+        (
+            HashMap::from([(BaseUnit::Second, 1)]),
+            Number::from(60 * 60),
+        ),
+        (
+            HashMap::from([(BaseUnit::Second, 1)]),
+            Number::from(60 * 60 * 24),
+        ),
+        (HashMap::from([(BaseUnit::Ampere, 1)]), Number::ONE),
+        (HashMap::from([(BaseUnit::Kelvin, 1)]), Number::ONE),
+        (HashMap::from([(BaseUnit::Mole, 1)]), Number::ONE),
+        (HashMap::from([(BaseUnit::Candela, 1)]), Number::ONE),
+        (HashMap::from([]), Number::ONE),
+        (HashMap::from([]), Number::ONE),
+        (HashMap::from([(BaseUnit::Second, -1)]), Number::ONE),
         (
             HashMap::from([
                 (BaseUnit::Kilogram, 1),
                 (BaseUnit::Meter, 1),
                 (BaseUnit::Second, -2),
             ]),
-            1.0,
+            Number::ONE,
         ),
         (
             HashMap::from([
@@ -220,7 +248,7 @@ pub fn parse_base_unit(token: &str, abbreviated: &mut bool) -> Result<(Unit, f64
                 (BaseUnit::Meter, -1),
                 (BaseUnit::Second, -2),
             ]),
-            1.0,
+            Number::ONE,
         ),
         (
             HashMap::from([
@@ -228,7 +256,7 @@ pub fn parse_base_unit(token: &str, abbreviated: &mut bool) -> Result<(Unit, f64
                 (BaseUnit::Meter, 2),
                 (BaseUnit::Second, -2),
             ]),
-            1.0,
+            Number::ONE,
         ),
         (
             HashMap::from([
@@ -236,11 +264,11 @@ pub fn parse_base_unit(token: &str, abbreviated: &mut bool) -> Result<(Unit, f64
                 (BaseUnit::Meter, 2),
                 (BaseUnit::Second, -3),
             ]),
-            1.0,
+            Number::ONE,
         ),
         (
             HashMap::from([(BaseUnit::Second, 1), (BaseUnit::Ampere, 1)]),
-            1.0,
+            Number::ONE,
         ),
         (
             HashMap::from([
@@ -249,7 +277,7 @@ pub fn parse_base_unit(token: &str, abbreviated: &mut bool) -> Result<(Unit, f64
                 (BaseUnit::Second, -3),
                 (BaseUnit::Ampere, -1),
             ]),
-            1.0,
+            Number::ONE,
         ),
         (
             HashMap::from([
@@ -258,7 +286,7 @@ pub fn parse_base_unit(token: &str, abbreviated: &mut bool) -> Result<(Unit, f64
                 (BaseUnit::Second, 4),
                 (BaseUnit::Ampere, 2),
             ]),
-            1.0,
+            Number::ONE,
         ),
         (
             HashMap::from([
@@ -267,7 +295,7 @@ pub fn parse_base_unit(token: &str, abbreviated: &mut bool) -> Result<(Unit, f64
                 (BaseUnit::Second, -3),
                 (BaseUnit::Ampere, -2),
             ]),
-            1.0,
+            Number::ONE,
         ),
         (
             HashMap::from([
@@ -276,7 +304,7 @@ pub fn parse_base_unit(token: &str, abbreviated: &mut bool) -> Result<(Unit, f64
                 (BaseUnit::Second, 3),
                 (BaseUnit::Ampere, 2),
             ]),
-            1.0,
+            Number::ONE,
         ),
         (
             HashMap::from([
@@ -285,7 +313,7 @@ pub fn parse_base_unit(token: &str, abbreviated: &mut bool) -> Result<(Unit, f64
                 (BaseUnit::Second, -2),
                 (BaseUnit::Ampere, -1),
             ]),
-            1.0,
+            Number::ONE,
         ),
         (
             HashMap::from([
@@ -293,7 +321,7 @@ pub fn parse_base_unit(token: &str, abbreviated: &mut bool) -> Result<(Unit, f64
                 (BaseUnit::Second, -2),
                 (BaseUnit::Ampere, -1),
             ]),
-            1.0,
+            Number::ONE,
         ),
         (
             HashMap::from([
@@ -302,25 +330,25 @@ pub fn parse_base_unit(token: &str, abbreviated: &mut bool) -> Result<(Unit, f64
                 (BaseUnit::Second, -2),
                 (BaseUnit::Ampere, -2),
             ]),
-            1.0,
+            Number::ONE,
         ),
-        (HashMap::from([(BaseUnit::Candela, 1)]), 1.0),
+        (HashMap::from([(BaseUnit::Candela, 1)]), Number::ONE),
         (
             HashMap::from([(BaseUnit::Candela, 1), (BaseUnit::Meter, -2)]),
-            1.0,
+            Number::ONE,
         ),
-        (HashMap::from([(BaseUnit::Second, -1)]), 1.0),
+        (HashMap::from([(BaseUnit::Second, -1)]), Number::ONE),
         (
             HashMap::from([(BaseUnit::Meter, 2), (BaseUnit::Second, -2)]),
-            1.0,
+            Number::ONE,
         ),
         (
             HashMap::from([(BaseUnit::Meter, 2), (BaseUnit::Second, -2)]),
-            1.0,
+            Number::ONE,
         ),
         (
             HashMap::from([(BaseUnit::Mole, 1), (BaseUnit::Second, -1)]),
-            1.0,
+            Number::ONE,
         ),
     ];
 

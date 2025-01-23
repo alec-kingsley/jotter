@@ -64,7 +64,7 @@ impl Eq for Number {}
 /// * `x` - the first argument
 /// * `y` - the second argument
 ///
-fn gcd(x: i64, y: i64) -> i64 {
+const fn gcd(x: i64, y: i64) -> i64 {
     if y == 0 {
         x
     } else {
@@ -78,7 +78,7 @@ fn gcd(x: i64, y: i64) -> i64 {
 /// * `x` - the first argument
 /// * `y` - the second argument
 ///
-fn lcm(x: i64, y: i64) -> i64 {
+const fn lcm(x: i64, y: i64) -> i64 {
     x / gcd(x, y) * y
 }
 
@@ -142,6 +142,12 @@ impl Number {
     ///
     pub fn is_one(&self) -> bool {
         self == &Number::from(1)
+    }
+
+    /// Returns true iff the number has an exact value of 1.
+    ///
+    pub fn is_exact_one(&self) -> bool {
+        self.is_exact() && self == &Number::from(1)
     }
 
     /// Returns true iff the number has a value of 0.

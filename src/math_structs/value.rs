@@ -47,8 +47,8 @@ impl Value {
     ///
     pub fn one() -> Self {
         Self {
-            real: Number::from(1),
-            imaginary: Number::from(0),
+            real: Number::ONE,
+            imaginary: Number::ZERO,
             unit: Unit::unitless(),
         }
     }
@@ -57,8 +57,8 @@ impl Value {
     ///
     pub fn zero() -> Self {
         Self {
-            real: Number::from(0),
-            imaginary: Number::from(0),
+            real: Number::ZERO,
+            imaginary: Number::ZERO,
             unit: Unit::unitless(),
         }
     }
@@ -130,7 +130,7 @@ impl Value {
     /// Returns true iff the number has a value of 1.
     ///
     pub fn is_unitless_one(&self) -> bool {
-        self.real.is_one() && self.imaginary.is_zero() && self.unit == Unit::unitless()
+        self.real.is_exact_one() && self.imaginary.is_zero() && self.unit == Unit::unitless()
     }
 
     /// Returns true iff the number has a value of 0.
@@ -214,11 +214,21 @@ impl From<i64> for Value {
     }
 }
 
+impl From<Number> for Value {
+    fn from(num: Number) -> Self {
+        Self {
+            real: num,
+            imaginary: Number::ZERO,
+            unit: Unit::unitless(),
+        }
+    }
+}
+
 impl From<Decimal> for Value {
     fn from(num: Decimal) -> Self {
         Self {
             real: Number::from(num),
-            imaginary: Number::ONE,
+            imaginary: Number::ZERO,
             unit: Unit::unitless(),
         }
     }
@@ -353,9 +363,9 @@ impl Display for Value {
         let numeric_str = if self.imaginary.is_zero() {
             format!("{}", self_clone.real).to_owned()
         } else if self.real.is_zero() {
-            if self_clone.imaginary.is_one() {
+            if self_clone.imaginary.is_exact_one() {
                 String::from("i")
-            } else if self_clone.imaginary == Number::from(-1) {
+            } else if (-self_clone.imaginary).is_exact_one() {
                 String::from("-i")
             } else {
                 format!("{}", self_clone.imaginary).to_owned() + "i"
@@ -365,7 +375,7 @@ impl Display for Value {
                 format!("{}", self_clone.real)
                     .trim_end_matches('0')
                     .to_owned()
-                    + if self_clone.imaginary.is_one() {
+                    + if self_clone.imaginary.is_exact_one() {
                         String::from(" + i")
                     } else {
                         format!(" + {}", self_clone.imaginary)
@@ -378,7 +388,7 @@ impl Display for Value {
                 format!("{}", self_clone.real)
                     .trim_end_matches('0')
                     .to_owned()
-                    + if self_clone.imaginary == Number::from(-1) {
+                    + if (-self_clone.imaginary).is_exact_one() {
                         String::from(" - i")
                     } else {
                         format!(" - {}", -self_clone.imaginary)
@@ -522,14 +532,15 @@ impl Mul for Value {
         for (base_unit, power) in other.unit.constituents {
             *constituents.entry(base_unit).or_insert(0) += power;
         }
-        Self {
+        let value = Self {
             real: self.real * other.real - self.imaginary * other.imaginary,
             imaginary: self.real * other.imaginary + self.imaginary * other.real,
             unit: Unit {
                 exponent: self.unit.exponent + other.unit.exponent,
                 constituents,
             },
-        }
+        };
+        value
     }
 }
 
@@ -790,6 +801,11 @@ mod tests {
     #[test]
     fn test_display_4() {
         assert_eq!("3i", Value::from(3).i().to_string());
+    }
+
+    #[test]
+    fn test_neg_1() {
+        assert_eq!(Value::from(-1), -Value::one());
     }
 
     #[test]
