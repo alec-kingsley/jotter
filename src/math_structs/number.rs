@@ -248,9 +248,6 @@ impl Add for Number {
                         Number::Rational(self_numerator, self_denominator)
                     } else {
                         let lcm = lcm(self_denominator, other_denominator);
-                        if lcm == 0 {
-                            println!("AHHHHHHHHHHHHHHHHHHHHHH");
-                        }
                         Number::Rational(
                             self_numerator * (lcm / self_denominator)
                                 + other_numerator * (lcm / other_denominator),
