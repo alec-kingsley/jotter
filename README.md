@@ -381,14 +381,9 @@ The polynomial solver uses the Aberth method.
 
 ## Planned Features
 
-### Sets
-
-* Ability to define sets and define variables as belonging to a set
-
 ### Units
 
 * Ability to add user-defined units
-* Better units chosen for complex numbers
 
 ### Solver
 
