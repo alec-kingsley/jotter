@@ -91,7 +91,7 @@ impl Value {
     /// # Arguments:
     /// * `pow` - the power to be raised to
     ///
-    pub fn powi(&self, pow: u32) -> Self {
+    pub fn powi(&self, pow: i32) -> Self {
         if self.is_real() {
             Self {
                 real: self.real.powi(pow),
@@ -122,7 +122,9 @@ impl Value {
     pub fn abs(&self) -> Decimal {
         let real_abs = self.real.abs();
         let imaginary_abs = self.imaginary.abs();
-        Decimal::from(real_abs * real_abs + imaginary_abs * imaginary_abs).sqrt().unwrap()
+        Decimal::from(real_abs * real_abs + imaginary_abs * imaginary_abs)
+            .sqrt()
+            .unwrap()
     }
 
     /// Returns true iff the number has a value of 1.
@@ -160,12 +162,12 @@ impl Value {
     /// * `subunit_exponent` - thing to be divisible by.
     fn refactor_exponent(&mut self, subunit_exponent: i8) {
         // try to force self to be within 3 digits from 0
-        while self.abs() >= Decimal::from_i32(1).unwrap() {
+        while self.abs() >= Decimal::ONE_THOUSAND {
             self.real /= 10;
             self.imaginary /= 10;
             self.unit.exponent += 1;
         }
-        while !self.is_zero() && self.abs() < Decimal::from_i32(1).unwrap() {
+        while !self.is_zero() && self.abs() < Decimal::ZERO {
             self.real *= 10;
             self.imaginary *= 10;
             self.unit.exponent -= 1;
@@ -219,6 +221,19 @@ impl From<Decimal> for Value {
             imaginary: Number::ONE,
             unit: Unit::unitless(),
         }
+    }
+}
+
+impl TryFrom<String> for Value {
+    type Error = &'static str;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let value = Self {
+            real: Number::try_from(value)?,
+            imaginary: Number::ZERO,
+            unit: Unit::unitless(),
+        };
+        Ok(value)
     }
 }
 
@@ -330,56 +345,44 @@ impl Display for Value {
 
         // if unitless or whatever, put the prefix in the number
         if !processed_prefix {
-            self_clone.real *= Number::from(Decimal::TEN.powi(self_clone.unit.exponent as i64));
-            self_clone.imaginary *=
-                Number::from(Decimal::TEN.powi(self_clone.unit.exponent as i64));
+            self_clone.real *= Number::from(10).powi(self_clone.unit.exponent as i32);
+            self_clone.imaginary *= Number::from(10).powi(self_clone.unit.exponent as i32);
         }
 
         // write final result depending on numerator/denominator contents
         let numeric_str = if self.imaginary.is_zero() {
-            format!("{:.10}", self_clone.real)
-                .trim_end_matches('0')
-                .trim_end_matches('.')
-                .to_owned()
+            format!("{}", self_clone.real).to_owned()
         } else if self.real.is_zero() {
             if self_clone.imaginary.is_one() {
                 String::from("i")
             } else if self_clone.imaginary == Number::from(-1) {
                 String::from("-i")
             } else {
-                format!("{:.10}", self_clone.imaginary)
-                    .trim_end_matches('0')
-                    .trim_end_matches('.')
-                    .to_owned()
-                    + "i"
+                format!("{}", self_clone.imaginary).to_owned() + "i"
             }
         } else {
             if self_clone.imaginary > Number::from(0) {
-                format!("{:.10}", self_clone.real)
+                format!("{}", self_clone.real)
                     .trim_end_matches('0')
-                    .trim_end_matches('.')
                     .to_owned()
                     + if self_clone.imaginary.is_one() {
                         String::from(" + i")
                     } else {
-                        format!(" + {:.10}", self_clone.imaginary)
+                        format!(" + {}", self_clone.imaginary)
                             .trim_end_matches('0')
-                            .trim_end_matches('.')
                             .to_owned()
                             + "i"
                     }
                     .as_str()
             } else {
-                format!("{:.10}", self_clone.real)
+                format!("{}", self_clone.real)
                     .trim_end_matches('0')
-                    .trim_end_matches('.')
                     .to_owned()
                     + if self_clone.imaginary == Number::from(-1) {
                         String::from(" - i")
                     } else {
-                        format!(" - {:.10}", -self_clone.imaginary)
+                        format!(" - {}", -self_clone.imaginary)
                             .trim_end_matches('0')
-                            .trim_end_matches('.')
                             .to_owned()
                             + "i"
                     }

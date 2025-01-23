@@ -121,12 +121,16 @@ impl Number {
     /// # Arguments:
     /// * `pow` - the power to be raised to
     ///
-    pub fn powi(&self, pow: u32) -> Self {
+    pub fn powi(&self, pow: i32) -> Self {
         match self {
             &Number::Rational(numerator, denominator) => {
-                Number::Rational(numerator.pow(pow), denominator.pow(pow))
+                if pow >= 0 {
+                    Number::Rational(numerator.pow(pow as u32), denominator.pow(pow as u32))
+                } else {
+                    Number::from(Decimal::from(self.clone()).powi(pow as i64))
+                }
             }
-            &Number::Approximate(decimal) => Number::Approximate(decimal.powu(pow as u64)),
+            &Number::Approximate(decimal) => Number::Approximate(decimal.powi(pow as i64)),
         }
     }
 
@@ -196,11 +200,13 @@ impl TryFrom<String> for Number {
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         if let Ok(i64_val) = value.parse::<i64>() {
-            Ok(Number::from(i64_val))
+            let value: Number = i64_val.into();
+            Ok(value)
         } else if let Ok(f64_val) = value.parse::<f64>() {
-            Ok(Number::from(f64_val))
+            let value: Number = f64_val.into();
+            Ok(value)
         } else {
-            Err("FUCK")
+            Err("Only i64s and f64s can be parsed as numbers at this time")
         }
     }
 }

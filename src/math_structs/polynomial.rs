@@ -70,7 +70,7 @@ impl Polynomial {
     fn evaluate(&self, x: &Value) -> Value {
         let mut result = self.coefficients[0].clone();
         for degree in 1..self.coefficients.len() {
-            result += self.coefficients[degree].clone() * x.powi(degree as u32);
+            result += self.coefficients[degree].clone() * x.powi(degree as i32);
         }
         result
     }
@@ -83,7 +83,7 @@ impl Polynomial {
     fn evaluate_derivative(&self, x: &Value) -> Value {
         let mut result = Value::zero();
         for degree in 1..self.coefficients.len() {
-            result += self.coefficients[degree].clone() * x.powi(degree as u32 - 1) * Value::from(Decimal::from(degree));
+            result += self.coefficients[degree].clone() * x.powi(degree as i32 - 1) * Value::from(Decimal::from(degree));
         }
         result
     }
@@ -111,7 +111,7 @@ impl Polynomial {
             (Value::from(0.4) + Value::from(0.9).i()).with_unit(unit.clone());
         let mut roots: Vec<Value> = Vec::with_capacity(degree);
         for deg in 0..degree {
-            roots.push(super_special_number.clone().powi(deg as u32));
+            roots.push(super_special_number.clone().powi(deg as i32));
         }
 
         let mut sufficient = false;

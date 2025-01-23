@@ -2,6 +2,7 @@ use crate::math_structs::*;
 use crate::tokenizer::*;
 use crate::unit_parser::*;
 
+use rust_decimal::Decimal;
 use std::collections::HashMap;
 
 /// Parse statement into ast.
@@ -345,12 +346,13 @@ pub fn parse_factor(
     } else if token.parse::<f64>().is_ok() || token == "i" || token == "[" {
         let value = if token == "i" {
             *i -= "i".chars().count();
-            1f64
+            Value::one()
         } else if token == "[" {
             *i -= "[".chars().count();
-            1f64
+            Value::one()
         } else {
-            token.parse::<f64>().unwrap()
+            let value = Value::try_from(token).unwrap();
+            value
         };
         let mut j = i.clone();
         let is_imaginary = if next_token(code, &mut j).is_ok_and(|token| token == "i") {
@@ -362,7 +364,7 @@ pub fn parse_factor(
         let mut j = i.clone();
         let value = if next_token(code, &mut j).is_ok_and(|token| token == "%") {
             *i = j;
-            value / 100.0
+            value / 100
         } else {
             value
         };
@@ -373,9 +375,18 @@ pub fn parse_factor(
             let (unit, factor) = unit_result.unwrap();
             Ok(Factor::Number(
                 if is_imaginary {
-                    Value::from(value * factor).i()
+                    (if factor != 1. {
+                        value * Value::from(Decimal::from_f64_retain(factor).unwrap())
+                    } else {
+                        value
+                    })
+                    .i()
                 } else {
-                    Value::from(value * factor)
+                    if factor != 1. {
+                        value * Value::from(Decimal::from_f64_retain(factor).unwrap())
+                    } else {
+                        value
+                    }
                 }
                 .with_unit(unit),
             ))
@@ -384,11 +395,7 @@ pub fn parse_factor(
             if next_token(code, &mut j).is_ok_and(|token| token == "[") {
                 return Err(String::from("Expected unit"));
             }
-            Ok(Factor::Number(if is_imaginary {
-                Value::from(value).i()
-            } else {
-                Value::from(value)
-            }))
+            Ok(Factor::Number(if is_imaginary { value.i() } else { value }))
         }
     } else {
         // must be an identifier, could be for a variable or a call.
