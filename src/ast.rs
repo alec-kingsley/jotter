@@ -355,9 +355,9 @@ pub fn parse_factor(
         let mut j = i.clone();
         let is_imaginary = if next_token(code, &mut j).is_ok_and(|token| token == "i") {
             *i = j;
-            1f64
+            true
         } else {
-            0f64
+            false
         };
         let mut j = i.clone();
         let value = if next_token(code, &mut j).is_ok_and(|token| token == "%") {
@@ -371,17 +371,24 @@ pub fn parse_factor(
         if unit_result.is_ok() {
             *i = j;
             let (unit, factor) = unit_result.unwrap();
-            Ok(Factor::Number(Number::complex(
-                value * factor * (1f64 - is_imaginary),
-                value * factor * is_imaginary,
-                unit,
-            )))
+            Ok(Factor::Number(
+                if is_imaginary {
+                    Value::from(value * factor).i()
+                } else {
+                    Value::from(value * factor)
+                }
+                .with_unit(unit),
+            ))
         } else {
-            Ok(Factor::Number(Number::complex(
-                value * (1f64 - is_imaginary),
-                value * is_imaginary,
-                Unit::unitless(),
-            )))
+            let mut j = i.clone();
+            if next_token(code, &mut j).is_ok_and(|token| token == "[") {
+                return Err(String::from("Expected unit"));
+            }
+            Ok(Factor::Number(if is_imaginary {
+                Value::from(value).i()
+            } else {
+                Value::from(value)
+            }))
         }
     } else {
         // must be an identifier, could be for a variable or a call.

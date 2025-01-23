@@ -6,7 +6,7 @@ use std::ops::*;
 use crate::math_structs::factor::*;
 use crate::math_structs::identifier::*;
 use crate::math_structs::model::*;
-use crate::math_structs::number::*;
+use crate::math_structs::value::*;
 use crate::math_structs::polynomial::*;
 use crate::math_structs::term::*;
 
@@ -130,11 +130,11 @@ impl Expression {
         }
     }
 
-    /// Construct an `Expression` from a `Number`.
+    /// Construct an `Expression` from a `Value`.
     ///
-    pub fn from_number(number: Number) -> Self {
+    pub fn from_value(value: Value) -> Self {
         Self {
-            minuend: vec![Term::from_number(number)],
+            minuend: vec![Term::from_value(value)],
             subtrahend: Vec::new(),
         }
     }
@@ -213,18 +213,18 @@ impl Expression {
     /// Combine like terms in `Expression`.
     ///
     fn combine_like_terms(&mut self) {
-        let mut numbers: Vec<Number> = Vec::new();
+        let mut numbers: Vec<Value> = Vec::new();
         let mut terms: Vec<Term> = Vec::new();
 
         // extract all terms with their numeric factor
         for mut self_term in self.minuend.clone() {
-            let number = self_term.extract_number();
+            let number = self_term.extract_value();
             numbers.push(number);
             terms.push(self_term);
         }
 
         for mut self_term in self.subtrahend.clone() {
-            let number = self_term.extract_number();
+            let number = self_term.extract_value();
             numbers.push(-number);
             terms.push(self_term);
         }
@@ -241,7 +241,7 @@ impl Expression {
         }
 
         // restore self
-        let one = Number::unitless_one();
+        let one = Value::one();
 
         let zero = one.clone() - one.clone();
 
@@ -276,13 +276,13 @@ impl Expression {
         let mut polynomial = Polynomial {
             coefficients: Vec::new(),
         };
-        let zero = Number::unitless_zero();
+        let zero = Value::zero();
         for term in &self.minuend {
             if term.has_denominator() {
                 return None;
             }
             let mut degree = 0;
-            let mut coefficient = Number::unitless_one();
+            let mut coefficient = Value::one();
             for factor in term.numerator_ref() {
                 match factor {
                     Factor::Identifier(name) => {
@@ -312,7 +312,7 @@ impl Expression {
                 return None;
             }
             let mut degree = 0;
-            let mut coefficient = -Number::unitless_one();
+            let mut coefficient = -Value::one();
             for factor in term.numerator_ref() {
                 match factor {
                     Factor::Identifier(name) => {
@@ -347,20 +347,20 @@ impl Expression {
         }
     }
 
-    /// Tries to extract `self` as just a `Number`.
+    /// Tries to extract `self` as just a `Value`.
     ///
-    pub fn as_number(&self) -> Option<Number> {
+    pub fn as_value(&self) -> Option<Value> {
         if self.subtrahend.len() == 0 {
             if self.minuend.len() == 0 {
-                Some(Number::unitless_zero())
+                Some(Value::zero())
             } else if self.minuend.len() == 1 {
-                self.minuend[0].as_number()
+                self.minuend[0].as_value()
             } else {
                 None
             }
         } else if self.minuend.len() == 0 {
             if self.subtrahend.len() == 1 {
-                if let Some(number) = self.subtrahend[0].as_number() {
+                if let Some(number) = self.subtrahend[0].as_value() {
                     Some(-number)
                 } else {
                     None
@@ -421,13 +421,13 @@ impl Expression {
     /// # Arguments
     /// * `model` - Program model
     ///
-    pub fn simplify_whole_as_constants(&self, model: &Model) -> Result<HashSet<Number>, String> {
+    pub fn simplify_whole_as_constants(&self, model: &Model) -> Result<HashSet<Value>, String> {
         model
             .generate_possible_knowns()
             .iter()
             .map(|knowns| {
                 self.simplify(knowns, model, false)
-                    .and_then(|expr| expr.as_number().ok_or(String::from("Expected a number")))
+                    .and_then(|expr| expr.as_value().ok_or(String::from("Expected a number")))
             })
             .collect::<Result<HashSet<_>, _>>()
     }
@@ -441,7 +441,7 @@ impl Expression {
     ///
     pub fn simplify(
         &self,
-        knowns: &HashMap<Identifier, Number>,
+        knowns: &HashMap<Identifier, Value>,
         model: &Model,
         force_retrieve: bool,
     ) -> Result<Expression, String> {
@@ -663,7 +663,6 @@ impl<'a> IntoIterator for &'a Expression {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::math_structs::*;
     use crate::*;
 
     #[test]
@@ -674,21 +673,21 @@ mod tests {
     #[test]
     fn test_from_term_1() {
         let expected = ast::parse_expression("3", &mut 0).expect("ast::parse_expression - failure");
-        let actual = Expression::from_term(Term::from_number(Number::unitless_one() * 3f64));
+        let actual = Expression::from_term(Term::from_value(Value::from(3)));
         assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_from_factor_1() {
         let expected = ast::parse_expression("3", &mut 0).expect("ast::parse_expression - failure");
-        let actual = Expression::from_factor(Factor::Number(Number::unitless_one() * 3f64));
+        let actual = Expression::from_factor(Factor::Number(Value::from(3)));
         assert_eq!(expected, actual);
     }
 
     #[test]
-    fn test_from_number_1() {
+    fn test_from_value_1() {
         let expected = ast::parse_expression("3", &mut 0).expect("ast::parse_expression - failure");
-        let actual = Expression::from_number(Number::unitless_one() * 3f64);
+        let actual = Expression::from_value(Value::from(3));
         assert_eq!(expected, actual);
     }
 
@@ -720,20 +719,20 @@ mod tests {
     }
 
     #[test]
-    fn test_as_number_1() {
+    fn test_as_value_1() {
         let expression =
             ast::parse_expression("3", &mut 0).expect("ast::parse_expression - failure");
         assert_eq!(
-            Some(Number::real(3f64, Unit::unitless())),
-            expression.as_number()
+            Some(Value::from(3)),
+            expression.as_value()
         );
     }
 
     #[test]
-    fn test_as_number_2() {
+    fn test_as_value_2() {
         let expression =
             ast::parse_expression("a", &mut 0).expect("ast::parse_expression - failure");
-        assert_eq!(None, expression.as_number());
+        assert_eq!(None, expression.as_value());
     }
 
     #[test]
@@ -970,7 +969,7 @@ mod tests {
 
     #[test]
     fn test_simplify_1() {
-        let knowns: HashMap<Identifier, Number> = HashMap::new();
+        let knowns: HashMap<Identifier, Value> = HashMap::new();
         let model = Model::new(0);
         let force_retrieve = false;
         let result = ast::parse_expression("3 + 2", &mut 0)
@@ -983,7 +982,7 @@ mod tests {
 
     #[test]
     fn test_simplify_2() {
-        let knowns: HashMap<Identifier, Number> = HashMap::new();
+        let knowns: HashMap<Identifier, Value> = HashMap::new();
         let model = Model::new(0);
         let force_retrieve = false;
         let result = ast::parse_expression("3a + 2a", &mut 0)
@@ -997,9 +996,9 @@ mod tests {
 
     #[test]
     fn test_simplify_3() {
-        let knowns: HashMap<Identifier, Number> = HashMap::from([(
+        let knowns: HashMap<Identifier, Value> = HashMap::from([(
             Identifier::new("a").unwrap(),
-            Number::real(3f64, Unit::unitless()),
+            Value::from(3),
         )]);
         let model = Model::new(0);
         let force_retrieve = false;

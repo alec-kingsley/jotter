@@ -6,7 +6,7 @@ use crate::math_structs::expression::*;
 use crate::math_structs::factor::*;
 use crate::math_structs::identifier::*;
 use crate::math_structs::model::*;
-use crate::math_structs::number::*;
+use crate::math_structs::value::*;
 use crate::math_structs::term::*;
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
@@ -50,11 +50,11 @@ impl Relation {
         }
     }
 
-    /// Construct a `Relation` from a `Number`.
+    /// Construct a `Relation` from a `Value`.
     ///
-    pub fn from_number(number: Number) -> Self {
+    pub fn from_value(value: Value) -> Self {
         Self {
-            operands: vec![Expression::from_number(number)],
+            operands: vec![Expression::from_value(value)],
             operators: Vec::new(),
         }
     }
@@ -99,11 +99,11 @@ impl Relation {
         }
     }
 
-    /// Tries to extract `self` as just a `Number`.
+    /// Tries to extract `self` as just a `Value`.
     ///
-    pub fn as_number(&self) -> Option<Number> {
+    pub fn as_value(&self) -> Option<Value> {
         if self.operands.len() == 1 {
-            self.operands[0].as_number()
+            self.operands[0].as_value()
         } else {
             None
         }
@@ -157,13 +157,13 @@ impl Relation {
     /// # Arguments
     /// * `model` - Program model
     ///
-    pub fn simplify_whole_as_constants(&self, model: &Model) -> Result<HashSet<Number>, String> {
+    pub fn simplify_whole_as_constants(&self, model: &Model) -> Result<HashSet<Value>, String> {
         model
             .generate_possible_knowns()
             .iter()
             .map(|knowns| {
                 self.simplify(knowns, model, false)
-                    .and_then(|expr| expr.as_number().ok_or(String::from("Expected a number")))
+                    .and_then(|expr| expr.as_value().ok_or(String::from("Expected a number")))
             })
             .collect::<Result<HashSet<_>, _>>()
     }
@@ -179,7 +179,7 @@ impl Relation {
     ///
     pub fn simplify(
         &self,
-        knowns: &HashMap<Identifier, Number>,
+        knowns: &HashMap<Identifier, Value>,
         model: &Model,
         force_retrieve: bool,
     ) -> Result<Relation, String> {
@@ -309,7 +309,7 @@ impl Display for Relation {
 /// get a general true relation
 ///
 pub fn get_true_relation() -> Relation {
-    let zero = Expression::from_number(Number::unitless_zero());
+    let zero = Expression::from_value(Value::zero());
     Relation {
         operands: vec![zero.clone(), zero.clone()],
         operators: vec![RelationOp::Equal],
@@ -353,7 +353,6 @@ impl<'a> IntoIterator for &'a Relation {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::math_structs::*;
     use crate::*;
 
     #[test]
@@ -369,21 +368,21 @@ mod test {
     #[test]
     fn test_from_term_1() {
         let expected = ast::parse_relation("3", &mut 0).expect("ast::parse_relation - failure");
-        let actual = Relation::from_term(Term::from_number(Number::unitless_one() * 3f64));
+        let actual = Relation::from_term(Term::from_value(Value::from(3)));
         assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_from_factor_1() {
         let expected = ast::parse_relation("3", &mut 0).expect("ast::parse_relation - failure");
-        let actual = Relation::from_factor(Factor::Number(Number::unitless_one() * 3f64));
+        let actual = Relation::from_factor(Factor::Number(Value::from(3)));
         assert_eq!(expected, actual);
     }
 
     #[test]
-    fn test_from_number_1() {
+    fn test_from_value_1() {
         let expected = ast::parse_relation("3", &mut 0).expect("ast::parse_relation - failure");
-        let actual = Relation::from_number(Number::unitless_one() * 3f64);
+        let actual = Relation::from_value(Value::from(3));
         assert_eq!(expected, actual);
     }
 
@@ -461,28 +460,28 @@ mod test {
     fn test_as_bool_3() {
         assert_eq!(
             None,
-            Relation::from_expression(Expression::from_number(Number::unitless_one())).as_bool()
+            Relation::from_expression(Expression::from_value(Value::one())).as_bool()
         );
     }
 
     #[test]
-    fn test_as_number_1() {
+    fn test_as_value_1() {
         let relation = ast::parse_relation("3", &mut 0).expect("ast::parse_relation - failure");
         assert_eq!(
-            Some(Number::real(3f64, Unit::unitless())),
-            relation.as_number()
+            Some(Value::from(3)),
+            relation.as_value()
         );
     }
 
     #[test]
-    fn test_as_number_2() {
+    fn test_as_value_2() {
         let relation = ast::parse_relation("a", &mut 0).expect("ast::parse_relation - failure");
-        assert_eq!(None, relation.as_number());
+        assert_eq!(None, relation.as_value());
     }
 
     #[test]
     fn test_simplify_1() {
-        let knowns: HashMap<Identifier, Number> = HashMap::new();
+        let knowns: HashMap<Identifier, Value> = HashMap::new();
         let model = Model::new(0);
         let force_retrieve = false;
         let result = ast::parse_relation("3 + 2", &mut 0)
@@ -495,7 +494,7 @@ mod test {
 
     #[test]
     fn test_simplify_2() {
-        let knowns: HashMap<Identifier, Number> = HashMap::new();
+        let knowns: HashMap<Identifier, Value> = HashMap::new();
         let model = Model::new(0);
         let force_retrieve = false;
         let result = ast::parse_relation("3a + 2a", &mut 0)
@@ -509,9 +508,9 @@ mod test {
 
     #[test]
     fn test_simplify_3() {
-        let knowns: HashMap<Identifier, Number> = HashMap::from([(
+        let knowns: HashMap<Identifier, Value> = HashMap::from([(
             Identifier::new("a").unwrap(),
-            Number::real(3f64, Unit::unitless()),
+            Value::from(3),
         )]);
         let model = Model::new(0);
         let force_retrieve = false;

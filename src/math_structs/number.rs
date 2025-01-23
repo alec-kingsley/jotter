@@ -1,32 +1,28 @@
+use rust_decimal::prelude::*;
+
 use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::convert::From;
 use std::fmt;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::ops::*;
 
-use crate::math_structs::unit::*;
+static SIGNIFICANT_DIGITS: u32 = 10;
 
-static EPSILON: f64 = 1e-10;
-
-#[derive(Debug, Clone)]
-pub struct Number {
-    /// Real component of numeric literal.
-    real: f64,
-    /// Imaginary component of numeric literal.
-    imaginary: f64,
-    /// Unit of the numeric literal.
-    unit: Unit,
+#[derive(Debug, Clone, Copy)]
+pub enum Number {
+    /// Rational number known exactly, stored in reduced form.
+    Rational(i64, i64),
+    /// Decimal number with possible lost precision.
+    Approximate(Decimal),
 }
 
 impl Hash for Number {
     /// Hash for a `Number`.
-    /// Necesarry since f64.hash() does not exist.
     ///
     fn hash<H: Hasher>(&self, state: &mut H) {
         // they're equal if they look equal
         self.to_string().hash(state);
-        self.unit.hash(state);
     }
 }
 
@@ -34,76 +30,90 @@ impl PartialEq for Number {
     /// Operator overload for ==.
     ///
     fn eq(&self, other: &Self) -> bool {
-        self.unit == other.unit && {
-            let mut other_clone = other.clone();
-            let exp_diff = other_clone.unit.exponent - self.unit.exponent;
-            other_clone.unit.exponent -= exp_diff;
-            other_clone.real *= (10 as f64).powi(exp_diff as i32);
-            other_clone.imaginary *= (10 as f64).powi(exp_diff as i32);
-            other_clone.real < self.real + EPSILON
-                && other_clone.real > self.real - EPSILON
-                && other_clone.imaginary < self.imaginary + EPSILON
-                && other_clone.imaginary > self.imaginary - EPSILON
+        match self {
+            &Number::Rational(self_numerator, self_denominator) => match other {
+                &Number::Rational(other_numerator, other_denominator) => {
+                    self_numerator == other_numerator && self_denominator == other_denominator
+                }
+                &Number::Approximate(other_decimal) => {
+                    (Decimal::from(self_numerator) / Decimal::from(self_denominator))
+                        .round_dp(SIGNIFICANT_DIGITS)
+                        == other_decimal.round_dp(SIGNIFICANT_DIGITS)
+                }
+            },
+            &Number::Approximate(self_decimal) => match other {
+                &Number::Rational(other_numerator, other_denominator) => {
+                    self_decimal.round_dp(SIGNIFICANT_DIGITS)
+                        == (Decimal::from(other_numerator) / Decimal::from(other_denominator))
+                            .round_dp(SIGNIFICANT_DIGITS)
+                }
+                &Number::Approximate(other_decimal) => {
+                    self_decimal.round_dp(SIGNIFICANT_DIGITS)
+                        == other_decimal.round_dp(SIGNIFICANT_DIGITS)
+                }
+            },
         }
     }
 }
 
 impl Eq for Number {}
 
+/// Gets the greatest common denominator of `x` and `y`.
+///
+/// # Arguments
+/// * `x` - the first argument
+/// * `y` - the second argument
+///
+const fn gcd(x: i64, y: i64) -> i64 {
+    let x = x.abs();
+    let y = y.abs();
+    if x == y || y == 0 {
+        x
+    } else if x == 0 {
+        y
+    } else if x < y {
+        gcd(x, y - x)
+    } else {
+        gcd(y, x - y)
+    }
+}
+
+/// Gets the least common multiple of `x` and `y`.
+///
+/// # Arguments
+/// * `x` - the first argument
+/// * `y` - the second argument
+///
+const fn lcm(x: i64, y: i64) -> i64 {
+    x / gcd(x, y) * y
+}
+
 impl Number {
-    /// Constructor for a real number.
+    pub const ZERO: Number = Number::Rational(0, 1);
+    pub const ONE: Number = Number::Rational(1, 1);
+
+    /// Reduces a Rational number to its simplest form.
     ///
-    /// # Arguments
-    /// * `value` - value of the number
-    /// * `unit` - unit of the number
+    /// # Requires
+    /// `self` is a Number::Rational
     ///
-    pub fn real(value: f64, unit: Unit) -> Self {
-        Self {
-            real: value,
-            imaginary: 0f64,
-            unit,
+    fn reduce_rational(&self) -> Self {
+        if let &Number::Rational(numerator, denominator) = self {
+            let gcd = gcd(numerator, denominator);
+            Number::Rational(numerator / gcd, denominator / gcd)
+        } else {
+            panic!("reduce_rational called with Approximate value");
         }
     }
 
-    /// Constructor for a complex number.
+    /// Returns true iff `self` is exact.
     ///
-    /// # Arguments
-    /// * `real` - real component of the number
-    /// * `imaginary` - imaginary component of the number
-    /// * `unit` - unit of the number
-    ///
-    pub fn complex(real: f64, imaginary: f64, unit: Unit) -> Self {
-        Self {
-            real,
-            imaginary,
-            unit,
+    pub fn is_exact(&self) -> bool {
+        if let Number::Approximate(_) = self {
+            false
+        } else {
+            true
         }
-    }
-
-    /// Constructor for unitless one.
-    ///
-    pub fn unitless_one() -> Self {
-        Self {
-            real: 1f64,
-            imaginary: 0f64,
-            unit: Unit::unitless(),
-        }
-    }
-
-    /// Constructor for unitless zero.
-    ///
-    pub fn unitless_zero() -> Self {
-        Self {
-            real: 0f64,
-            imaginary: 0f64,
-            unit: Unit::unitless(),
-        }
-    }
-
-    /// Get an immutable reference to `self.unit`.
-    ///
-    pub fn get_unit(&self) -> &Unit {
-        &self.unit
     }
 
     /// Takes `self` to the `pow`'th power and returns it.
@@ -111,278 +121,113 @@ impl Number {
     /// # Arguments:
     /// * `pow` - the power to be raised to
     ///
-    pub fn powi(&self, pow: u32) -> Number {
-        let mut builder = Number {
-            real: 1f64,
-            imaginary: 0f64,
-            unit: Unit::unitless(),
-        };
-        for _ in 0..pow {
-            builder *= self.clone();
+    pub fn powi(&self, pow: u32) -> Self {
+        match self {
+            &Number::Rational(numerator, denominator) => {
+                Number::Rational(numerator.pow(pow), denominator.pow(pow))
+            }
+            &Number::Approximate(decimal) => Number::Approximate(decimal.powu(pow as u64)),
         }
-
-        builder
     }
 
     /// Returns the absolute value of the number.
-    /// Does not consider unit.
     ///
-    pub fn abs(&self) -> f64 {
-        (self.real * self.real + self.imaginary * self.imaginary).sqrt()
+    pub fn abs(&self) -> Self {
+        if self.is_negative() {
+            -self.clone()
+        } else {
+            self.clone()
+        }
     }
 
-    /// Returns true iff the number has a value of 1
+    /// Returns true iff the number has a value of 1.
     ///
-    pub fn is_unitless_one(&self) -> bool {
-        let tester = self.real * 10f64.powi(self.unit.exponent as i32) as f64;
-        tester + EPSILON > 1f64
-            && 1f64 > tester - EPSILON
-            && self.imaginary - EPSILON < 0f64
-            && 0f64 < self.imaginary + EPSILON
-            && self.unit.is_unitless()
+    pub fn is_one(&self) -> bool {
+        self == &Number::from(1)
     }
 
-    /// Returns true iff the number has a value of 0
+    /// Returns true iff the number has a value of 0.
     ///
     pub fn is_zero(&self) -> bool {
-        self.real - EPSILON < 0f64
-            && 0f64 < self.real + EPSILON
-            && self.imaginary - EPSILON < 0f64
-            && 0f64 < self.imaginary + EPSILON
+        self == &Number::from(0)
     }
 
-    /// Returns true iff the number is in the real set.
+    /// Returns true iff the number is negative.
     ///
-    pub fn is_real(&self) -> bool {
-        self.imaginary - EPSILON < 0f64 && 0f64 < self.imaginary + EPSILON
-    }
-
-    /// Refactor the unit such that its `unit.exponent` is divisible by `subunit_exponent`.
-    /// It must also either be divisible by 3 or have a magnitude less than 3.
-    ///
-    /// # Arguments
-    /// * `subunit_exponent` - thing to be divisible by.
-    pub fn refactor_exponent(&mut self, subunit_exponent: i8) {
-        // try to force self to be within 3 digits from 0
-        while self.abs() >= 1.0 {
-            self.real /= 10.0;
-            self.imaginary /= 10.0;
-            self.unit.exponent += 1;
-        }
-        while !self.is_zero() && self.abs() < 1.0 {
-            self.real *= 10.0;
-            self.imaginary *= 10.0;
-            self.unit.exponent -= 1;
-        }
-
-        // ensure exponent exists
-        if self.unit.exponent > 0 {
-            while self.unit.exponent > 30
-                || (subunit_exponent != 0 && self.unit.exponent % (3 * subunit_exponent) != 0)
-            {
-                self.real *= 10.0;
-                self.imaginary *= 10.0;
-                self.unit.exponent -= 1;
-            }
-        } else {
-            while self.unit.exponent < -30
-                || (subunit_exponent != 0 && self.unit.exponent % (3 * subunit_exponent) != 0)
-            {
-                self.real /= 10.0;
-                self.imaginary /= 10.0;
-                self.unit.exponent += 1;
-            }
+    pub fn is_negative(&self) -> bool {
+        match self {
+            &Number::Rational(numerator, denominator) => (numerator < 0) != (denominator < 0),
+            &Number::Approximate(decimal) => decimal.is_sign_negative(),
         }
     }
 }
 
-/// get appropriate SI prefix for a given power of 10
-/// and power on the unit.
-///
-fn get_si_prefix(exponent: i8, unit_power: i8) -> String {
-    HashMap::from([
-        (30, "Q"), // quetta
-        (27, "R"), // ronna
-        (24, "Y"), // yotta
-        (21, "Z"), // zotta
-        (18, "E"), // exa
-        (15, "P"), // peta
-        (12, "T"), // tera
-        (9, "G"),  // giga
-        (6, "M"),  // mega
-        (3, "k"),  // kilo
-        (2, "h"),  // hecto
-        (1, "da"), // deka
-        (0, ""),
-        (-1, "d"),  // deci
-        (-2, "c"),  // centi
-        (-3, "m"),  // milli
-        (-6, "μ"),  // micro
-        (-9, "n"),  // nano
-        (-12, "p"), // pico
-        (-15, "f"), // femto
-        (-18, "a"), // atto
-        (-21, "z"), // zepto
-        (-24, "y"), // yocto
-        (-27, "r"), // ronto
-        (-30, "q"), // quecto
-    ])
-    .get(&(exponent / unit_power))
-    .expect("No SI prefix for power")
-    .to_string()
+impl From<i64> for Number {
+    fn from(num: i64) -> Self {
+        Number::Rational(num, 1)
+    }
+}
+
+impl From<f64> for Number {
+    fn from(num: f64) -> Self {
+        Number::Approximate(Decimal::from_f64_retain(num).unwrap())
+    }
+}
+
+impl From<Decimal> for Number {
+    fn from(num: Decimal) -> Self {
+        Number::Approximate(num)
+    }
+}
+
+impl From<Number> for Decimal {
+    fn from(num: Number) -> Decimal {
+        match num {
+            Number::Rational(numerator, denominator) => {
+                Decimal::from(numerator) / Decimal::from(denominator)
+            }
+            Number::Approximate(decimal) => decimal,
+        }
+    }
+}
+
+impl TryFrom<String> for Number {
+    type Error = &'static str;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        if let Ok(i64_val) = value.parse::<i64>() {
+            Ok(Number::from(i64_val))
+        } else if let Ok(f64_val) = value.parse::<f64>() {
+            Ok(Number::from(f64_val))
+        } else {
+            Err("FUCK")
+        }
+    }
 }
 
 impl Display for Number {
     /// Format `Number` appropriately.
     ///
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut self_clone = self.clone();
-        let unit_abbreviations = HashMap::from([
-            (BaseUnit::Meter, "m"),     // m
-            (BaseUnit::Kilogram, "kg"), // kg
-            (BaseUnit::Second, "s"),    // s
-            (BaseUnit::Ampere, "A"),    // A
-            (BaseUnit::Kelvin, "K"),    // K
-            (BaseUnit::Mole, "mol"),    // mol
-            (BaseUnit::Candela, "cd"),  // cd
-        ]);
-
-        let mut numerator = String::new();
-        let mut denominator = String::new();
-        let mut processed_prefix = false;
-        for (base_unit, unit_power) in self_clone.unit.constituents.clone() {
-            if unit_power == 0 {
-                continue;
-            }
-
-            let mut unit_name = unit_abbreviations.get(&base_unit).unwrap().to_string();
-            // assign power on first iteration
-            if !processed_prefix {
-                self_clone.refactor_exponent(unit_power);
-                unit_name = if unit_name == "kg" {
-                    if unit_power > 0i8 {
-                        format!(
-                            "{}g",
-                            get_si_prefix(self_clone.unit.exponent + 3, unit_power)
-                        )
-                    } else {
-                        format!(
-                            "{}g",
-                            get_si_prefix(self_clone.unit.exponent - 3, unit_power)
-                        )
-                    }
+        let neg_sign = if self.is_negative() { "-" } else { "" };
+        let number = self.abs();
+        match number {
+            Number::Rational(numerator, denominator) => {
+                if denominator.is_one() {
+                    write!(f, "{neg_sign}{numerator}")
+                } else if numerator.is_zero() {
+                    write!(f, "0")
                 } else {
-                    format!(
-                        "{}{unit_name}",
-                        get_si_prefix(self_clone.unit.exponent, unit_power)
-                    )
-                };
-                processed_prefix = true;
-            }
-
-            // build units
-            if unit_power > 0i8 {
-                numerator = if numerator.is_empty() {
-                    unit_name
-                } else {
-                    format!("{numerator} {}", unit_name)
-                };
-                if unit_power > 1i8 {
-                    numerator = format!("{numerator}^{}", unit_power);
-                }
-            } else if unit_power < 0i8 {
-                denominator = if denominator.is_empty() {
-                    unit_name
-                } else {
-                    format!("{denominator} / {}", unit_name)
-                };
-                if unit_power < -1i8 {
-                    denominator = format!("{denominator}^{}", -unit_power);
+                    write!(f, "{neg_sign}{numerator}/{denominator}")
                 }
             }
-        }
-
-        // if unitless or whatever, put the prefix in the number
-        if !processed_prefix {
-            self_clone.real *= 10f64.powi(self_clone.unit.exponent as i32);
-            self_clone.imaginary *= 10f64.powi(self_clone.unit.exponent as i32);
-        }
-
-        // write final result depending on numerator/denominator contents
-        let numeric_str = if self.imaginary + EPSILON > 0f64 && 0f64 > self.imaginary - EPSILON {
-            format!("{:.10}", self_clone.real)
-                .trim_end_matches('0')
-                .trim_end_matches('.')
-                .to_owned()
-        } else if self.real + EPSILON > 0f64 && 0f64 > self.real - EPSILON {
-            if self_clone.imaginary + EPSILON > 1f64 && 1f64 > self_clone.imaginary - EPSILON {
-                String::from("i")
-            } else if self_clone.imaginary + EPSILON > -1f64
-                && -1f64 > self_clone.imaginary - EPSILON
-            {
-                String::from("-i")
-            } else {
-                format!("{:.10}", self_clone.imaginary)
-                    .trim_end_matches('0')
-                    .trim_end_matches('.')
-                    .to_owned()
-                    + "i"
-            }
-        } else {
-            if self_clone.imaginary > 0f64 {
-                format!("{:.10}", self_clone.real)
-                    .trim_end_matches('0')
-                    .trim_end_matches('.')
-                    .to_owned()
-                    + if self_clone.imaginary + EPSILON > 1f64
-                        && 1f64 > self_clone.imaginary - EPSILON
-                    {
-                        String::from(" + i")
-                    } else {
-                        format!(" + {:.10}", self_clone.imaginary)
-                            .trim_end_matches('0')
-                            .trim_end_matches('.')
-                            .to_owned()
-                            + "i"
-                    }
-                    .as_str()
-            } else {
-                format!("{:.10}", self_clone.real)
-                    .trim_end_matches('0')
-                    .trim_end_matches('.')
-                    .to_owned()
-                    + if self_clone.imaginary + EPSILON > -1f64
-                        && 1f64 > self_clone.imaginary - EPSILON
-                    {
-                        String::from(" - i")
-                    } else {
-                        format!(" - {:.10}", -self_clone.imaginary)
-                            .trim_end_matches('0')
-                            .trim_end_matches('.')
-                            .to_owned()
-                            + "i"
-                    }
-                    .as_str()
-            }
-        };
-        let numeric_str = if !(numerator.is_empty() && denominator.is_empty())
-            && (self_clone.real != 0f64 && self_clone.imaginary != 0f64)
-        {
-            format!("({})", numeric_str)
-        } else {
-            numeric_str
-        };
-        if numerator.is_empty() {
-            if denominator.is_empty() {
-                write!(f, "{}", numeric_str)
-            } else {
-                write!(f, "{} [1 / {}]", numeric_str, denominator)
-            }
-        } else {
-            if denominator.is_empty() {
-                write!(f, "{} [{}]", numeric_str, numerator)
-            } else {
-                write!(f, "{} [{} / {}]", numeric_str, numerator, denominator)
+            Number::Approximate(decimal) => {
+                let decimal = decimal.round_dp(SIGNIFICANT_DIGITS).normalize();
+                if decimal.is_integer() {
+                    write!(f, "{neg_sign}{decimal}.")
+                } else {
+                    write!(f, "{neg_sign}{decimal}")
+                }
             }
         }
     }
@@ -394,18 +239,30 @@ impl Add for Number {
     /// Operator overload for +.
     ///
     fn add(self, other: Self) -> Self {
-        assert!(self.unit == other.unit, "Mismatched types");
-        let mut other_clone = other.clone();
-        let exp_diff = other_clone.unit.exponent - self.unit.exponent;
-        other_clone.unit.exponent -= exp_diff;
-        other_clone.real = other_clone.real * (10 as f64).powi(exp_diff as i32) as f64;
-        other_clone.imaginary = other_clone.imaginary * (10 as f64).powi(exp_diff as i32) as f64;
-        other_clone.real *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
-        other_clone.imaginary *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
-        Self {
-            real: self.real + other_clone.real,
-            imaginary: self.imaginary + other_clone.imaginary,
-            unit: self.unit,
+        match self {
+            Number::Rational(self_numerator, self_denominator) => match other {
+                Number::Rational(other_numerator, other_denominator) => {
+                    let lcm = lcm(self_denominator, other_denominator);
+                    Number::Rational(
+                        self_numerator * (lcm / self_denominator)
+                            + other_numerator * (lcm / other_denominator),
+                        lcm,
+                    )
+                    .reduce_rational()
+                }
+                Number::Approximate(other_decimal) => Number::Approximate(
+                    Decimal::from(self_numerator) / Decimal::from(self_denominator) + other_decimal,
+                ),
+            },
+            Number::Approximate(self_decimal) => match other {
+                Number::Rational(other_numerator, other_denominator) => Number::Approximate(
+                    self_decimal
+                        + Decimal::from(other_numerator) / Decimal::from(other_denominator),
+                ),
+                Number::Approximate(other_decimal) => {
+                    Number::Approximate(self_decimal + other_decimal)
+                }
+            },
         }
     }
 }
@@ -414,17 +271,7 @@ impl AddAssign for Number {
     /// Operator overload for +=.
     ///
     fn add_assign(&mut self, other: Self) {
-        // only add if the other is not equal to 0
-        // reason for this is that 0m/s + 3m would sensibly be 3m, even though
-        // (m/s + m) is not a valid unit.
-        //
-        // this does not apply to plus by itself since it's not obvious which should
-        // be prioritized.
-        //
-        // also the initial unit is prioritized for +=
-        if !other.is_zero() {
-            self.clone_from(&(self.clone() + other));
-        }
+        self.clone_from(&(self.clone() + other))
     }
 }
 
@@ -434,10 +281,9 @@ impl Neg for Number {
     /// Operator overload for unary -.
     ///
     fn neg(self) -> Self {
-        Self {
-            real: -self.real,
-            imaginary: -self.imaginary,
-            unit: self.unit,
+        match self {
+            Number::Rational(numerator, denominator) => Number::Rational(-numerator, denominator),
+            Number::Approximate(decimal) => Number::Approximate(-decimal),
         }
     }
 }
@@ -448,18 +294,30 @@ impl Sub for Number {
     /// Operator overload for -.
     ///
     fn sub(self, other: Self) -> Self {
-        assert!(self.unit == other.unit, "Mismatched types");
-        let mut other_clone = other.clone();
-        let exp_diff = other_clone.unit.exponent - self.unit.exponent;
-        other_clone.unit.exponent -= exp_diff;
-        other_clone.real = other_clone.real * (10 as f64).powi(exp_diff as i32);
-        other_clone.imaginary = other_clone.imaginary * (10 as f64).powi(exp_diff as i32);
-        other_clone.real *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
-        other_clone.imaginary *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
-        Self {
-            real: self.real - other_clone.real,
-            imaginary: self.imaginary - other_clone.imaginary,
-            unit: self.unit,
+        match self {
+            Number::Rational(self_numerator, self_denominator) => match other {
+                Number::Rational(other_numerator, other_denominator) => {
+                    let lcm = lcm(self_denominator, other_denominator);
+                    Number::Rational(
+                        self_numerator * (lcm / self_denominator)
+                            - other_numerator * (lcm / other_denominator),
+                        lcm,
+                    )
+                    .reduce_rational()
+                }
+                Number::Approximate(other_decimal) => Number::Approximate(
+                    Decimal::from(self_numerator) / Decimal::from(self_denominator) - other_decimal,
+                ),
+            },
+            Number::Approximate(self_decimal) => match other {
+                Number::Rational(other_numerator, other_denominator) => Number::Approximate(
+                    self_decimal
+                        - Decimal::from(other_numerator) / Decimal::from(other_denominator),
+                ),
+                Number::Approximate(other_decimal) => {
+                    Number::Approximate(self_decimal - other_decimal)
+                }
+            },
         }
     }
 }
@@ -468,17 +326,7 @@ impl SubAssign for Number {
     /// Operator overload for -=.
     ///
     fn sub_assign(&mut self, other: Self) {
-        // only subtract if the other is not equal to 0
-        // reason for this is that 3m/s - 0m would sensibly be 3m/s, even though
-        // (m/s - m) is not a valid unit.
-        //
-        // this does not apply to minus by itself since it's not obvious which should
-        // be prioritized.
-        //
-        // also the initial unit is prioritized for -=
-        if !other.clone().is_zero() {
-            self.clone_from(&(self.clone() - other));
-        }
+        self.clone_from(&(self.clone() - other))
     }
 }
 
@@ -488,16 +336,28 @@ impl Mul for Number {
     /// Operator overload for *.
     ///
     fn mul(self, other: Self) -> Self {
-        let mut constituents = self.unit.constituents;
-        for (base_unit, power) in other.unit.constituents {
-            *constituents.entry(base_unit).or_insert(0) += power;
-        }
-        Self {
-            real: self.real * other.real - self.imaginary * other.imaginary,
-            imaginary: self.real * other.imaginary + self.imaginary * other.real,
-            unit: Unit {
-                exponent: self.unit.exponent + other.unit.exponent,
-                constituents,
+        match self {
+            Number::Rational(self_numerator, self_denominator) => match other {
+                Number::Rational(other_numerator, other_denominator) => {
+                    let down_gcd = gcd(self_numerator, other_denominator);
+                    let up_gcd = gcd(self_denominator, other_numerator);
+                    Number::Rational(
+                        (self_numerator / down_gcd) * (other_numerator / up_gcd),
+                        (self_denominator / up_gcd) * (other_denominator / down_gcd),
+                    )
+                }
+                Number::Approximate(other_decimal) => Number::Approximate(
+                    Decimal::from(self_numerator) / Decimal::from(self_denominator) * other_decimal,
+                ),
+            },
+            Number::Approximate(self_decimal) => match other {
+                Number::Rational(other_numerator, other_denominator) => Number::Approximate(
+                    Decimal::from(other_numerator) / Decimal::from(other_denominator)
+                        * self_decimal,
+                ),
+                Number::Approximate(other_decimal) => {
+                    Number::Approximate(self_decimal * other_decimal)
+                }
             },
         }
     }
@@ -507,25 +367,27 @@ impl MulAssign for Number {
     /// Operator overload for *=.
     ///
     fn mul_assign(&mut self, other: Self) {
-        self.clone_from(&(self.clone() * other));
+        self.clone_from(&(self.clone() * other))
     }
 }
 
-impl Mul<f64> for Number {
+impl Mul<i64> for Number {
     type Output = Self;
 
-    fn mul(self, rhs: f64) -> Self {
-        Self {
-            real: self.real * rhs,
-            imaginary: self.imaginary * rhs,
-            unit: self.unit,
+    fn mul(self, rhs: i64) -> Self {
+        match self {
+            Number::Rational(numerator, denominator) => {
+                let gcd = gcd(denominator, rhs);
+                Number::Rational(numerator * (rhs / gcd), denominator / gcd)
+            }
+            Number::Approximate(decimal) => Number::Approximate(decimal * Decimal::from(rhs)),
         }
     }
 }
 
-impl MulAssign<f64> for Number {
-    fn mul_assign(&mut self, rhs: f64) {
-        self.clone_from(&(self.clone() * rhs));
+impl MulAssign<i64> for Number {
+    fn mul_assign(&mut self, rhs: i64) {
+        self.clone_from(&(self.clone() * rhs))
     }
 }
 
@@ -535,19 +397,28 @@ impl Div for Number {
     /// Operator overload for /.
     ///
     fn div(self, other: Self) -> Self {
-        let mut constituents = self.unit.constituents;
-        for (base_unit, power) in other.unit.constituents {
-            *constituents.entry(base_unit).or_insert(0) -= power;
-        }
-        // ain't no way I finally used the complex conjugate thing from linear alg
-        let divisor = other.real * other.real + other.imaginary * other.imaginary;
-
-        Self {
-            real: (self.real * other.real + self.imaginary * other.imaginary) / divisor,
-            imaginary: (-self.real * other.imaginary + self.imaginary * other.real) / divisor,
-            unit: Unit {
-                exponent: self.unit.exponent - other.unit.exponent,
-                constituents,
+        match self {
+            Number::Rational(self_numerator, self_denominator) => match other {
+                Number::Rational(other_numerator, other_denominator) => {
+                    let down_gcd = gcd(self_numerator, other_numerator);
+                    let up_gcd = gcd(self_denominator, other_denominator);
+                    Number::Rational(
+                        (self_numerator / down_gcd) * (other_denominator / up_gcd),
+                        (self_denominator / up_gcd) * (other_numerator / down_gcd),
+                    )
+                }
+                Number::Approximate(other_decimal) => Number::Approximate(
+                    Decimal::from(self_numerator) / Decimal::from(self_denominator) / other_decimal,
+                ),
+            },
+            Number::Approximate(self_decimal) => match other {
+                Number::Rational(other_numerator, other_denominator) => Number::Approximate(
+                    self_decimal
+                        / (Decimal::from(other_numerator) / Decimal::from(other_denominator)),
+                ),
+                Number::Approximate(other_decimal) => {
+                    Number::Approximate(self_decimal / other_decimal)
+                }
             },
         }
     }
@@ -557,53 +428,60 @@ impl DivAssign for Number {
     /// Operator overload for /=.
     ///
     fn div_assign(&mut self, other: Self) {
-        self.clone_from(&(self.clone() / other));
+        self.clone_from(&(self.clone() / other))
     }
 }
 
-impl Div<f64> for Number {
+impl Div<i64> for Number {
     type Output = Self;
 
-    fn div(self, rhs: f64) -> Self {
-        Self {
-            real: self.real / rhs,
-            imaginary: self.imaginary / rhs,
-            unit: self.unit,
+    fn div(self, rhs: i64) -> Self {
+        match self {
+            Number::Rational(numerator, denominator) => {
+                let gcd = gcd(numerator, rhs);
+                Number::Rational(numerator / gcd, denominator * (rhs / gcd))
+            }
+            Number::Approximate(decimal) => Number::Approximate(decimal / Decimal::from(rhs)),
         }
     }
 }
 
-impl DivAssign<f64> for Number {
-    fn div_assign(&mut self, rhs: f64) {
-        self.clone_from(&(self.clone() / rhs));
+impl DivAssign<i64> for Number {
+    fn div_assign(&mut self, rhs: i64) {
+        self.clone_from(&(self.clone() / rhs))
     }
 }
 
 impl PartialOrd for Number {
     /// Operator overload for <, >, <=, >=
-    /// Returns None for complex numbers.
     ///
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        assert!(
-            self.unit == other.unit || (self.is_zero() || other.is_zero()),
-            "Mismatched types"
-        );
-
-        if self == other {
-            Some(Ordering::Equal)
-        } else if self.is_real() && other.is_real() {
-            let mut other_clone = other.clone();
-            let exp_diff = other_clone.unit.exponent - self.unit.exponent;
-            other_clone.unit.exponent -= exp_diff;
-            other_clone.real = other_clone.real * (10 as f64).powi(exp_diff as i32);
-            other_clone.real *= 10f64.powi((other.unit.exponent - self.unit.exponent) as i32);
-            Some(if self.real < other_clone.real {
-                Ordering::Less
-            } else {
-                Ordering::Greater
-            })
-        } else {
-            None
+        match self {
+            &Number::Rational(self_numerator, self_denominator) => match other {
+                &Number::Rational(other_numerator, other_denominator) => {
+                    (Decimal::from(self_numerator) / Decimal::from(self_denominator))
+                        .round_dp(SIGNIFICANT_DIGITS)
+                        .partial_cmp(
+                            &(Decimal::from(other_numerator) / Decimal::from(other_denominator))
+                                .round_dp(SIGNIFICANT_DIGITS),
+                        )
+                }
+                &Number::Approximate(other_decimal) => (Decimal::from(self_numerator)
+                    / Decimal::from(self_denominator))
+                .round_dp(SIGNIFICANT_DIGITS)
+                .partial_cmp(&other_decimal.round_dp(SIGNIFICANT_DIGITS)),
+            },
+            &Number::Approximate(self_decimal) => match other {
+                &Number::Rational(other_numerator, other_denominator) => {
+                    self_decimal.round_dp(SIGNIFICANT_DIGITS).partial_cmp(
+                        &(Decimal::from(other_numerator) / Decimal::from(other_denominator))
+                            .round_dp(SIGNIFICANT_DIGITS),
+                    )
+                }
+                &Number::Approximate(other_decimal) => self_decimal
+                    .round_dp(SIGNIFICANT_DIGITS)
+                    .partial_cmp(&other_decimal.round_dp(SIGNIFICANT_DIGITS)),
+            },
         }
     }
 }
@@ -613,494 +491,524 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_constructors_1() {
-        assert_eq!(Number::unitless_one(), Number::real(1f64, Unit::unitless()));
-        assert_eq!(
-            Number::unitless_one(),
-            Number::complex(1f64, 0f64, Unit::unitless())
-        );
-
-        assert_eq!(
-            Number::unitless_zero(),
-            Number::real(0f64, Unit::unitless())
-        );
-        assert_eq!(
-            Number::unitless_zero(),
-            Number::complex(0f64, 0f64, Unit::unitless())
-        );
+    fn test_eq_1() {
+        assert_eq!(Number::from(3), Number::from(3));
     }
 
     #[test]
-    fn test_get_unit_1() {
-        let unit = Unit {
-            exponent: 0i8,
-            constituents: HashMap::from([(BaseUnit::Meter, 1)]),
-        };
+    fn test_eq_2() {
+        assert_eq!(Number::from(3), Number::from(3.));
+    }
 
-        let number = Number::real(1f64, unit.clone());
-        assert_eq!(unit, number.get_unit().clone());
+    #[test]
+    fn test_eq_3() {
+        assert_eq!(Number::from(3.), Number::from(3.));
     }
 
     #[test]
     fn test_powi_1() {
-        let unit = Unit {
-            exponent: 0i8,
-            constituents: HashMap::from([(BaseUnit::Meter, 1)]),
-        };
-
-        let number = Number::real(2f64, unit.clone()).powi(4);
-
-        let unit_expected = Unit {
-            exponent: 0i8,
-            constituents: HashMap::from([(BaseUnit::Meter, 4)]),
-        };
-
-        let number_expected = Number::real(16f64, unit_expected.clone());
-        assert_eq!(number_expected, number);
+        let result = Number::from(2).powi(3);
+        assert!(result.is_exact());
+        assert_eq!(Number::from(8), result);
     }
 
     #[test]
     fn test_powi_2() {
-        let unit = Unit {
-            exponent: 0i8,
-            constituents: HashMap::from([(BaseUnit::Meter, 1)]),
-        };
+        let result = Number::from(2.).powi(3);
+        assert!(!result.is_exact());
+        assert_eq!(Number::from(8.), result);
+    }
 
-        let number = Number::real(5f64, unit.clone()).powi(0);
+    #[test]
+    fn test_powi_3() {
+        let result = Number::from(5.).powi(0);
+        assert!(!result.is_exact());
+        assert_eq!(Number::from(1), result);
+    }
 
-        let number_expected = Number::unitless_one();
-        assert_eq!(number_expected, number);
+    #[test]
+    fn test_powi_4() {
+        let result = Number::from(5).powi(0);
+        assert!(result.is_exact());
+        assert_eq!(Number::from(1), result);
     }
 
     #[test]
     fn test_abs_1() {
-        let expected = 4f64;
-        let real = Number::real(4f64, Unit::unitless()).abs();
-        assert!(expected - EPSILON < real && real < expected + EPSILON);
+        let result = Number::from(3).abs();
+        assert!(result.is_exact());
+        assert_eq!(Number::from(3), result);
     }
 
     #[test]
     fn test_abs_2() {
-        let expected = 4f64;
-        let real = Number::real(-4f64, Unit::unitless()).abs();
-        assert!(expected - EPSILON < real && real < expected + EPSILON);
+        let result = Number::from(-3).abs();
+        assert!(result.is_exact());
+        assert_eq!(Number::from(3), result);
     }
 
     #[test]
     fn test_abs_3() {
-        let expected = 5f64;
-        let real = Number::complex(3f64, 4f64, Unit::unitless()).abs();
-        assert!(expected - EPSILON < real && real < expected + EPSILON);
+        let result = Number::from(3.0).abs();
+        assert!(!result.is_exact());
+        assert_eq!(Number::from(3.0), result);
     }
 
     #[test]
     fn test_abs_4() {
-        let expected = 5f64;
-        let real = Number::complex(-3f64, -4f64, Unit::unitless()).abs();
-        assert!(expected - EPSILON < real && real < expected + EPSILON);
-    }
-
-    #[test]
-    fn test_abs_5() {
-        let expected = 5f64;
-        let real = Number::complex(3f64, -4f64, Unit::unitless()).abs();
-        assert!(expected - EPSILON < real && real < expected + EPSILON);
-    }
-
-    #[test]
-    fn test_abs_6() {
-        let expected = 5f64;
-        let real = Number::complex(-3f64, 4f64, Unit::unitless()).abs();
-        assert!(expected - EPSILON < real && real < expected + EPSILON);
-    }
-
-    #[test]
-    fn test_is_unitless_one_1() {
-        assert!(Number::unitless_one().is_unitless_one());
-    }
-
-    #[test]
-    fn test_is_unitless_one_2() {
-        assert!(!Number::unitless_zero().is_unitless_one());
+        let result = Number::from(-3.0).abs();
+        assert!(!result.is_exact());
+        assert_eq!(Number::from(3.0), result);
     }
 
     #[test]
     fn test_is_zero_1() {
-        assert!(Number::unitless_zero().is_zero());
+        assert!(Number::from(0).is_zero());
     }
 
     #[test]
     fn test_is_zero_2() {
-        assert!(!Number::unitless_one().is_zero());
+        assert!(Number::from(0.).is_zero());
     }
 
     #[test]
     fn test_is_zero_3() {
-        assert!(Number::real(
-            0f64,
-            Unit {
-                exponent: 0i8,
-                constituents: HashMap::from([(BaseUnit::Meter, 1)]),
-            }
-        )
-        .is_zero());
+        assert!(!Number::from(0.1).is_zero());
     }
 
     #[test]
-    fn test_is_real_1() {
-        assert!(Number::unitless_one().is_real());
+    fn test_is_zero_4() {
+        assert!(!Number::from(3).is_zero());
     }
 
     #[test]
-    fn test_is_real_2() {
-        assert!(Number::unitless_zero().is_real());
+    fn test_is_one_1() {
+        assert!(Number::from(1).is_one());
     }
 
     #[test]
-    fn test_is_real_3() {
-        assert!(Number::real(5f64, Unit::unitless()).is_real());
+    fn test_is_one_2() {
+        assert!(Number::from(1.).is_one());
     }
 
     #[test]
-    fn test_is_real_4() {
-        assert!(Number::complex(8f64, 0f64, Unit::unitless()).is_real());
+    fn test_is_one_3() {
+        assert!(!Number::from(0.1).is_one());
     }
 
     #[test]
-    fn test_is_real_5() {
-        assert!(!Number::complex(8f64, 2f64, Unit::unitless()).is_real());
+    fn test_is_one_4() {
+        assert!(!Number::from(3).is_one());
+    }
+
+    #[test]
+    fn test_is_negative_1() {
+        assert!(!Number::from(0).is_negative());
+    }
+
+    #[test]
+    fn test_is_negative_2() {
+        assert!(!Number::from(0.).is_negative());
+    }
+
+    #[test]
+    fn test_is_negative_3() {
+        assert!(!Number::from(0.1).is_negative());
+    }
+
+    #[test]
+    fn test_is_negative_4() {
+        assert!(Number::from(-3).is_negative());
+    }
+
+    #[test]
+    fn test_is_negative_5() {
+        assert!(Number::from(-0.3).is_negative());
+    }
+
+    #[test]
+    fn test_from_i64_1() {
+        assert!(Number::from(3).is_exact());
+    }
+
+    #[test]
+    fn test_from_f64_1() {
+        assert!(!Number::from(3.).is_exact());
+    }
+
+    #[test]
+    fn test_from_f64_2() {
+        assert!(!Number::from(3.1).is_exact());
+    }
+
+    #[test]
+    fn test_try_from_string_1() {
+        assert_eq!(
+            Number::from(2),
+            Number::try_from(String::from("2")).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_try_from_string_2() {
+        assert_eq!(
+            Number::from(2.3),
+            Number::try_from(String::from("2.3")).unwrap()
+        );
     }
 
     #[test]
     fn test_display_1() {
-        assert_eq!("1", Number::unitless_one().to_string());
+        assert_eq!("3", Number::from(3).to_string());
     }
 
     #[test]
     fn test_display_2() {
-        assert_eq!("5", Number::real(5f64, Unit::unitless()).to_string());
+        assert_eq!("3.", Number::from(3.).to_string());
     }
 
     #[test]
     fn test_display_3() {
-        assert_eq!(
-            "i",
-            Number::complex(0f64, 1f64, Unit::unitless()).to_string()
-        );
+        assert_eq!("3.2", Number::from(3.2).to_string());
     }
 
     #[test]
     fn test_display_4() {
-        assert_eq!(
-            "3i",
-            Number::complex(0f64, 3f64, Unit::unitless()).to_string()
-        );
+        assert_eq!("1/2", (Number::from(1) / Number::from(2)).to_string());
+    }
+
+    #[test]
+    fn test_display_5() {
+        assert_eq!("3.", Number::from(3.000).to_string());
     }
 
     #[test]
     fn test_add_1() {
-        let two = Number::real(2f64, Unit::unitless());
-        let three = Number::real(3f64, Unit::unitless());
-        let five = Number::real(5f64, Unit::unitless());
+        let two = Number::from(2);
+        let three = Number::from(3);
+        let five = Number::from(5);
         assert_eq!(five, two + three);
     }
 
     #[test]
     fn test_add_2() {
-        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
-        let three_twoi = Number::complex(3f64, 2f64, Unit::unitless());
-        let five_threei = Number::complex(5f64, 3f64, Unit::unitless());
-        assert_eq!(five_threei, two_onei + three_twoi);
+        let two = Number::from(2.);
+        let three = Number::from(3.);
+        let five = Number::from(5.);
+        assert_eq!(five, two + three);
     }
 
     #[test]
     fn test_add_3() {
-        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
-        let zero_meters = Number::real(
-            0f64,
-            Unit {
-                exponent: 0i8,
-                constituents: HashMap::from([(BaseUnit::Meter, 1)]),
-            },
-        );
-        assert_eq!(two_onei, two_onei.clone() + zero_meters);
+        let two_thirds = Number::from(2) / Number::from(3);
+        let three_fifths = Number::from(3) / Number::from(5);
+        let nineteen_fifteenths = Number::from(19) / Number::from(15);
+        assert_eq!(nineteen_fifteenths, two_thirds + three_fifths);
     }
 
     #[test]
-    fn test_addassign_1() {
-        let mut val = Number::real(2f64, Unit::unitless());
-        let three = Number::real(3f64, Unit::unitless());
-        let five = Number::real(5f64, Unit::unitless());
+    fn test_add_assign_1() {
+        let mut val = Number::from(2);
+        let three = Number::from(3);
         val += three;
+        let five = Number::from(5);
         assert_eq!(five, val);
     }
 
     #[test]
-    fn test_addassign_2() {
-        let mut val = Number::complex(2f64, 1f64, Unit::unitless());
-        let three_twoi = Number::complex(3f64, 2f64, Unit::unitless());
-        let five_threei = Number::complex(5f64, 3f64, Unit::unitless());
-        val += three_twoi;
-        assert_eq!(five_threei, val);
+    fn test_add_assign_2() {
+        let mut val = Number::from(2.);
+        let three = Number::from(3.);
+        val += three;
+        let five = Number::from(5.);
+        assert_eq!(five, val);
     }
 
     #[test]
-    fn test_addassign_3() {
-        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
-        let mut val = two_onei.clone();
-        let zero_meters = Number::real(
-            0f64,
-            Unit {
-                exponent: 0i8,
-                constituents: HashMap::from([(BaseUnit::Meter, 1)]),
-            },
-        );
-        val += zero_meters;
-        assert_eq!(two_onei, val);
+    fn test_add_assign_3() {
+        let mut val = Number::from(2) / Number::from(3);
+        let three_fifths = Number::from(3) / Number::from(5);
+        val += three_fifths;
+        let nineteen_fifteenths = Number::from(19) / Number::from(15);
+        assert_eq!(nineteen_fifteenths, val);
     }
 
     #[test]
     fn test_neg_1() {
-        let negative_one = -Number::unitless_one();
-        let expected = Number::real(-1f64, Unit::unitless());
-
-        assert_eq!(expected, negative_one);
+        assert_eq!(Number::from(-1), -Number::from(1));
     }
 
     #[test]
     fn test_neg_2() {
-        let two_threei = -Number::complex(-1f64, -3f64, Unit::unitless());
-        let expected = Number::complex(1f64, 3f64, Unit::unitless());
+        assert_eq!(Number::from(1), -Number::from(-1));
+    }
 
-        assert_eq!(expected, two_threei);
+    #[test]
+    fn test_neg_3() {
+        assert_eq!(Number::from(-1.), -Number::from(1.));
+    }
+
+    #[test]
+    fn test_neg_4() {
+        assert_eq!(Number::from(1.), -Number::from(-1.));
     }
 
     #[test]
     fn test_sub_1() {
-        let two = Number::real(2f64, Unit::unitless());
-        let three = Number::real(3f64, Unit::unitless());
-        let five = Number::real(5f64, Unit::unitless());
+        let two = Number::from(2);
+        let three = Number::from(3);
+        let five = Number::from(5);
         assert_eq!(two, five - three);
     }
 
     #[test]
     fn test_sub_2() {
-        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
-        let three_twoi = Number::complex(3f64, 2f64, Unit::unitless());
-        let five_threei = Number::complex(5f64, 3f64, Unit::unitless());
-        assert_eq!(two_onei, five_threei - three_twoi);
+        let two = Number::from(2.);
+        let three = Number::from(3.);
+        let five = Number::from(5.);
+        assert_eq!(two, five - three);
     }
 
     #[test]
     fn test_sub_3() {
-        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
-        let zero_meters = Number::real(
-            0f64,
-            Unit {
-                exponent: 0i8,
-                constituents: HashMap::from([(BaseUnit::Meter, 1)]),
-            },
-        );
-        assert_eq!(two_onei, two_onei.clone() - zero_meters);
+        let two_thirds = Number::from(2) / Number::from(3);
+        let three_fifths = Number::from(3) / Number::from(5);
+        let nineteen_fifteenths = Number::from(19) / Number::from(15);
+        assert_eq!(two_thirds, nineteen_fifteenths - three_fifths);
     }
 
     #[test]
-    fn test_subassign_1() {
-        let mut val = Number::real(5f64, Unit::unitless());
-        let three = Number::real(3f64, Unit::unitless());
-        let two = Number::real(2f64, Unit::unitless());
+    fn test_sub_assign_1() {
+        let mut val = Number::from(5);
+        let three = Number::from(3);
         val -= three;
+        let two = Number::from(2);
         assert_eq!(two, val);
     }
 
     #[test]
-    fn test_subassign_2() {
-        let mut val = Number::complex(5f64, 3f64, Unit::unitless());
-        let three_twoi = Number::complex(3f64, 2f64, Unit::unitless());
-        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
-        val -= three_twoi;
-        assert_eq!(two_onei, val);
+    fn test_sub_assign_2() {
+        let mut val = Number::from(5.);
+        let three = Number::from(3.);
+        val -= three;
+        let two = Number::from(2.);
+        assert_eq!(two, val);
     }
 
     #[test]
-    fn test_subassign_3() {
-        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
-        let mut val = two_onei.clone();
-        let zero_meters = Number::real(
-            0f64,
-            Unit {
-                exponent: 0i8,
-                constituents: HashMap::from([(BaseUnit::Meter, 1)]),
-            },
-        );
-        val -= zero_meters;
-        assert_eq!(two_onei, val);
+    fn test_sub_assign_3() {
+        let mut val = Number::from(19) / Number::from(15);
+        let three_fifths = Number::from(3) / Number::from(5);
+        val -= three_fifths;
+        let two_thirds = Number::from(2) / Number::from(3);
+        assert_eq!(two_thirds, val);
     }
 
     #[test]
     fn test_mul_1() {
-        let two = Number::real(2f64, Unit::unitless());
-        let three = Number::real(3f64, Unit::unitless());
-        let six = Number::real(6f64, Unit::unitless());
+        let two = Number::from(2);
+        let three = Number::from(3);
+        let six = Number::from(6);
         assert_eq!(six, two * three);
     }
 
     #[test]
     fn test_mul_2() {
-        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
-        let three_twoi = Number::complex(3f64, 2f64, Unit::unitless());
-        let four_seveni = Number::complex(4f64, 7f64, Unit::unitless());
-        assert_eq!(four_seveni, two_onei * three_twoi);
+        let two = Number::from(2.);
+        let three = Number::from(3.);
+        let six = Number::from(6.);
+        assert_eq!(six, two * three);
     }
 
     #[test]
-    fn test_mulassign_1() {
-        let mut val = Number::real(2f64, Unit::unitless());
-        let three = Number::real(3f64, Unit::unitless());
-        let six = Number::real(6f64, Unit::unitless());
+    fn test_mul_3() {
+        let two_thirds = Number::from(2) / Number::from(3);
+        let three_fifths = Number::from(3) / Number::from(5);
+        let two_fifths = Number::from(2) / Number::from(5);
+        assert_eq!(two_fifths, two_thirds * three_fifths);
+    }
+
+    #[test]
+    fn test_mul_assign_1() {
+        let mut val = Number::from(2);
+        let three = Number::from(3);
         val *= three;
+        let six = Number::from(6);
         assert_eq!(six, val);
     }
 
     #[test]
-    fn test_mulassign_2() {
-        let mut val = Number::complex(2f64, 1f64, Unit::unitless());
-        let three_twoi = Number::complex(3f64, 2f64, Unit::unitless());
-        let four_seveni = Number::complex(4f64, 7f64, Unit::unitless());
-        val *= three_twoi;
-        assert_eq!(four_seveni, val);
-    }
-
-    #[test]
-    fn test_mul_f64_1() {
-        let two = Number::real(2f64, Unit::unitless());
-        let six = Number::real(6f64, Unit::unitless());
-        assert_eq!(six, two * 3f64);
-    }
-
-    #[test]
-    fn test_mul_f64_2() {
-        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
-        let six_threei = Number::complex(6f64, 3f64, Unit::unitless());
-        assert_eq!(six_threei, two_onei * 3f64);
-    }
-
-    #[test]
-    fn test_mulassign_f64_1() {
-        let mut val = Number::real(2f64, Unit::unitless());
-        let six = Number::real(6f64, Unit::unitless());
-        val *= 3f64;
+    fn test_mul_assign_2() {
+        let mut val = Number::from(2.);
+        let three = Number::from(3.);
+        val *= three;
+        let six = Number::from(6.);
         assert_eq!(six, val);
     }
 
     #[test]
-    fn test_mulassign_f64_2() {
-        let mut val = Number::complex(2f64, 1f64, Unit::unitless());
-        let six_threei = Number::complex(6f64, 3f64, Unit::unitless());
-        val *= 3f64;
-        assert_eq!(six_threei, val);
+    fn test_mul_assign_3() {
+        let mut val = Number::from(2) / Number::from(3);
+        let three_fifths = Number::from(3) / Number::from(5);
+        val *= three_fifths;
+        let two_fifths = Number::from(2) / Number::from(5);
+        assert_eq!(two_fifths, val);
+    }
+
+    #[test]
+    fn test_mul_i64_1() {
+        let two = Number::from(2);
+        let three = 3;
+        let six = Number::from(6);
+        assert_eq!(six, two * three);
+    }
+
+    #[test]
+    fn test_mul_i64_2() {
+        let two = Number::from(2.);
+        let three = 3;
+        let six = Number::from(6.);
+        assert_eq!(six, two * three);
+    }
+
+    #[test]
+    fn test_mul_assign_i64_1() {
+        let mut val = Number::from(2);
+        let three = 3;
+        val *= three;
+        let six = Number::from(6);
+        assert_eq!(six, val);
+    }
+
+    #[test]
+    fn test_mul_assign_i64_2() {
+        let mut val = Number::from(2.);
+        let three = 3;
+        val *= three;
+        let six = Number::from(6.);
+        assert_eq!(six, val);
     }
 
     #[test]
     fn test_div_1() {
-        let two = Number::real(2f64, Unit::unitless());
-        let three = Number::real(3f64, Unit::unitless());
-        let six = Number::real(6f64, Unit::unitless());
+        let two = Number::from(2);
+        let three = Number::from(3);
+        let six = Number::from(6);
         assert_eq!(two, six / three);
     }
 
     #[test]
     fn test_div_2() {
-        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
-        let three_twoi = Number::complex(3f64, 2f64, Unit::unitless());
-        let four_seveni = Number::complex(4f64, 7f64, Unit::unitless());
-        assert_eq!(two_onei, four_seveni / three_twoi);
+        let two = Number::from(2.);
+        let three = Number::from(3.);
+        let six = Number::from(6.);
+        assert_eq!(two, six / three);
     }
 
     #[test]
     fn test_div_3() {
-        let one_km = Number::real(
-            1f64,
-            Unit {
-                exponent: 3i8,
-                constituents: HashMap::from([(BaseUnit::Meter, 1)]),
-            },
-        );
-        let one_m = Number::real(
-            1f64,
-            Unit {
-                exponent: 0i8,
-                constituents: HashMap::from([(BaseUnit::Meter, 1)]),
-            },
-        );
-        let one_thousand = Number::real(1000f64, Unit::unitless());
-        assert_eq!(one_thousand, one_km / one_m);
+        let two_thirds = Number::from(2) / Number::from(3);
+        let three_fifths = Number::from(3) / Number::from(5);
+        let two_fifths = Number::from(2) / Number::from(5);
+        assert_eq!(two_thirds, two_fifths / three_fifths);
     }
 
     #[test]
-    fn test_divassign_1() {
-        let mut val = Number::real(6f64, Unit::unitless());
-        let three = Number::real(3f64, Unit::unitless());
-        let two = Number::real(2f64, Unit::unitless());
+    fn test_div_assign_1() {
+        let mut val = Number::from(6);
+        let three = Number::from(3);
         val /= three;
+        let two = Number::from(2);
         assert_eq!(two, val);
     }
 
     #[test]
-    fn test_divassign_2() {
-        let mut val = Number::complex(4f64, 7f64, Unit::unitless());
-        let three_twoi = Number::complex(3f64, 2f64, Unit::unitless());
-        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
-        val /= three_twoi;
-        assert_eq!(two_onei, val);
-    }
-
-    #[test]
-    fn test_div_f64_1() {
-        let two = Number::real(2f64, Unit::unitless());
-        let six = Number::real(6f64, Unit::unitless());
-        assert_eq!(two, six / 3f64);
-    }
-
-    #[test]
-    fn test_div_f64_2() {
-        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
-        let six_threei = Number::complex(6f64, 3f64, Unit::unitless());
-        assert_eq!(two_onei, six_threei / 3f64);
-    }
-
-    #[test]
-    fn test_divassign_f64_1() {
-        let mut val = Number::real(6f64, Unit::unitless());
-        let two = Number::real(2f64, Unit::unitless());
-        val /= 3f64;
+    fn test_div_assign_2() {
+        let mut val = Number::from(6.);
+        let three = Number::from(3.);
+        val /= three;
+        let two = Number::from(2.);
         assert_eq!(two, val);
     }
 
     #[test]
-    fn test_divassign_f64_2() {
-        let mut val = Number::complex(6f64, 3f64, Unit::unitless());
-        let two_onei = Number::complex(2f64, 1f64, Unit::unitless());
-        val /= 3f64;
-        assert_eq!(two_onei, val);
+    fn test_div_assign_3() {
+        let mut val = Number::from(2) / Number::from(5);
+        let three_fifths = Number::from(3) / Number::from(5);
+        val /= three_fifths;
+        let two_thirds = Number::from(2) / Number::from(3);
+        assert_eq!(two_thirds, val);
     }
 
     #[test]
-    fn test_partialord_1() {
-        let four = Number::real(4f64, Unit::unitless());
-        let negone = Number::real(-1f64, Unit::unitless());
-        let eight = Number::real(8f64, Unit::unitless());
-        let six_threei = Number::complex(6f64, 3f64, Unit::unitless());
+    fn test_div_i64_1() {
+        let six = Number::from(6);
+        let three = 3;
+        let two = Number::from(2);
+        assert_eq!(two, six / three);
+    }
+
+    #[test]
+    fn test_div_i64_2() {
+        let six = Number::from(6.);
+        let three = 3;
+        let two = Number::from(2.);
+        assert_eq!(two, six / three);
+    }
+
+    #[test]
+    fn test_div_assign_i64_1() {
+        let mut val = Number::from(6);
+        let three = 3;
+        val /= three;
+        let two = Number::from(2);
+        assert_eq!(two, val);
+    }
+
+    #[test]
+    fn test_div_assign_i64_2() {
+        let mut val = Number::from(6.);
+        let three = 3;
+        val /= three;
+        let two = Number::from(2.);
+        assert_eq!(two, val);
+    }
+
+    #[test]
+    fn test_partial_cmp_1() {
+        let four = Number::from(4);
+        let negone = Number::from(-1);
+        let eight = Number::from(8);
+        let six_thirds = Number::from(6) / Number::from(3);
 
         assert!(negone == negone);
         assert!(negone < four);
         assert!(negone < eight);
-        assert!(negone != six_threei);
+        assert!(negone < six_thirds);
         assert!(four == four);
         assert!(four < eight);
-        assert!(four != six_threei);
+        assert!(four > six_thirds);
         assert!(eight == eight);
-        assert!(eight != six_threei);
-        assert!(six_threei == six_threei);
+        assert!(eight > six_thirds);
+        assert!(six_thirds == six_thirds);
+    }
+
+    #[test]
+    fn test_partial_cmp_2() {
+        let four = Number::from(4.);
+        let negone = Number::from(-1.);
+        let eight = Number::from(8.);
+        let six_thirds = Number::from(6.) / Number::from(3.);
+
+        assert!(negone == negone);
+        assert!(negone < four);
+        assert!(negone < eight);
+        assert!(negone < six_thirds);
+        assert!(four == four);
+        assert!(four < eight);
+        assert!(four > six_thirds);
+        assert!(eight == eight);
+        assert!(eight > six_thirds);
+        assert!(six_thirds == six_thirds);
     }
 }

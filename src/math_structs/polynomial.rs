@@ -1,7 +1,9 @@
 use std::collections::HashSet;
 
-use crate::math_structs::number::*;
 use crate::math_structs::unit::*;
+use crate::math_structs::value::*;
+
+use rust_decimal::Decimal;
 
 #[derive(Debug, Clone)]
 pub struct Polynomial {
@@ -12,7 +14,7 @@ pub struct Polynomial {
     /// the first coefficient corresponds to the lowest degree
     ///
     ///
-    pub coefficients: Vec<Number>,
+    pub coefficients: Vec<Value>,
 }
 
 impl Polynomial {
@@ -65,7 +67,7 @@ impl Polynomial {
     /// # Arguments
     /// * `x` - The point at which the `Polynomial` should be evaluated.
     ///
-    fn evaluate(&self, x: &Number) -> Number {
+    fn evaluate(&self, x: &Value) -> Value {
         let mut result = self.coefficients[0].clone();
         for degree in 1..self.coefficients.len() {
             result += self.coefficients[degree].clone() * x.powi(degree as u32);
@@ -78,10 +80,10 @@ impl Polynomial {
     /// # Arguments
     /// * `x` - The point at which the derivative of the `Polynomial` should be evaluated.
     ///
-    fn evaluate_derivative(&self, x: &Number) -> Number {
-        let mut result = Number::unitless_zero();
+    fn evaluate_derivative(&self, x: &Value) -> Value {
+        let mut result = Value::zero();
         for degree in 1..self.coefficients.len() {
-            result += self.coefficients[degree].clone() * x.powi(degree as u32 - 1) * degree as f64;
+            result += self.coefficients[degree].clone() * x.powi(degree as u32 - 1) * Value::from(Decimal::from(degree));
         }
         result
     }
@@ -95,22 +97,19 @@ impl Polynomial {
     /// arbitrarily chosen to be those that Wikipedia arbitrarily chose on its Durand-Kerner page.
     /// Maybe there's a better way of doing that.
     ///
-    pub fn find_roots(&self) -> HashSet<Number> {
+    pub fn find_roots(&self) -> HashSet<Value> {
         let mut scaled_self = self.clone();
         scaled_self.scale();
         let degree = self.coefficients.len() - 1;
         let unit = self.extract_unit().expect("Failed to extract unit");
-        let super_special_number = Number::complex(
-            // wikipedia on Durand-Kerner says this number isn't special :(
-            // but I think it is 🥹
-            //
-            // TODO - on a serious note this is problematic bc if the max coefficient
-            // is smaller than this then it will probably not find it. Oopsies!
-            0.4,
-            0.9,
-            unit.clone(),
-        );
-        let mut roots: Vec<Number> = Vec::with_capacity(degree);
+        // wikipedia on Durand-Kerner says this number isn't special :(
+        // but I think it is 🥹
+        //
+        // TODO - on a serious note this is problematic bc if the max coefficient
+        // is smaller than this then it will probably not find it. Oopsies!
+        let super_special_number =
+            (Value::from(0.4) + Value::from(0.9).i()).with_unit(unit.clone());
+        let mut roots: Vec<Value> = Vec::with_capacity(degree);
         for deg in 0..degree {
             roots.push(super_special_number.clone().powi(deg as u32));
         }
@@ -125,18 +124,19 @@ impl Polynomial {
                     / scaled_self.evaluate_derivative(&roots[deg]);
                 let mut subtrahend = derivative_ratio.clone();
 
-                let mut subtrahend_sum = Number::unitless_zero();
+                let mut subtrahend_sum = Value::zero();
                 for foreigner in 0..degree {
                     if foreigner == deg {
                         continue;
                     }
                     subtrahend_sum +=
-                        Number::unitless_one() / (roots[deg].clone() - roots[foreigner].clone());
+                        Value::one() / (roots[deg].clone() - roots[foreigner].clone());
                 }
 
-                subtrahend /= Number::unitless_one() - (derivative_ratio * subtrahend_sum);
+                subtrahend /= Value::one() - (derivative_ratio * subtrahend_sum);
 
                 roots[deg] -= subtrahend;
+                // extra precision
                 sufficient &= roots[deg] == old_roots[deg];
             }
         }
@@ -153,8 +153,8 @@ mod test {
         Polynomial {
             coefficients: coefficients
                 .iter()
-                .map(|&coefficient| Number::real(coefficient, Unit::unitless()))
-                .collect::<Vec<Number>>(),
+                .map(|&coefficient| Value::from(coefficient))
+                .collect::<Vec<Value>>(),
         }
     }
 
@@ -171,7 +171,7 @@ mod test {
                 .join(", ")
         );
         assert_eq!(1, roots.len());
-        assert!(roots.contains(&Number::real(1.0, Unit::unitless())));
+        assert!(roots.contains(&Value::one()));
     }
 
     #[test]
@@ -187,8 +187,8 @@ mod test {
                 .join(", ")
         );
         assert_eq!(2, roots.len());
-        assert!(roots.contains(&Number::real(1.0, Unit::unitless())));
-        assert!(roots.contains(&Number::real(-1.0, Unit::unitless())));
+        assert!(roots.contains(&Value::one()));
+        assert!(roots.contains(&(-Value::one())));
     }
 
     #[test]
@@ -204,10 +204,10 @@ mod test {
                 .join(", ")
         );
         assert_eq!(4, roots.len());
-        assert!(roots.contains(&Number::real(1.0, Unit::unitless())));
-        assert!(roots.contains(&Number::complex(0.0, 1.0, Unit::unitless())));
-        assert!(roots.contains(&Number::real(-1.0, Unit::unitless())));
-        assert!(roots.contains(&Number::complex(0.0, -1.0, Unit::unitless())));
+        assert!(roots.contains(&Value::one()));
+        assert!(roots.contains(&Value::one().i()));
+        assert!(roots.contains(&(-Value::one())));
+        assert!(roots.contains(&(-Value::one().i())));
     }
 
     #[test]
@@ -223,10 +223,10 @@ mod test {
                 .join(", ")
         );
         assert_eq!(5, roots.len());
-        assert!(roots.contains(&Number::real(1.0, Unit::unitless())));
-        assert!(roots.contains(&Number::real(2.0, Unit::unitless())));
-        assert!(roots.contains(&Number::real(3.0, Unit::unitless())));
-        assert!(roots.contains(&Number::real(-5.0, Unit::unitless())));
-        assert!(roots.contains(&Number::real(-7.0, Unit::unitless())));
+        assert!(roots.contains(&Value::from(1)));
+        assert!(roots.contains(&Value::from(2)));
+        assert!(roots.contains(&Value::from(3)));
+        assert!(roots.contains(&Value::from(-5)));
+        assert!(roots.contains(&Value::from(-7)));
     }
 }

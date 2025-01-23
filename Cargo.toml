@@ -5,3 +5,8 @@ edition = "2021"
 
 [dependencies]
 regex = "1.8"
+rust_decimal = { version = "1.36.0", features = ["maths"] }
+rust_decimal_macros = "1.36.0"
+
+[features]
+maths = []

@@ -375,7 +375,9 @@ All units support all SI prefixes. This includes the US customary units, so "kil
 
 Currently, quantity units are treated as though they were unitless. Technically this may be true, but it is not useful for display purposes, and so it will likely be updated. (if I say `1 [rad / s]?` it should print `1 [rad / s]`, whereas it currently prints `1 [1 / s]`).
 
-Polynomial solver uses the Aberth method.
+### Polynomial solver
+
+The polynomial solver uses the Aberth method.
 
 ## Planned Features
 

@@ -6,7 +6,7 @@ use std::hash::Hash;
 use crate::math_structs::expression::*;
 use crate::math_structs::identifier::*;
 use crate::math_structs::model::*;
-use crate::math_structs::number::*;
+use crate::math_structs::value::*;
 use crate::math_structs::statement::*;
 
 #[derive(Hash, Debug, Clone)]
@@ -33,7 +33,7 @@ impl Call {
     ///
     pub fn execute(
         &self,
-        knowns: &HashMap<Identifier, Number>,
+        knowns: &HashMap<Identifier, Value>,
         model: &Model,
     ) -> Result<Expression, String> {
         if let Some(Statement::FunctionDefinition(_, arguments, definition)) = model

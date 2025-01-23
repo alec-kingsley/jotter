@@ -66,7 +66,6 @@ pub fn parse_unit(code: &str, i: &mut usize) -> Result<(Unit, f64), String> {
             token = next_unit_token(code, i)?;
         } else {
             // base unit expected. parse accordingly.
-
             let mut abbreviated = false;
             let (sub_unit, sub_factor, prefix) = parse_base_unit(token.as_str(), &mut abbreviated)?;
             let constituents = &mut unit.constituents;
@@ -195,7 +194,7 @@ pub fn parse_base_unit(token: &str, abbreviated: &mut bool) -> Result<(Unit, f64
         (HashMap::from([(BaseUnit::Meter, 3)]), 0.000946352946),
         (HashMap::from([(BaseUnit::Meter, 3)]), 0.003785411784),
         (HashMap::from([(BaseUnit::Kilogram, 1)]), 1.0),
-        (HashMap::from([(BaseUnit::Kilogram, 1)]), 0.45359237),
+        (HashMap::from([(BaseUnit::Kilogram, 1)]), 453.59237),
         (HashMap::from([(BaseUnit::Second, 1)]), 1.0),
         (HashMap::from([(BaseUnit::Second, 1)]), 60.0),
         (HashMap::from([(BaseUnit::Second, 1)]), 60.0 * 60.0),
@@ -372,7 +371,7 @@ pub fn parse_base_unit(token: &str, abbreviated: &mut bool) -> Result<(Unit, f64
     Ok((
         Unit {
             exponent: 0i8,
-            constituents
+            constituents,
         },
         factor,
         prefix,

@@ -14,7 +14,7 @@ use std::process;
 #[derive(Debug, Clone)]
 pub struct Model {
     /// variables that've been solved for, mapped to a finite solution list
-    pub solved_variables: HashMap<Identifier, HashSet<Number>>,
+    pub solved_variables: HashMap<Identifier, HashSet<Value>>,
     /// all variables, in the order they appear in the augmented matrix
     pub variables: Vec<Identifier>,
     /// description of all known equations in a mathematical augmented matrix
@@ -125,7 +125,7 @@ impl Model {
             let mut test_model = self.clone();
             test_model
                 .solved_variables
-                .insert(name.clone(), HashSet::from([Number::unitless_zero()]));
+                .insert(name.clone(), HashSet::from([Value::zero()]));
             // if this breaks, then it can't be 0
             test_model.assert_relations_hold()
         }
@@ -259,7 +259,7 @@ impl Model {
             // skip the current row
             if row_update != row {
                 let factor = self.augmented_matrix[row_update][col].clone();
-                if match factor.simplify_whole_loose(&self).unwrap().as_number() {
+                if match factor.simplify_whole_loose(&self).unwrap().as_value() {
                     // don't subtract anything if it's already 0
                     Some(number) => !number.is_zero(),
                     // don't subtract anything if there's an equation there
@@ -370,7 +370,7 @@ impl Model {
                         let left_row_idx = lonely_groups[col][left_idx];
                         new_equations.push((
                             self.augmented_matrix[left_row_idx][col].clone()
-                                * Expression::from_number(value.clone()),
+                                * Expression::from_value(value.clone()),
                             self.augmented_matrix[left_row_idx][col_ct - 1].clone(),
                         ));
                     }
@@ -512,7 +512,7 @@ impl Model {
             let equivalence_result =
                 self.augmented_matrix[row][col_ct - 1].simplify_whole_as_constants(&self);
             if equivalence_result.is_ok() {
-                let mut lonely_col_option: Option<(usize, Number)> = None;
+                let mut lonely_col_option: Option<(usize, Value)> = None;
                 let mut too_many_non_zero_constants = false;
                 // determine if row can be thrown into solved variables
                 for col in 0..(col_ct - 1) {
@@ -760,10 +760,10 @@ impl Model {
 
     /// Generate all possible known variables.
     ///
-    pub fn generate_possible_knowns(&self) -> Vec<HashMap<Identifier, Number>> {
+    pub fn generate_possible_knowns(&self) -> Vec<HashMap<Identifier, Value>> {
         let keys: Vec<&Identifier> = self.solved_variables.keys().collect();
-        let value_sets: Vec<&HashSet<Number>> = self.solved_variables.values().collect();
-        let mut combinations: Vec<HashMap<Identifier, Number>> = vec![HashMap::new()];
+        let value_sets: Vec<&HashSet<Value>> = self.solved_variables.values().collect();
+        let mut combinations: Vec<HashMap<Identifier, Value>> = vec![HashMap::new()];
         for (key, value_set) in keys.iter().zip(value_sets.iter()) {
             let mut new_combinations = Vec::new();
             for combination in combinations.iter() {
@@ -802,19 +802,19 @@ mod test {
             .unwrap();
         println!("ADDED: `8x - 10y = 20`. MODEL: {model}");
         assert_eq!(
-            Number::real(5.0, Unit::unitless()),
+            Value::from(5),
             Expression::from_identifier(Identifier::new("x").unwrap())
                 .simplify_whole_loose(&model)
                 .unwrap()
-                .as_number()
+                .as_value()
                 .unwrap()
         );
         assert_eq!(
-            Number::real(2.0, Unit::unitless()),
+            Value::from(2),
             Expression::from_identifier(Identifier::new("y").unwrap())
                 .simplify_whole_loose(&model)
                 .unwrap()
-                .as_number()
+                .as_value()
                 .unwrap()
         );
     }
@@ -844,27 +844,27 @@ mod test {
             .unwrap();
         println!("ADDED: `x + 2y + 3z = 30`. MODEL: {model}");
         assert_eq!(
-            Number::real(5.0, Unit::unitless()),
+            Value::from(5),
             Expression::from_identifier(Identifier::new("x").unwrap())
                 .simplify_whole_loose(&model)
                 .unwrap()
-                .as_number()
+                .as_value()
                 .unwrap()
         );
         assert_eq!(
-            Number::real(2.0, Unit::unitless()),
+            Value::from(2),
             Expression::from_identifier(Identifier::new("y").unwrap())
                 .simplify_whole_loose(&model)
                 .unwrap()
-                .as_number()
+                .as_value()
                 .unwrap()
         );
         assert_eq!(
-            Number::real(7.0, Unit::unitless()),
+            Value::from(7),
             Expression::from_identifier(Identifier::new("z").unwrap())
                 .simplify_whole_loose(&model)
                 .unwrap()
-                .as_number()
+                .as_value()
                 .unwrap()
         );
     }

@@ -7,7 +7,7 @@ use crate::math_structs::expression::*;
 use crate::math_structs::factor::*;
 use crate::math_structs::identifier::*;
 use crate::math_structs::model::*;
-use crate::math_structs::number::*;
+use crate::math_structs::value::*;
 
 #[derive(Debug, Clone, Hash)]
 pub struct Term {
@@ -119,11 +119,11 @@ impl Term {
         }
     }
 
-    /// Construct a `Term` from a `Number`.
+    /// Construct a `Term` from a `Value`.
     ///
-    pub fn from_number(number: Number) -> Self {
+    pub fn from_value(value: Value) -> Self {
         Self {
-            numerator: vec![Factor::Number(number)],
+            numerator: vec![Factor::Number(value)],
             denominator: Vec::new(),
         }
     }
@@ -235,9 +235,9 @@ impl Term {
     ///
     /// This can be called before comparing terms when combining like terms.
     ///
-    pub fn extract_number(&mut self) -> Number {
+    pub fn extract_value(&mut self) -> Value {
         // initialize base variables
-        let mut value = Number::unitless_one();
+        let mut value = Value::one();
 
         let mut new_term = Term {
             numerator: Vec::new(),
@@ -293,12 +293,12 @@ impl Term {
         result
     }
 
-    /// Tries to extract `self` as just a `Number`.
+    /// Tries to extract `self` as just a `Value`.
     ///
-    pub fn as_number(&self) -> Option<Number> {
+    pub fn as_value(&self) -> Option<Value> {
         if self.denominator.len() == 0 {
             if self.numerator.len() == 0 {
-                Some(Number::unitless_one())
+                Some(Value::one())
             } else if self.numerator.len() == 1 {
                 if let Factor::Number(number) = self.numerator[0].clone() {
                     Some(number)
@@ -322,7 +322,7 @@ impl Term {
     ///
     pub fn simplify(
         &self,
-        knowns: &HashMap<Identifier, Number>,
+        knowns: &HashMap<Identifier, Value>,
         model: &Model,
         force_retrieve: bool,
     ) -> Result<Term, String> {
@@ -392,7 +392,7 @@ impl Neg for Term {
         let mut result = self.clone();
         result
             .numerator
-            .push(Factor::Number(-Number::unitless_one()));
+            .push(Factor::Number(-Value::one()));
         result
     }
 }
@@ -523,14 +523,14 @@ mod tests {
     #[test]
     fn test_from_factor_1() {
         let expected = ast::parse_term("3", &mut 0).expect("ast::parse_term - failure");
-        let actual = Term::from_factor(Factor::Number(Number::unitless_one() * 3f64));
+        let actual = Term::from_factor(Factor::Number(Value::from(3)));
         assert_eq!(expected, actual);
     }
 
     #[test]
-    fn test_from_number_1() {
+    fn test_from_value_1() {
         let expected = ast::parse_term("3", &mut 0).expect("ast::parse_term - failure");
-        let actual = Term::from_number(Number::unitless_one() * 3f64);
+        let actual = Term::from_value(Value::from(3));
         assert_eq!(expected, actual);
     }
 
@@ -606,10 +606,10 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_number_1() {
+    fn test_extract_value_1() {
         let mut term = ast::parse_term("3ab", &mut 0).expect("ast::parse_term - failure");
-        let number = term.extract_number();
-        assert_eq!(Number::real(3f64, Unit::unitless()), number);
+        let number = term.extract_value();
+        assert_eq!(Value::from(3), number);
         assert_eq!(
             ast::parse_term("ab", &mut 0).expect("ast::parse_term - failure"),
             term
@@ -628,15 +628,15 @@ mod tests {
     }
 
     #[test]
-    fn test_as_number_1() {
+    fn test_as_value_1() {
         let term = ast::parse_term("3", &mut 0).expect("ast::parse_term - failure");
-        assert_eq!(Some(Number::real(3f64, Unit::unitless())), term.as_number());
+        assert_eq!(Some(Value::from(3)), term.as_value());
     }
 
     #[test]
-    fn test_as_number_2() {
+    fn test_as_value_2() {
         let term = ast::parse_term("a", &mut 0).expect("ast::parse_term - failure");
-        assert_eq!(None, term.as_number());
+        assert_eq!(None, term.as_value());
     }
 
     #[test]
@@ -777,12 +777,12 @@ mod tests {
 
     #[test]
     fn test_simplify_1() {
-        let knowns: HashMap<Identifier, Number> = HashMap::new();
+        let knowns: HashMap<Identifier, Value> = HashMap::new();
         let mut model = Model::new(0);
         model.add_relation(
             Expression::from_identifier(Identifier::new("a").unwrap()),
             RelationOp::NotEqual,
-            Expression::from_number(Number::unitless_zero()),
+            Expression::from_value(Value::zero()),
         );
         let force_retrieve = false;
         let result = ast::parse_term("3a/a", &mut 0)
@@ -795,7 +795,7 @@ mod tests {
 
     #[test]
     fn test_simplify_2() {
-        let knowns: HashMap<Identifier, Number> = HashMap::new();
+        let knowns: HashMap<Identifier, Value> = HashMap::new();
         let model = Model::new(0);
         let force_retrieve = false;
         let result = ast::parse_term("3a/a", &mut 0)
@@ -808,9 +808,9 @@ mod tests {
 
     #[test]
     fn test_simplify_3() {
-        let knowns: HashMap<Identifier, Number> = HashMap::from([(
+        let knowns: HashMap<Identifier, Value> = HashMap::from([(
             Identifier::new("a").unwrap(),
-            Number::real(2f64, Unit::unitless()),
+            Value::from(2),
         )]);
         let model = Model::new(0);
         let force_retrieve = false;

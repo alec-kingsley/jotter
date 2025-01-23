@@ -8,14 +8,14 @@ use crate::math_structs::call::*;
 use crate::math_structs::expression::*;
 use crate::math_structs::identifier::*;
 use crate::math_structs::model::*;
-use crate::math_structs::number::*;
+use crate::math_structs::value::*;
 
 #[derive(Hash, Debug, Clone)]
 pub enum Factor {
     /// Expression within a parenthetical.
     Parenthetical(Expression),
     /// Numeric literal.
-    Number(Number),
+    Number(Value),
     /// Identifier (variable / constant name).
     Identifier(Identifier),
     /// Call to a function.
@@ -32,7 +32,7 @@ impl Factor {
     ///
     pub fn simplify(
         &self,
-        knowns: &HashMap<Identifier, Number>,
+        knowns: &HashMap<Identifier, Value>,
         model: &Model,
         force_retrieve: bool,
     ) -> Result<Factor, String> {
@@ -54,7 +54,7 @@ impl Factor {
                         )?))
                     }
                 } else {
-                    Factor::Number(Number::unitless_zero())
+                    Factor::Number(Value::zero())
                 }
             }
             Factor::Number(number) => Factor::Number(number.clone()),
@@ -227,7 +227,6 @@ impl DivAssign for Factor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::math_structs::*;
 
     #[test]
     fn test_display_1() {
@@ -236,7 +235,7 @@ mod tests {
 
     #[test]
     fn test_display_2() {
-        assert_eq!("0", Factor::Number(Number::unitless_zero()).to_string());
+        assert_eq!("0", Factor::Number(Value::zero()).to_string());
     }
 
     #[test]
@@ -261,12 +260,9 @@ mod tests {
 
     #[test]
     fn test_mul_1() {
-        let two = Factor::Parenthetical(Expression::from_number(Number::real(
-            2f64,
-            Unit::unitless(),
-        )));
+        let two = Factor::Parenthetical(Expression::from_value(Value::from(2)));
         let a = Factor::Parenthetical(Expression::from_identifier(Identifier::new("a").unwrap()));
-        let resulting_expression = Expression::from_number(Number::real(2f64, Unit::unitless()))
+        let resulting_expression = Expression::from_value(Value::from(2))
             * Expression::from_identifier(Identifier::new("a").unwrap());
         let expected = Factor::Parenthetical(resulting_expression);
         assert_eq!(expected, two * a);
@@ -274,9 +270,9 @@ mod tests {
 
     #[test]
     fn test_mul_2() {
-        let two = Factor::Number(Number::real(2f64, Unit::unitless()));
-        let three = Factor::Number(Number::real(3f64, Unit::unitless()));
-        let six = Factor::Number(Number::real(6f64, Unit::unitless()));
+        let two = Factor::Number(Value::from(2));
+        let three = Factor::Number(Value::from(3));
+        let six = Factor::Number(Value::from(6));
         assert_eq!(six, two * three);
     }
 
@@ -293,13 +289,12 @@ mod tests {
 
     #[test]
     fn test_mulassign_1() {
-        let mut val = Factor::Number(Number::real(2f64, Unit::unitless()));
-        let three = Factor::Number(Number::real(3f64, Unit::unitless()));
-        let six = Factor::Number(Number::real(6f64, Unit::unitless()));
+        let mut val = Factor::Number(Value::from(2));
+        let three = Factor::Number(Value::from(3));
+        let six = Factor::Number(Value::from(6));
         val *= three;
         assert_eq!(six, val);
     }
 
     // could further test mulassign, product, div, and divassign, however I am lazy.
-
 }
