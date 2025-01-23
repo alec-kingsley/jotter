@@ -64,17 +64,11 @@ impl Eq for Number {}
 /// * `x` - the first argument
 /// * `y` - the second argument
 ///
-const fn gcd(x: i64, y: i64) -> i64 {
-    let x = x.abs();
-    let y = y.abs();
-    if x == y || y == 0 {
+fn gcd(x: i64, y: i64) -> i64 {
+    if y == 0 {
         x
-    } else if x == 0 {
-        y
-    } else if x < y {
-        gcd(x, y - x)
     } else {
-        gcd(y, x - y)
+        gcd(y, x % y)
     }
 }
 
@@ -84,7 +78,7 @@ const fn gcd(x: i64, y: i64) -> i64 {
 /// * `x` - the first argument
 /// * `y` - the second argument
 ///
-const fn lcm(x: i64, y: i64) -> i64 {
+fn lcm(x: i64, y: i64) -> i64 {
     x / gcd(x, y) * y
 }
 
@@ -248,13 +242,22 @@ impl Add for Number {
         match self {
             Number::Rational(self_numerator, self_denominator) => match other {
                 Number::Rational(other_numerator, other_denominator) => {
-                    let lcm = lcm(self_denominator, other_denominator);
-                    Number::Rational(
-                        self_numerator * (lcm / self_denominator)
-                            + other_numerator * (lcm / other_denominator),
-                        lcm,
-                    )
-                    .reduce_rational()
+                    if self_numerator.is_zero() {
+                        Number::Rational(other_numerator, other_denominator)
+                    } else if other_numerator.is_zero() {
+                        Number::Rational(self_numerator, self_denominator)
+                    } else {
+                        let lcm = lcm(self_denominator, other_denominator);
+                        if lcm == 0 {
+                            println!("AHHHHHHHHHHHHHHHHHHHHHH");
+                        }
+                        Number::Rational(
+                            self_numerator * (lcm / self_denominator)
+                                + other_numerator * (lcm / other_denominator),
+                            lcm,
+                        )
+                        .reduce_rational()
+                    }
                 }
                 Number::Approximate(other_decimal) => Number::Approximate(
                     Decimal::from(self_numerator) / Decimal::from(self_denominator) + other_decimal,
@@ -303,13 +306,19 @@ impl Sub for Number {
         match self {
             Number::Rational(self_numerator, self_denominator) => match other {
                 Number::Rational(other_numerator, other_denominator) => {
-                    let lcm = lcm(self_denominator, other_denominator);
-                    Number::Rational(
-                        self_numerator * (lcm / self_denominator)
-                            - other_numerator * (lcm / other_denominator),
-                        lcm,
-                    )
-                    .reduce_rational()
+                    if self_numerator.is_zero() {
+                        Number::Rational(-other_numerator, other_denominator)
+                    } else if other_numerator.is_zero() {
+                        Number::Rational(self_numerator, self_denominator)
+                    } else {
+                        let lcm = lcm(self_denominator, other_denominator);
+                        Number::Rational(
+                            self_numerator * (lcm / self_denominator)
+                                - other_numerator * (lcm / other_denominator),
+                            lcm,
+                        )
+                        .reduce_rational()
+                    }
                 }
                 Number::Approximate(other_decimal) => Number::Approximate(
                     Decimal::from(self_numerator) / Decimal::from(self_denominator) - other_decimal,
@@ -408,10 +417,12 @@ impl Div for Number {
                 Number::Rational(other_numerator, other_denominator) => {
                     let down_gcd = gcd(self_numerator, other_numerator);
                     let up_gcd = gcd(self_denominator, other_denominator);
-                    Number::Rational(
-                        (self_numerator / down_gcd) * (other_denominator / up_gcd),
-                        (self_denominator / up_gcd) * (other_numerator / down_gcd),
-                    )
+                    let numerator = (self_numerator / down_gcd) * (other_denominator / up_gcd);
+                    let denominator = (self_denominator / up_gcd) * (other_numerator / down_gcd);
+                    if denominator.is_zero() {
+                        panic!("Attempt to divide by 0: [{self} / {other}]");
+                    }
+                    Number::Rational(numerator, denominator)
                 }
                 Number::Approximate(other_decimal) => Number::Approximate(
                     Decimal::from(self_numerator) / Decimal::from(self_denominator) / other_decimal,
