@@ -6,9 +6,9 @@ use std::ops::*;
 use crate::math_structs::factor::*;
 use crate::math_structs::identifier::*;
 use crate::math_structs::model::*;
-use crate::math_structs::value::*;
 use crate::math_structs::polynomial::*;
 use crate::math_structs::term::*;
+use crate::math_structs::value::*;
 
 #[derive(Debug, Clone, Hash)]
 pub struct Expression {
@@ -722,10 +722,7 @@ mod tests {
     fn test_as_value_1() {
         let expression =
             ast::parse_expression("3", &mut 0).expect("ast::parse_expression - failure");
-        assert_eq!(
-            Some(Value::from(3)),
-            expression.as_value()
-        );
+        assert_eq!(Some(Value::from(3)), expression.as_value());
     }
 
     #[test]
@@ -978,6 +975,11 @@ mod tests {
             .unwrap();
         let expected = ast::parse_expression("5", &mut 0).expect("ast::parse_expression - failure");
         assert_eq!(expected, result);
+        if let Some(value) = result.as_value() {
+            if !value.is_rational() {
+                panic!("Approximate yielded from rational expression addition");
+            }
+        }
     }
 
     #[test]
@@ -996,10 +998,8 @@ mod tests {
 
     #[test]
     fn test_simplify_3() {
-        let knowns: HashMap<Identifier, Value> = HashMap::from([(
-            Identifier::new("a").unwrap(),
-            Value::from(3),
-        )]);
+        let knowns: HashMap<Identifier, Value> =
+            HashMap::from([(Identifier::new("a").unwrap(), Value::from(3))]);
         let model = Model::new(0);
         let force_retrieve = false;
         let result = ast::parse_expression("3a + 2a", &mut 0)

@@ -127,6 +127,20 @@ impl Value {
             .unwrap()
     }
 
+    /// Returns true iff `self` is composed purely of rational components.
+    ///
+    pub fn is_rational(&self) -> bool {
+        if let Number::Rational(_, _) = self.real {
+            if let Number::Rational(_, _) = self.imaginary {
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+
     /// Returns true iff the number has a value of 1.
     ///
     pub fn is_unitless_one(&self) -> bool {
@@ -432,13 +446,12 @@ impl Add for Value {
         let mut other_clone = other.clone();
         let exp_diff = other_clone.unit.exponent - self.unit.exponent;
         other_clone.unit.exponent -= exp_diff;
-        other_clone.real = other_clone.real * Number::from(Decimal::TEN.powi(exp_diff as i64));
-        other_clone.imaginary =
-            other_clone.imaginary * Number::from(Decimal::TEN.powi(exp_diff as i64));
+        other_clone.real = other_clone.real * Number::from(10).powi(exp_diff as i32);
+        other_clone.imaginary = other_clone.imaginary * Number::from(10).powi(exp_diff as i32);
         other_clone.real *=
-            Number::from(Decimal::TEN.powi((other.unit.exponent - self.unit.exponent) as i64));
+            Number::from(10).powi((other.unit.exponent - self.unit.exponent) as i32);
         other_clone.imaginary *=
-            Number::from(Decimal::TEN.powi((other.unit.exponent - self.unit.exponent) as i64));
+            Number::from(10).powi((other.unit.exponent - self.unit.exponent) as i32);
         Self {
             real: self.real + other_clone.real,
             imaginary: self.imaginary + other_clone.imaginary,
@@ -489,13 +502,12 @@ impl Sub for Value {
         let mut other_clone = other.clone();
         let exp_diff = other_clone.unit.exponent - self.unit.exponent;
         other_clone.unit.exponent -= exp_diff;
-        other_clone.real = other_clone.real * Number::from(Decimal::TEN.powi(exp_diff as i64));
-        other_clone.imaginary =
-            other_clone.imaginary * Number::from(Decimal::TEN.powi(exp_diff as i64));
+        other_clone.real = other_clone.real * Number::from(10).powi(exp_diff as i32);
+        other_clone.imaginary = other_clone.imaginary * Number::from(10).powi(exp_diff as i32);
         other_clone.real *=
-            Number::from(Decimal::TEN.powi((other.unit.exponent - self.unit.exponent) as i64));
+            Number::from(10).powi((other.unit.exponent - self.unit.exponent) as i32);
         other_clone.imaginary *=
-            Number::from(Decimal::TEN.powi((other.unit.exponent - self.unit.exponent) as i64));
+            Number::from(10).powi((other.unit.exponent - self.unit.exponent) as i32);
         Self {
             real: self.real - other_clone.real,
             imaginary: self.imaginary - other_clone.imaginary,
@@ -813,7 +825,9 @@ mod tests {
         let two = Value::from(2);
         let three = Value::from(3);
         let five = Value::from(5);
-        assert_eq!(five, two + three);
+        let result = two + three;
+        assert_eq!(five, result.clone());
+        assert!(result.is_rational());
     }
 
     #[test]
@@ -821,7 +835,9 @@ mod tests {
         let two_onei = Value::from(2) + Value::from(1).i();
         let three_twoi = Value::from(3) + Value::from(2).i();
         let five_threei = Value::from(5) + Value::from(3).i();
-        assert_eq!(five_threei, two_onei + three_twoi);
+        let result = two_onei + three_twoi;
+        assert_eq!(five_threei, result.clone());
+        assert!(result.is_rational());
     }
 
     #[test]

@@ -708,6 +708,9 @@ mod tests {
         let three = Number::from(3);
         let five = Number::from(5);
         assert_eq!(five, two + three);
+        if let Number::Approximate(_) = two + three {
+            panic!("Approximate number from rational constituents");
+        }
     }
 
     #[test]
