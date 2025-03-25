@@ -200,6 +200,17 @@ g(4) ≡ 8
 
 Note that any comments within a multi-line function definition must be in the (\*\*) format.
 
+## Number Representation
+
+Numbers have two different representations that they'll switch between: "Rational" and "Decimal".
+
+If a number has been constructed purely from rational components, then it will continue to display it as such. For example,
+`3/2 + 4/3?` will yield `2`, and `2 * 1/3` will yield `2/3`.
+
+If instead a number has been constructed using a decimal at any point, or if the number comes from a solving algorithm that involved an approximation, it will store and print as a decimal. So
+
+`3.0/2 + 4/3` will yield `2.`, with the final `.` signifying that the number is stored as a decimal. If the number is stored as a decimal, then it is to be considered approximate.
+
 ## Relations
 
 This feature has limited usage in the program's current state, as Jotter can't yet solve non-linear systems. However, these can help with some simplifications.
@@ -244,7 +255,7 @@ x?
 ```
 Expected output:
 ```
-x ∈ {-11, -5, 1, 2, 3, 7, 8}
+x ∈ {-11., -5., 1., 2., 3., 7., 8.}
 ```
 
 ## Implementation Details
