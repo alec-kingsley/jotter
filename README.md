@@ -293,7 +293,7 @@ There is not a negative sign per se, but an expression can start out with subtra
 ```
 Will yield `-3` as expected, but
 ```
-3 + -3
+3 + -3?
 ```
 will fail.
 
@@ -446,9 +446,19 @@ All units support all SI prefixes. This includes the US customary units, so "kil
 
 Currently, quantity units are treated as though they were unitless. Technically this may be true, but it is not useful for display purposes, and so it will likely be updated. (if I say `1 [rad / s]?` it should print `1 [rad / s]`, whereas it currently prints `1 [1 / s]`).
 
-### Polynomial solver
+### Polynomial Solver
 
 The polynomial solver uses the Aberth method.
+
+## Bugs
+
+Bugs are still expected in this project. As I find them, I will add them as failing test cases before fixing them. Run
+```
+cargo test
+```
+to see the current bugs.
+
+Before moving on to any further features, I plan to thoroughly test this project.
 
 ## Planned Features
 
