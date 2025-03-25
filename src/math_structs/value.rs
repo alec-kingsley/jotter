@@ -174,17 +174,21 @@ impl Value {
     ///
     /// # Arguments
     /// * `subunit_exponent` - thing to be divisible by.
+    ///
     fn refactor_exponent(&mut self, subunit_exponent: i8) {
         // try to force self to be within 3 digits from 0
-        while self.abs() >= Decimal::ONE_THOUSAND {
-            self.real /= 10;
-            self.imaginary /= 10;
-            self.unit.exponent += 1;
-        }
-        while !self.is_zero() && self.abs() < Decimal::ZERO {
-            self.real *= 10;
-            self.imaginary *= 10;
-            self.unit.exponent -= 1;
+        if self.real + self.imaginary >= Number::ONE {
+            while self.real + self.imaginary >= Number::from(10) {
+                self.real /= 10;
+                self.imaginary /= 10;
+                self.unit.exponent += 1;
+            }
+        } else {
+            while !self.is_zero() && (self.real + self.imaginary) < Number::from(100) {
+                self.real *= 10;
+                self.imaginary *= 10;
+                self.unit.exponent -= 1;
+            }
         }
 
         // ensure exponent exists
