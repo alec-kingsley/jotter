@@ -168,9 +168,12 @@ To leave a context in a terminal, one can also use `Ctrl+d`. The above usage in 
 >> x = 2
 >> x + y ?
 x + y ≡ 5
+>>
 > x + y ? (* Ctrl+d pressed before this *)
 x + y ≡ x + 3
 ```
+
+When only one `>` is remaining as the prompt for the interactive Jotter terminal, `Ctrl+d` will end the session.
 
 ## Functions
 
