@@ -258,6 +258,45 @@ Expected output:
 x ∈ {-11., -5., 1., 2., 3., 7., 8.}
 ```
 
+## Oddities
+
+Some of the grammar yields expressions that could be read a bit ambiguously. For example, a unit is attached directly to the number before it, so
+```
+3/4 [m]
+```
+
+is the same as
+```
+3/(4 [m])
+```
+
+For readability, however, if you were to write
+```
+(3/4) [m]?
+```
+, then it would print out
+```
+3/4 [m]
+```
+
+as the result.
+
+Function definitions can also be a bit ambiguous. For example,
+```
+f(x) = 3x + 2
+```
+could either be read as a function definition, or as trying to find the intersection between `f(x)` and `3x + 2`. It will always choose the function definition in this case, and so for the other case a user can write `1.0 * f(x) = 3x + 2`, or `3x + 2 = f(x)`.
+
+There is not a negative sign per se, but an expression can start out with subtracting. So
+```
+-3?
+```
+Will yield `-3` as expected, but
+```
+3 + -3
+```
+will fail.
+
 ## Implementation Details
 
 ### Grammar
