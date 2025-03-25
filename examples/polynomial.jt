@@ -4,5 +4,5 @@ xxxxxxx + 850xxxx + 1229xxx + 33454x - 5xxxxxx - 124xxxxx - 16925xx = 18480
 x?
 
 Expected output:
-x ∈ {-11, -5, 1, 2, 3, 7, 8}
+x ∈ {-11., -5., 1., 2., 3., 7., 8.}
 

@@ -177,14 +177,14 @@ impl Value {
     ///
     fn refactor_exponent(&mut self, subunit_exponent: i8) {
         // try to force self to be within 3 digits from 0
-        if self.real + self.imaginary >= Number::ONE {
-            while self.real + self.imaginary >= Number::from(10) {
+        if self.abs() >= Decimal::ONE {
+            while self.abs() >= Decimal::TEN {
                 self.real /= 10;
                 self.imaginary /= 10;
                 self.unit.exponent += 1;
             }
         } else {
-            while !self.is_zero() && (self.real + self.imaginary) < Number::from(100) {
+            while !self.is_zero() && self.abs() < Decimal::ONE_HUNDRED {
                 self.real *= 10;
                 self.imaginary *= 10;
                 self.unit.exponent -= 1;
@@ -806,13 +806,13 @@ mod tests {
 
     #[test]
     fn test_refactor_exponent_1() {
-        let mut thousand_meters = Value::from(10000).with_unit(Unit {
+        let mut ten_thousand_meters = Value::from(10000).with_unit(Unit {
             exponent: 0i8,
             constituents: HashMap::from([(BaseUnit::Meter, 1)]),
         });
-        thousand_meters.refactor_exponent(1);
-        assert_eq!(Number::from(10), thousand_meters.real);
-        assert_eq!(3, thousand_meters.unit.exponent);
+        ten_thousand_meters.refactor_exponent(1);
+        assert_eq!(Number::from(10), ten_thousand_meters.real);
+        assert_eq!(3, ten_thousand_meters.unit.exponent);
     }
 
     #[test]
@@ -828,24 +828,24 @@ mod tests {
 
     #[test]
     fn test_refactor_exponent_3() {
-        let mut thousand_meters = (Value::from(1) / Value::from(1000)).with_unit(Unit {
+        let mut thousandth_meter = (Value::from(1) / Value::from(1000)).with_unit(Unit {
             exponent: 0i8,
             constituents: HashMap::from([(BaseUnit::Meter, 1)]),
         });
-        thousand_meters.refactor_exponent(1);
-        assert_eq!(Number::from(1), thousand_meters.real);
-        assert_eq!(-3, thousand_meters.unit.exponent);
+        thousandth_meter.refactor_exponent(1);
+        assert_eq!(Number::from(1), thousandth_meter.real);
+        assert_eq!(-3, thousandth_meter.unit.exponent);
     }
 
     #[test]
     fn test_refactor_exponent_4() {
-        let mut thousand_meters = (Value::from(1) / Value::from(100)).with_unit(Unit {
+        let mut hundredth_meter = (Value::from(1) / Value::from(100)).with_unit(Unit {
             exponent: 0i8,
             constituents: HashMap::from([(BaseUnit::Meter, 1)]),
         });
-        thousand_meters.refactor_exponent(1);
-        assert_eq!(Number::from(10), thousand_meters.real);
-        assert_eq!(-3, thousand_meters.unit.exponent);
+        hundredth_meter.refactor_exponent(1);
+        assert_eq!(Number::from(10), hundredth_meter.real);
+        assert_eq!(-3, hundredth_meter.unit.exponent);
     }
 
     #[test]
