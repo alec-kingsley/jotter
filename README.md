@@ -119,7 +119,9 @@ Expected output:
 3 [km] + 2i [km] ≡ (3 + 2i) [km]
 ```
 
-## Comments and Subpages
+## Comments
+
+As before, any syntactically invalid line is considered a comment. This can mean that an unintentional typo will silently not do anything, but as this is not meant for large programs it should not be an issue.
 
 Another comment format is by using parentheses with stars on the inside.
 
@@ -129,8 +131,11 @@ k = 5 [s] (*set k to 5 seconds*)
 
 This is great for inline comments, or if a comment would be otherwise valid syntax.
 
-You can only use each variable name once, but "subpages" can separate groups.
-To insert a subgroup, simply create a line with only a ">" token. Return to the previous page
+
+## Contexts
+
+You can only use each variable name once, but "contexts" can separate groups.
+To insert a context, simply create a line with only a ">" token. Return to the previous context
 by using just the "<" token.
 
 Example:
@@ -151,11 +156,11 @@ Expected output:
 x + y ≡ x + 3
 ```
 
-Each subgroup can have its own subgroup. You may think of the `>` as a way to just
+Each context can have its own contexts as children. You may think of the `>` as a way to just
 save a program state to come back to it. 
 
-In an interactive terminal, it will display as many `>` as are the current group.
-To leave a subgroup in a terminal, one can also use `Ctrl+d`. The above usage in a terminal while using `Ctrl+d` would look like this:
+In an interactive terminal, it will display as many `>` as are the current context.
+To leave a context in a terminal, one can also use `Ctrl+d`. The above usage in a terminal while using `Ctrl+d` would look like this:
 
 ```
 > y = 3
