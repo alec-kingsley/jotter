@@ -250,7 +250,7 @@ impl Expression {
         for i in 0..numbers.len() {
             let number = numbers[i].clone();
             let mut operand = terms[i].clone();
-            if number != one && number != -one.clone() {
+            if !number.is_exact() || (number != one && number != -one.clone()) {
                 operand *= Factor::Number(if number < zero.clone() {
                     -number.clone()
                 } else {

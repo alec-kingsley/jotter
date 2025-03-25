@@ -172,6 +172,9 @@ mod test {
         );
         assert_eq!(1, roots.len());
         assert!(roots.contains(&Value::from(1.0)));
+        for root in roots {
+            assert!(!root.is_exact());
+        }
     }
 
     #[test]
@@ -189,6 +192,9 @@ mod test {
         assert_eq!(2, roots.len());
         assert!(roots.contains(&Value::from(1.0)));
         assert!(roots.contains(&Value::from(-1.0)));
+        for root in roots {
+            assert!(!root.is_exact());
+        }
     }
 
     #[test]
@@ -208,6 +214,9 @@ mod test {
         assert!(roots.contains(&Value::from(1.0).i()));
         assert!(roots.contains(&Value::from(1.0)));
         assert!(roots.contains(&Value::from(1.0).i()));
+        for root in roots {
+            assert!(!root.is_exact());
+        }
     }
 
     #[test]
@@ -228,5 +237,8 @@ mod test {
         assert!(roots.contains(&Value::from(3.0)));
         assert!(roots.contains(&Value::from(-5.0)));
         assert!(roots.contains(&Value::from(-7.0)));
+        for root in roots {
+            assert!(!root.is_exact());
+        }
     }
 }
