@@ -111,7 +111,8 @@ impl Polynomial {
             (Value::from(0.4) + Value::from(0.9).i()).with_unit(unit.clone());
         let mut roots: Vec<Value> = Vec::with_capacity(degree);
         for deg in 0..degree {
-            roots.push(super_special_number.clone().powi(deg as i32));
+            // multiply by 1.0 to ensure inexact if 1 is solution
+            roots.push(super_special_number.clone().powi(deg as i32) * Value::from(1.0));
         }
 
         let mut sufficient = false;
@@ -136,7 +137,6 @@ impl Polynomial {
                 subtrahend /= Value::one() - (derivative_ratio * subtrahend_sum);
 
                 roots[deg] -= subtrahend;
-                // extra precision
                 sufficient &= roots[deg] == old_roots[deg];
             }
         }
@@ -171,7 +171,7 @@ mod test {
                 .join(", ")
         );
         assert_eq!(1, roots.len());
-        assert!(roots.contains(&Value::one()));
+        assert!(roots.contains(&Value::from(1.0)));
     }
 
     #[test]
@@ -187,8 +187,8 @@ mod test {
                 .join(", ")
         );
         assert_eq!(2, roots.len());
-        assert!(roots.contains(&Value::one()));
-        assert!(roots.contains(&(-Value::one())));
+        assert!(roots.contains(&Value::from(1.0)));
+        assert!(roots.contains(&Value::from(-1.0)));
     }
 
     #[test]
@@ -204,10 +204,10 @@ mod test {
                 .join(", ")
         );
         assert_eq!(4, roots.len());
-        assert!(roots.contains(&Value::one()));
-        assert!(roots.contains(&Value::one().i()));
-        assert!(roots.contains(&(-Value::one())));
-        assert!(roots.contains(&(-Value::one().i())));
+        assert!(roots.contains(&Value::from(1.0)));
+        assert!(roots.contains(&Value::from(1.0).i()));
+        assert!(roots.contains(&Value::from(1.0)));
+        assert!(roots.contains(&Value::from(1.0).i()));
     }
 
     #[test]
@@ -223,10 +223,10 @@ mod test {
                 .join(", ")
         );
         assert_eq!(5, roots.len());
-        assert!(roots.contains(&Value::from(1)));
-        assert!(roots.contains(&Value::from(2)));
-        assert!(roots.contains(&Value::from(3)));
-        assert!(roots.contains(&Value::from(-5)));
-        assert!(roots.contains(&Value::from(-7)));
+        assert!(roots.contains(&Value::from(1.0)));
+        assert!(roots.contains(&Value::from(2.0)));
+        assert!(roots.contains(&Value::from(3.0)));
+        assert!(roots.contains(&Value::from(-5.0)));
+        assert!(roots.contains(&Value::from(-7.0)));
     }
 }

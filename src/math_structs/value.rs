@@ -129,7 +129,7 @@ impl Value {
 
     /// Returns true iff `self` is composed purely of rational components.
     ///
-    pub fn is_rational(&self) -> bool {
+    pub fn is_exact(&self) -> bool {
         if let Number::Rational(_, _) = self.real {
             if let Number::Rational(_, _) = self.imaginary {
                 true
@@ -757,6 +757,11 @@ mod tests {
 
     #[test]
     fn test_is_unitless_one_2() {
+        assert!(!Value::from(1.0).is_unitless_one());
+    }
+
+    #[test]
+    fn test_is_unitless_one_3() {
         assert!(!Value::zero().is_unitless_one());
     }
 
@@ -827,7 +832,7 @@ mod tests {
         let five = Value::from(5);
         let result = two + three;
         assert_eq!(five, result.clone());
-        assert!(result.is_rational());
+        assert!(result.is_exact());
     }
 
     #[test]
@@ -837,7 +842,7 @@ mod tests {
         let five_threei = Value::from(5) + Value::from(3).i();
         let result = two_onei + three_twoi;
         assert_eq!(five_threei, result.clone());
-        assert!(result.is_rational());
+        assert!(result.is_exact());
     }
 
     #[test]

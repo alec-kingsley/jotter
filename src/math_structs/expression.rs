@@ -976,7 +976,7 @@ mod tests {
         let expected = ast::parse_expression("5", &mut 0).expect("ast::parse_expression - failure");
         assert_eq!(expected, result);
         if let Some(value) = result.as_value() {
-            if !value.is_rational() {
+            if !value.is_exact() {
                 panic!("Approximate yielded from rational expression addition");
             }
         }
