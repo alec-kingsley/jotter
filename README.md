@@ -245,7 +245,7 @@ x?
 ```
 Expected output:
 ```
-x ∈ {-2, 2}
+x ∈ {-2., 2.}
 ```
 
 Complex polynomial:
