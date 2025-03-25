@@ -5,7 +5,7 @@ Its syntax is very familiar to real math.
 
 Jotter is not meant to be a full programming language. It won't support complex string manipulation or data structures. Its goal is just to make life easier and solve problems quickly.
 
-## Usage
+## Basic Usage
 
 `cargo run` - open an interactive Jotter terminal
 
@@ -82,7 +82,7 @@ is invalid, while `3 [kg ^ 2]` and `3 [[kg] ^ 2]` are both valid.
 Most common metric and US customary units are supported.
 
 Each unit is only case sensitive if written as an abbreviation (like `km`) but can be written with any case
-and with or without an `s` at th end if not abbreviated. (`kilometer`, `Kilometer`, `KILOMETERS` are all acceptable)
+and with or without an `s` at the end if not abbreviated. (`kilometer`, `Kilometer`, `KILOMETERS` are all acceptable)
 
 ## Complex Numbers
 
@@ -147,12 +147,25 @@ x + y ?
 Expected output:
 
 ```
-  x + y ≡ 5
+    x + y ≡ 5
 x + y ≡ x + 3
 ```
 
 Each subgroup can have its own subgroup. You may think of the `>` as a way to just
-save a program state to come back to it.
+save a program state to come back to it. 
+
+In an interactive terminal, it will display as many `>` as are the current group.
+To leave a subgroup in a terminal, one can also use `Ctrl+d`. The above usage in a terminal while using `Ctrl+d` would look like this:
+
+```
+> y = 3
+> >
+>> x = 2
+>> x + y ?
+x + y ≡ 5
+> x + y ? (* Ctrl+d pressed before this *)
+x + y ≡ x + 3
+```
 
 ## Functions
 
