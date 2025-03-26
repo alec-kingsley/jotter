@@ -342,12 +342,9 @@ pub fn parse_factor(
         } else {
             Ok(Factor::Parenthetical(expression))
         }
-    } else if token.parse::<f64>().is_ok() || token == "i" || token == "[" {
+    } else if token.parse::<f64>().is_ok() || token == "i" {
         let value = if token == "i" {
             *i -= "i".chars().count();
-            Value::one()
-        } else if token == "[" {
-            *i -= "[".chars().count();
             Value::one()
         } else {
             Value::try_from(token).unwrap()
@@ -366,26 +363,11 @@ pub fn parse_factor(
         } else {
             value
         };
-        let mut j = i.clone();
-        let unit_result = parse_unit(code, &mut j);
-        if unit_result.is_ok() {
-            *i = j;
-            let (unit, factor) = unit_result.unwrap();
-            Ok(Factor::Number(
-                if is_imaginary {
-                    (value * Value::from(factor)).i()
-                } else {
-                    value * Value::from(factor)
-                }
-                .with_unit(unit),
-            ))
-        } else {
-            let mut j = i.clone();
-            if next_token(code, &mut j).is_ok_and(|token| token == "[") {
-                return Err(String::from("Expected unit"));
-            }
-            Ok(Factor::Number(if is_imaginary { value.i() } else { value }))
-        }
+        Ok(Factor::Number(if is_imaginary { value.i() } else { value }))
+    } else if token == "[" {
+        *i -= "[".chars().count();
+        let (unit, factor) = parse_unit(code, i)?;
+        Ok(Factor::Number(Value::from(factor).with_unit(unit)))
     } else {
         // must be an identifier, could be for a variable or a call.
         let name = Identifier::new(token.as_str())?;
