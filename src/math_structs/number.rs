@@ -5,6 +5,7 @@ use std::convert::From;
 use std::fmt;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
+use std::num::NonZero;
 use std::ops::*;
 
 static SIGNIFICANT_DIGITS: u32 = 10;
@@ -12,7 +13,7 @@ static SIGNIFICANT_DIGITS: u32 = 10;
 #[derive(Debug, Clone, Copy)]
 pub enum Number {
     /// Rational number known exactly, stored in reduced form.
-    Rational(i64, i64),
+    Rational(i64, Option<NonZero<u64>>),
     /// Decimal number with possible lost precision.
     Approximate(Decimal),
 }
@@ -36,7 +37,7 @@ impl PartialEq for Number {
                     self_numerator == other_numerator && self_denominator == other_denominator
                 }
                 &Number::Approximate(other_decimal) => {
-                    (Decimal::from(self_numerator) / Decimal::from(self_denominator))
+                    (Decimal::from(self_numerator) / Decimal::from(self_denominator.unwrap().get()))
                         .round_dp(SIGNIFICANT_DIGITS)
                         == other_decimal.round_dp(SIGNIFICANT_DIGITS)
                 }
@@ -44,8 +45,9 @@ impl PartialEq for Number {
             &Number::Approximate(self_decimal) => match other {
                 &Number::Rational(other_numerator, other_denominator) => {
                     self_decimal.round_dp(SIGNIFICANT_DIGITS)
-                        == (Decimal::from(other_numerator) / Decimal::from(other_denominator))
-                            .round_dp(SIGNIFICANT_DIGITS)
+                        == (Decimal::from(other_numerator)
+                            / Decimal::from(other_denominator.unwrap().get()))
+                        .round_dp(SIGNIFICANT_DIGITS)
                 }
                 &Number::Approximate(other_decimal) => {
                     self_decimal.round_dp(SIGNIFICANT_DIGITS)
@@ -64,7 +66,7 @@ impl Eq for Number {}
 /// * `x` - the first argument
 /// * `y` - the second argument
 ///
-const fn gcd(x: i64, y: i64) -> i64 {
+const fn gcd(x: u64, y: u64) -> u64 {
     if y == 0 {
         x
     } else {
@@ -78,13 +80,13 @@ const fn gcd(x: i64, y: i64) -> i64 {
 /// * `x` - the first argument
 /// * `y` - the second argument
 ///
-const fn lcm(x: i64, y: i64) -> (i64, bool) {
+const fn lcm(x: u64, y: u64) -> (u64, bool) {
     (x / gcd(x, y)).overflowing_mul(y)
 }
 
 impl Number {
-    pub const ZERO: Number = Number::Rational(0, 1);
-    pub const ONE: Number = Number::Rational(1, 1);
+    pub const ZERO: Number = Number::Rational(0, NonZero::new(1u64));
+    pub const ONE: Number = Number::Rational(1, NonZero::new(1u64));
 
     /// Reduces a Rational number to its simplest form.
     ///
@@ -93,8 +95,11 @@ impl Number {
     ///
     fn reduce_rational(&self) -> Self {
         if let &Number::Rational(numerator, denominator) = self {
-            let gcd = gcd(numerator, denominator);
-            Number::Rational(numerator / gcd, denominator / gcd)
+            let gcd = gcd(numerator.abs() as u64, denominator.unwrap().get());
+            Number::Rational(
+                numerator / gcd as i64,
+                NonZero::new(denominator.unwrap().get() / gcd),
+            )
         } else {
             panic!("reduce_rational called with Approximate value");
         }
@@ -119,7 +124,10 @@ impl Number {
         match self {
             &Number::Rational(numerator, denominator) => {
                 if pow >= 0 {
-                    Number::Rational(numerator.pow(pow as u32), denominator.pow(pow as u32))
+                    Number::Rational(
+                        numerator.pow(pow as u32),
+                        NonZero::new(denominator.unwrap().get().pow(pow as u32)),
+                    )
                 } else {
                     Number::from(Decimal::from(self.clone()).powi(pow as i64))
                 }
@@ -160,7 +168,7 @@ impl Number {
     ///
     pub fn is_negative(&self) -> bool {
         match self {
-            &Number::Rational(numerator, denominator) => (numerator < 0) != (denominator < 0),
+            &Number::Rational(numerator, _) => numerator < 0,
             &Number::Approximate(decimal) => decimal.is_sign_negative(),
         }
     }
@@ -168,7 +176,7 @@ impl Number {
 
 impl From<i64> for Number {
     fn from(num: i64) -> Self {
-        Number::Rational(num, 1)
+        Number::Rational(num, NonZero::new(1u64))
     }
 }
 
@@ -188,7 +196,7 @@ impl From<Number> for Decimal {
     fn from(num: Number) -> Decimal {
         match num {
             Number::Rational(numerator, denominator) => {
-                Decimal::from(numerator) / Decimal::from(denominator)
+                Decimal::from(numerator) / Decimal::from(denominator.unwrap().get())
             }
             Number::Approximate(decimal) => decimal,
         }
@@ -219,12 +227,12 @@ impl Display for Number {
         let number = self.abs();
         match number {
             Number::Rational(numerator, denominator) => {
-                if denominator.is_one() {
+                if denominator.unwrap().get().is_one() {
                     write!(f, "{neg_sign}{numerator}")
                 } else if numerator.is_zero() {
                     write!(f, "0")
                 } else {
-                    write!(f, "{neg_sign}{numerator}/{denominator}")
+                    write!(f, "{neg_sign}{numerator}/{}", denominator.unwrap().get())
                 }
             }
             Number::Approximate(decimal) => {
@@ -253,32 +261,40 @@ impl Add for Number {
                     } else if other_numerator.is_zero() {
                         Number::Rational(self_numerator, self_denominator)
                     } else {
-                        let (lcm, lcm_overflow) = lcm(self_denominator, other_denominator);
-                        let (new_numerator_left, left_overflow) =
-                            self_numerator.overflowing_mul(lcm / self_denominator);
-                        let (new_numerator_right, right_overflow) =
-                            other_numerator.overflowing_mul(lcm / other_denominator);
-                        let (new_numerator, numerator_overflow) =
-                            new_numerator_left.overflowing_add(new_numerator_right);
+                        let (lcm, lcm_overflow) = lcm(
+                            self_denominator.unwrap().get(),
+                            other_denominator.unwrap().get(),
+                        );
+                        let (new_numerator_left, left_overflow) = (self_numerator.abs() as u64)
+                            .overflowing_mul(lcm / self_denominator.unwrap().get());
+
+                        let (new_numerator_right, right_overflow) = (other_numerator.abs() as u64)
+                            .overflowing_mul(lcm / other_denominator.unwrap().get());
+                        let (new_numerator, numerator_overflow) = (new_numerator_left as i64
+                            * self_numerator.signum())
+                        .overflowing_add(new_numerator_right as i64 * other_numerator.signum());
                         if lcm_overflow || left_overflow || right_overflow || numerator_overflow {
                             Number::Approximate(
-                                Decimal::from(self_numerator) / Decimal::from(self_denominator)
+                                Decimal::from(self_numerator)
+                                    / Decimal::from(self_denominator.unwrap().get())
                                     + Decimal::from(other_numerator)
-                                        / Decimal::from(other_denominator),
+                                        / Decimal::from(other_denominator.unwrap().get()),
                             )
                         } else {
-                            Number::Rational(new_numerator, lcm).reduce_rational()
+                            Number::Rational(new_numerator, NonZero::new(lcm)).reduce_rational()
                         }
                     }
                 }
                 Number::Approximate(other_decimal) => Number::Approximate(
-                    Decimal::from(self_numerator) / Decimal::from(self_denominator) + other_decimal,
+                    Decimal::from(self_numerator) / Decimal::from(self_denominator.unwrap().get())
+                        + other_decimal,
                 ),
             },
             Number::Approximate(self_decimal) => match other {
                 Number::Rational(other_numerator, other_denominator) => Number::Approximate(
                     self_decimal
-                        + Decimal::from(other_numerator) / Decimal::from(other_denominator),
+                        + Decimal::from(other_numerator)
+                            / Decimal::from(other_denominator.unwrap().get()),
                 ),
                 Number::Approximate(other_decimal) => {
                     Number::Approximate(self_decimal + other_decimal)
@@ -323,32 +339,39 @@ impl Sub for Number {
                     } else if other_numerator.is_zero() {
                         Number::Rational(self_numerator, self_denominator)
                     } else {
-                        let (lcm, lcm_overflow) = lcm(self_denominator, other_denominator);
-                        let (new_numerator_left, left_overflow) =
-                            self_numerator.overflowing_mul(lcm / self_denominator);
-                        let (new_numerator_right, right_overflow) =
-                            other_numerator.overflowing_mul(lcm / other_denominator);
-                        let (new_numerator, numerator_overflow) =
-                            new_numerator_left.overflowing_sub(new_numerator_right);
+                        let (lcm, lcm_overflow) = lcm(
+                            self_denominator.unwrap().get(),
+                            other_denominator.unwrap().get(),
+                        );
+                        let (new_numerator_left, left_overflow) = (self_numerator.abs() as u64)
+                            .overflowing_mul(lcm / self_denominator.unwrap().get());
+                        let (new_numerator_right, right_overflow) = (other_numerator.abs() as u64)
+                            .overflowing_mul(lcm / other_denominator.unwrap().get());
+                        let (new_numerator, numerator_overflow) = (new_numerator_left as i64
+                            * self_numerator.signum())
+                        .overflowing_sub(new_numerator_right as i64 * other_numerator.signum());
                         if lcm_overflow || left_overflow || right_overflow || numerator_overflow {
                             Number::Approximate(
-                                Decimal::from(self_numerator) / Decimal::from(self_denominator)
+                                Decimal::from(self_numerator)
+                                    / Decimal::from(self_denominator.unwrap().get())
                                     + Decimal::from(other_numerator)
-                                        / Decimal::from(other_denominator),
+                                        / Decimal::from(other_denominator.unwrap().get()),
                             )
                         } else {
-                            Number::Rational(new_numerator, lcm).reduce_rational()
+                            Number::Rational(new_numerator, NonZero::new(lcm)).reduce_rational()
                         }
                     }
                 }
                 Number::Approximate(other_decimal) => Number::Approximate(
-                    Decimal::from(self_numerator) / Decimal::from(self_denominator) - other_decimal,
+                    Decimal::from(self_numerator) / Decimal::from(self_denominator.unwrap().get())
+                        - other_decimal,
                 ),
             },
             Number::Approximate(self_decimal) => match other {
                 Number::Rational(other_numerator, other_denominator) => Number::Approximate(
                     self_decimal
-                        - Decimal::from(other_numerator) / Decimal::from(other_denominator),
+                        - Decimal::from(other_numerator)
+                            / Decimal::from(other_denominator.unwrap().get()),
                 ),
                 Number::Approximate(other_decimal) => {
                     Number::Approximate(self_decimal - other_decimal)
@@ -375,29 +398,49 @@ impl Mul for Number {
         match self {
             Number::Rational(self_numerator, self_denominator) => match other {
                 Number::Rational(other_numerator, other_denominator) => {
-                    let down_gcd = gcd(self_numerator, other_denominator);
-                    let up_gcd = gcd(self_denominator, other_numerator);
-                    let (new_numerator, numerator_overflow) =
-                        (self_numerator / down_gcd).overflowing_mul(other_numerator / up_gcd);
-                    let (new_denominator, denominator_overflow) =
-                        (self_denominator / up_gcd).overflowing_mul(other_denominator / down_gcd);
+                    let down_gcd = gcd(
+                        self_numerator.abs() as u64,
+                        other_denominator.unwrap().get(),
+                    );
+                    let up_gcd = gcd(
+                        self_denominator.unwrap().get(),
+                        other_numerator.abs() as u64,
+                    );
+                    let (new_numerator, numerator_overflow) = (self_numerator.abs() as u64
+                        / down_gcd)
+                        .overflowing_mul(other_numerator.abs() as u64 / up_gcd);
+                    let (new_denominator, denominator_overflow) = (self_denominator.unwrap().get()
+                        / up_gcd)
+                        .overflowing_mul(other_denominator.unwrap().get() / down_gcd);
+                    let (new_numerator, numerator_overflow) = if new_numerator > i64::MAX as u64 {
+                        (0, true)
+                    } else {
+                        (
+                            new_numerator as i64
+                                * (self_numerator.signum() * other_numerator.signum()),
+                            numerator_overflow,
+                        )
+                    };
                     if numerator_overflow || denominator_overflow {
                         Number::Approximate(
-                            (Decimal::from(self_numerator) / Decimal::from(self_denominator))
+                            (Decimal::from(self_numerator)
+                                / Decimal::from(self_denominator.unwrap().get()))
                                 * (Decimal::from(other_numerator)
-                                    / Decimal::from(other_denominator)),
+                                    / Decimal::from(other_denominator.unwrap().get())),
                         )
                     } else {
-                        Number::Rational(new_numerator, new_denominator)
+                        Number::Rational(new_numerator, NonZero::new(new_denominator))
                     }
                 }
                 Number::Approximate(other_decimal) => Number::Approximate(
-                    Decimal::from(self_numerator) / Decimal::from(self_denominator) * other_decimal,
+                    Decimal::from(self_numerator) / Decimal::from(self_denominator.unwrap().get())
+                        * other_decimal,
                 ),
             },
             Number::Approximate(self_decimal) => match other {
                 Number::Rational(other_numerator, other_denominator) => Number::Approximate(
-                    Decimal::from(other_numerator) / Decimal::from(other_denominator)
+                    Decimal::from(other_numerator)
+                        / Decimal::from(other_denominator.unwrap().get())
                         * self_decimal,
                 ),
                 Number::Approximate(other_decimal) => {
@@ -422,8 +465,11 @@ impl Mul<i64> for Number {
     fn mul(self, rhs: i64) -> Self {
         match self {
             Number::Rational(numerator, denominator) => {
-                let gcd = gcd(denominator, rhs);
-                Number::Rational(numerator * (rhs / gcd), denominator / gcd)
+                let gcd = gcd(denominator.unwrap().get(), rhs.abs() as u64);
+                Number::Rational(
+                    numerator * (rhs.abs() as u64 / gcd) as i64 * rhs.signum(),
+                    NonZero::new(denominator.unwrap().get() / gcd),
+                )
             }
             Number::Approximate(decimal) => Number::Approximate(decimal * Decimal::from(rhs)),
         }
@@ -445,34 +491,51 @@ impl Div for Number {
         match self {
             Number::Rational(self_numerator, self_denominator) => match other {
                 Number::Rational(other_numerator, other_denominator) => {
-                    let down_gcd = gcd(self_numerator, other_numerator);
-                    let up_gcd = gcd(self_denominator, other_denominator);
-                    let (new_numerator, numerator_overflow) =
-                        (self_numerator / down_gcd).overflowing_mul(other_denominator / up_gcd);
-                    let (new_denominator, denominator_overflow) =
-                        (self_denominator / up_gcd).overflowing_mul(other_numerator / down_gcd);
+                    let down_gcd = gcd(self_numerator.abs() as u64, other_numerator.abs() as u64);
+                    let up_gcd = gcd(
+                        self_denominator.unwrap().get(),
+                        other_denominator.unwrap().get(),
+                    );
+                    let (new_numerator, numerator_overflow) = (self_numerator.abs() as u64
+                        / down_gcd)
+                        .overflowing_mul(other_denominator.unwrap().get() / up_gcd);
+                    let (new_denominator, denominator_overflow) = (self_denominator.unwrap().get()
+                        / up_gcd)
+                        .overflowing_mul(other_numerator.abs() as u64 / down_gcd);
                     if new_denominator.is_zero() {
                         panic!("Attempt to divide by 0: [{self} / {other}]");
                     }
+                    let (new_numerator, numerator_overflow) = if new_numerator > i64::MAX as u64 {
+                        (0, true)
+                    } else {
+                        (
+                            new_numerator as i64
+                                * (self_numerator.signum() * other_numerator.signum()),
+                            numerator_overflow,
+                        )
+                    };
                     if numerator_overflow || denominator_overflow {
                         Number::Approximate(
-                            (Decimal::from(self_numerator) / Decimal::from(self_denominator))
+                            (Decimal::from(self_numerator)
+                                / Decimal::from(self_denominator.unwrap().get()))
                                 * (Decimal::from(other_numerator)
-                                    / Decimal::from(other_denominator)),
+                                    / Decimal::from(other_denominator.unwrap().get())),
                         )
                     } else {
-                        Number::Rational(new_numerator, new_denominator)
+                        Number::Rational(new_numerator, NonZero::new(new_denominator))
                     }
-
                 }
                 Number::Approximate(other_decimal) => Number::Approximate(
-                    Decimal::from(self_numerator) / Decimal::from(self_denominator) / other_decimal,
+                    Decimal::from(self_numerator)
+                        / Decimal::from(self_denominator.unwrap().get())
+                        / other_decimal,
                 ),
             },
             Number::Approximate(self_decimal) => match other {
                 Number::Rational(other_numerator, other_denominator) => Number::Approximate(
                     self_decimal
-                        / (Decimal::from(other_numerator) / Decimal::from(other_denominator)),
+                        / (Decimal::from(other_numerator)
+                            / Decimal::from(other_denominator.unwrap().get())),
                 ),
                 Number::Approximate(other_decimal) => {
                     Number::Approximate(self_decimal / other_decimal)
@@ -496,8 +559,11 @@ impl Div<i64> for Number {
     fn div(self, rhs: i64) -> Self {
         match self {
             Number::Rational(numerator, denominator) => {
-                let gcd = gcd(numerator, rhs);
-                Number::Rational(numerator / gcd, denominator * (rhs / gcd))
+                let gcd = gcd(numerator.abs() as u64, rhs.abs() as u64);
+                Number::Rational(
+                    (numerator.abs() as u64 / gcd) as i64 * numerator.signum() * rhs.signum(),
+                    NonZero::new(denominator.unwrap().get() * (rhs.abs() as u64 / gcd)),
+                )
             }
             Number::Approximate(decimal) => Number::Approximate(decimal / Decimal::from(rhs)),
         }
@@ -517,22 +583,22 @@ impl PartialOrd for Number {
         match self {
             &Number::Rational(self_numerator, self_denominator) => match other {
                 &Number::Rational(other_numerator, other_denominator) => {
-                    (Decimal::from(self_numerator) / Decimal::from(self_denominator))
+                    (Decimal::from(self_numerator) / Decimal::from(self_denominator.unwrap().get()))
                         .round_dp(SIGNIFICANT_DIGITS)
                         .partial_cmp(
-                            &(Decimal::from(other_numerator) / Decimal::from(other_denominator))
+                            &(Decimal::from(other_numerator) / Decimal::from(other_denominator.unwrap().get()))
                                 .round_dp(SIGNIFICANT_DIGITS),
                         )
                 }
                 &Number::Approximate(other_decimal) => (Decimal::from(self_numerator)
-                    / Decimal::from(self_denominator))
+                    / Decimal::from(self_denominator.unwrap().get()))
                 .round_dp(SIGNIFICANT_DIGITS)
                 .partial_cmp(&other_decimal.round_dp(SIGNIFICANT_DIGITS)),
             },
             &Number::Approximate(self_decimal) => match other {
                 &Number::Rational(other_numerator, other_denominator) => {
                     self_decimal.round_dp(SIGNIFICANT_DIGITS).partial_cmp(
-                        &(Decimal::from(other_numerator) / Decimal::from(other_denominator))
+                        &(Decimal::from(other_numerator) / Decimal::from(other_denominator.unwrap().get()))
                             .round_dp(SIGNIFICANT_DIGITS),
                     )
                 }
