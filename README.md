@@ -211,6 +211,8 @@ If instead a number has been constructed using a decimal at any point, or if the
 
 `3.0/2 + 4/3` will yield `2.`, with the final `.` signifying that the number is stored as a decimal. If the number is stored as a decimal, then it is to be considered approximate.
 
+A caveat to the above rule is that a rational can occassionally "collapse" into a decimal if either its numerator or denominator (each using 64 bits) overflows from any operation.
+
 ## Relations
 
 This feature has limited usage in the program's current state, as Jotter can't yet solve non-linear systems. However, these can help with some simplifications.
