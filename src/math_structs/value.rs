@@ -184,7 +184,7 @@ impl Value {
                 self.unit.exponent += 1;
             }
         } else {
-            while !self.is_zero() && self.abs() < Decimal::ONE_HUNDRED {
+            while !self.is_zero() && self.abs() < Decimal::ONE {
                 self.real *= 10;
                 self.imaginary *= 10;
                 self.unit.exponent -= 1;
@@ -201,6 +201,10 @@ impl Value {
                 self.unit.exponent -= 1;
             }
         } else {
+                self.real *= 100;
+                self.imaginary *= 100;
+                self.unit.exponent -= 2;
+
             while self.unit.exponent < -30
                 || (subunit_exponent != 0 && self.unit.exponent % (3 * subunit_exponent) != 0)
             {

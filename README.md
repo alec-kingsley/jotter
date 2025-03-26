@@ -61,7 +61,7 @@ tv ?
 Expected output:
 
 ```
-tv ≡ 0.6 [mm]
+tv ≡ 600. [μm]
 ```
 
 Units can also have different powers and sub-units. So
