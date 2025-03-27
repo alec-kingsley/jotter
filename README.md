@@ -102,90 +102,89 @@ Expected output:
 
 Note that it will initially parse all imaginary and real numbers independently, hence why it would display `23i - 15` instead of the more standard `-15 + 23i`. It will combine these in the simplification process, so by itself,
 
-     ```
-     -15 + 23i?
+ ```
+ -15 + 23i?
 
-     yields:
-     23i - 15 ≡ -15 + 23i
-     ```
+ yields:
+ 23i - 15 ≡ -15 + 23i
+ ```
 
-     A consequence of this is that units work weirdly with imaginary numbers. You can either specify the unit after each term, or multiply by the unit you want. For example,
-     ```
-     (3 + 2i) [km] = 3[km] + 2i[km]?
-     3[km] + 2i[km]?
+ A consequence of this is that units work weirdly with imaginary numbers. You can either specify the unit after each term, or multiply by the unit you want. For example,
+ ```
+ (3 + 2i) [km] = 3[km] + 2i[km]?
+ 3[km] + 2i[km]?
 
-     Expected output:
-     (3 + 2i)*1 [km] = 3 [km] + 2i [km] ≡ True
-     3 [km] + 2i [km] ≡ (3 + 2i) [km]
-     ```
+ Expected output:
+ (3 + 2i)*1 [km] = 3 [km] + 2i [km] ≡ True
+ 3 [km] + 2i [km] ≡ (3 + 2i) [km]
+ ```
 
 ## Comments
 
-     As before, any syntactically invalid line is considered a comment. This can mean that an unintentional typo will silently not do anything, but as this is not meant for large programs it should not be an issue.
+ As before, any syntactically invalid line is considered a comment. This can mean that an unintentional typo will silently not do anything, but as this is not meant for large programs it should not be an issue.
 
-     Another comment format is by using parentheses with stars on the inside.
+ Another comment format is by using parentheses with stars on the inside.
 
-    ```
+```
 k = 5 [s] (*set k to 5 seconds*)
-    ```
+```
 
-    This is great for inline comments, or if a comment would be otherwise valid syntax.
+This is great for inline comments, or if a comment would be otherwise valid syntax.
 
 
 ## Contexts
 
-    You can only use each variable name once, but "contexts" can separate groups.
-    To insert a context, simply create a line with only a ">" token. Return to the previous context
-    by using just the "<" token.
+You can only use each variable name once, but "contexts" can separate groups.
+To insert a context, simply create a line with only a ">" token. Return to the previous context
+by using just the "<" token.
 
-    Example:
+Example:
 
-    ```
-    y = 3
-    >
-    x = 2
-    x + y ?
-    <
-    x + y ?
-    ```
+```
+y = 3
+>
+x = 2
+x + y ?
+<
+x + y ?
+```
 
-    Expected output:
+Expected output:
 
-    ```
-    x + y ≡ 5
-    x + y ≡ x + 3
-    ```
+```
+x + y ≡ 5
+x + y ≡ x + 3
+```
 
-    Each context can have its own contexts as children. You may think of the `>` as a way to just
-    save a program state to come back to it. 
+Each context can have its own contexts as children. You may think of the `>` as a way to just
+save a program state to come back to it. 
 
-    In an interactive terminal, it will display as many `>` as are the current context.
-    To leave a context in a terminal, one can also use `Ctrl+d`. The above usage in a terminal while using `Ctrl+d` would look like this:
+In an interactive terminal, it will display as many `>` as are the current context.
+To leave a context in a terminal, one can also use `Ctrl+d`. The above usage in a terminal while using `Ctrl+d` would look like this:
 
-    ```
-    > y = 3
-    > >
-    >> x = 2
-    >> x + y ?
-    x + y ≡ 5
-    >>
+```
+> y = 3
+> >
+>> x = 2
+>> x + y ?
+x + y ≡ 5
+>>
 > x + y ? (* Ctrl+d pressed before this *)
-    x + y ≡ x + 3
-    ```
+x + y ≡ x + 3
+```
 
-    When only one `>` is remaining as the prompt for the interactive Jotter terminal, `Ctrl+d` will end the session.
+When only one `>` is remaining as the prompt for the interactive Jotter terminal, `Ctrl+d` will end the session.
 
 ## Functions
 
-    ```
+```
 f(x) = 3x + 2 (* example function *)
 
-    g(x) = {
-        x / 2,  x ≤ 1
-            x,      1 < x ≤ 3
-            2x,     x > 3
-    }
-
+g(x) = {
+    x / 2,  x ≤ 1
+    x,      1 < x ≤ 3
+    2x,     x > 3
+}
 
 f(2) ?
 g(4) ? 
@@ -205,35 +204,35 @@ Note that any comments within a multi-line function definition must be in the (\
 Numbers have two different representations that they'll switch between: "Rational" and "Decimal".
 
 If a number has been constructed purely from rational components, then it will continue to display it as such. For example,
-   `3/2 + 4/3?` will yield `2`, and `2 * 1/3` will yield `2/3`.
+`3/2 + 4/3?` will yield `2`, and `2 * 1/3` will yield `2/3`.
 
-   If instead a number has been constructed using a decimal at any point, or if the number comes from a solving algorithm that involved an approximation, it will store and print as a decimal. So
+If instead a number has been constructed using a decimal at any point, or if the number comes from a solving algorithm that involved an approximation, it will store and print as a decimal. So
 
-   `3.0/2 + 4/3` will yield `2.`, with the final `.` signifying that the number is stored as a decimal. If the number is stored as a decimal, then it is to be considered approximate.
+`3.0/2 + 4/3` will yield `2.`, with the final `.` signifying that the number is stored as a decimal. If the number is stored as a decimal, then it is to be considered approximate.
 
-   A caveat to the above rule is that a rational can occassionally "collapse" into a decimal if either its numerator or denominator (each using 64 bits) overflows from any operation.
+A caveat to the above rule is that a rational can occassionally "collapse" into a decimal if either its numerator or denominator (each using 64 bits) overflows from any operation.
 
 ## Relations
 
-   This feature has limited usage in the program's current state, as Jotter can't yet solve non-linear systems. However, these can help with some simplifications.
+This feature has limited usage in the program's current state, as Jotter can't yet solve non-linear systems. However, these can help with some simplifications.
 
-   ```
-   a/a?
-   Expected output: a/a: a/a
-   (it won't cancel this out in case a is 0)
+```
+a/a?
+Expected output: a/a: a/a
+(it won't cancel this out in case a is 0)
 
-   a > 0
-   a/a?
-    Expected output: a/a ≡ 1
+a > 0
+a/a?
+Expected output: a/a ≡ 1
 (it can now safely perform this operation)
-    ```
+```
 
-    Additionally, if you specify a relation which becomes false, the program will quit. For example,
+Additionally, if you specify a relation which becomes false, the program will quit. For example,
 
-    ```
-    x > 10
-    x = 3
-    ```
+```
+x > 10
+x = 3
+```
 (This will fail)
 
 ### Polynomial Solver
