@@ -8,7 +8,7 @@ use std::hash::{Hash, Hasher};
 use std::num::NonZero;
 use std::ops::*;
 
-static SIGNIFICANT_DIGITS: u32 = 10;
+static SIGNIFICANT_DIGITS: u32 = 20;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Number {
