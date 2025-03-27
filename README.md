@@ -230,8 +230,8 @@ Expected output: a/a ≡ 1
 Relations can also be used for certain assertions. For example,
 ```
 a < 10
-a = 3 
-a = 17
+a = 3?
+a = 17?
 ```
 would print
 ```
