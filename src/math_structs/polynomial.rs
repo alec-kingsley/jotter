@@ -145,7 +145,7 @@ impl Polynomial {
         for i in 0..roots.len() {
             let rationalized = roots[i].rationalize();
             let evaluated = self.evaluate(&rationalized);
-            if evaluated.is_exact() {
+            if evaluated.is_exact() && evaluated.is_zero() {
                 roots[i] = rationalized;
             }
         }
