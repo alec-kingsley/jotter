@@ -436,16 +436,6 @@ Currently, quantity units are treated as though they were unitless. Technically 
 
 The polynomial solver uses the Aberth method.
 
-## Bugs
-
-Bugs are still expected in this project. As I find them, I will add them as failing test cases before fixing them. Run
-```
-cargo test
-```
-to see the current bugs.
-
-Before moving on to any further features, I plan to thoroughly test this project.
-
 ## Planned Features
 
 ### Units
