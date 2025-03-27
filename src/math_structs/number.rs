@@ -8,7 +8,7 @@ use std::hash::{Hash, Hasher};
 use std::num::NonZero;
 use std::ops::*;
 
-static SIGNIFICANT_DIGITS: u32 = 10;
+static SIGNIFICANT_DIGITS: u32 = 20;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Number {
@@ -222,7 +222,7 @@ impl From<i64> for Number {
 
 impl From<f64> for Number {
     fn from(num: f64) -> Self {
-        Number::Approximate(Decimal::from_f64_retain(num).unwrap())
+        Number::Approximate(Decimal::from_f64(num).unwrap())
     }
 }
 
