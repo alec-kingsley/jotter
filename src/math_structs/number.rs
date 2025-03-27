@@ -129,7 +129,19 @@ impl Number {
                         NonZero::new(denominator.unwrap().get().pow(pow as u32)),
                     )
                 } else {
-                    Number::from(Decimal::from(self.clone()).powi(pow as i64))
+                    if denominator.unwrap().get() > i64::MAX as u64 {
+                        Number::from(Decimal::from(self.clone()).powi(pow as i64))
+                    } else {
+                        Number::Rational(
+                            (denominator.unwrap().get() as i64).pow(pow.abs() as u32) as i64
+                                * if pow.abs() % 2 != 0 && numerator.signum() == -1 {
+                                    -1
+                                } else {
+                                    1
+                                },
+                            NonZero::new(numerator.abs().pow(pow.abs() as u32) as u64),
+                        )
+                    }
                 }
             }
             &Number::Approximate(decimal) => Number::Approximate(decimal.powi(pow as i64)),
@@ -586,8 +598,9 @@ impl PartialOrd for Number {
                     (Decimal::from(self_numerator) / Decimal::from(self_denominator.unwrap().get()))
                         .round_dp(SIGNIFICANT_DIGITS)
                         .partial_cmp(
-                            &(Decimal::from(other_numerator) / Decimal::from(other_denominator.unwrap().get()))
-                                .round_dp(SIGNIFICANT_DIGITS),
+                            &(Decimal::from(other_numerator)
+                                / Decimal::from(other_denominator.unwrap().get()))
+                            .round_dp(SIGNIFICANT_DIGITS),
                         )
                 }
                 &Number::Approximate(other_decimal) => (Decimal::from(self_numerator)
@@ -598,8 +611,9 @@ impl PartialOrd for Number {
             &Number::Approximate(self_decimal) => match other {
                 &Number::Rational(other_numerator, other_denominator) => {
                     self_decimal.round_dp(SIGNIFICANT_DIGITS).partial_cmp(
-                        &(Decimal::from(other_numerator) / Decimal::from(other_denominator.unwrap().get()))
-                            .round_dp(SIGNIFICANT_DIGITS),
+                        &(Decimal::from(other_numerator)
+                            / Decimal::from(other_denominator.unwrap().get()))
+                        .round_dp(SIGNIFICANT_DIGITS),
                     )
                 }
                 &Number::Approximate(other_decimal) => self_decimal

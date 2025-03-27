@@ -1,4 +1,4 @@
 t = 3 [ns]
 v = 200 [km/s]
 tv ?
-Expected output: `tv ≡ 600. [μm]`
+Expected output: `tv ≡ 600 [μm]`
