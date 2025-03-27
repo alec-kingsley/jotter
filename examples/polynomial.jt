@@ -1,7 +1,11 @@
-Example of a polynomial being solved
+Example of polynomials being solved
 
 xxxxxxx + 850xxxx + 1229xxx + 33454x - 5xxxxxx - 124xxxxx - 16925xx = 18480
+760yyyy - 2702yyy - 2513yy + 1656y = -1071
 x?
+y?
 
 Expected output:
 x ∈ {-5, 8, 7, 2, 3, -11, 1}
+y ∈ {-1/2, 21/5, -17/19, 3/4}
+
