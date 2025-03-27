@@ -227,6 +227,20 @@ Expected output: a/a ≡ 1
 (it can now safely perform this operation)
 ```
 
+Relations can also be used for certain assertions. For example,
+```
+a < 10
+a = 3 
+a = 17
+```
+would print
+```
+a = 3 ≡ a = 3
+a = 17 ≡ False
+```
+
+Since nothing is known about the first case but the second is clearly false from the relation.
+
 Additionally, if you specify a relation which becomes false, the program will quit. For example,
 
 ```
