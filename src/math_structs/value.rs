@@ -116,6 +116,34 @@ impl Value {
         }
     }
 
+    /// Attempts to rationalize components of `self`.
+    ///
+    pub fn rationalize(&self) -> Self {
+        let new_real = if let Number::Approximate(_) = self.real {
+            if let Some(rationalized) = self.real.rationalize() {
+                rationalized
+            } else {
+                self.real.clone()
+            }
+        } else {
+            self.real.clone()
+        };
+        let new_imaginary = if let Number::Approximate(_) = self.imaginary {
+            if let Some(rationalized) = self.imaginary.rationalize() {
+                rationalized
+            } else {
+                self.imaginary.clone()
+            }
+        } else {
+            self.imaginary.clone()
+        };
+        Value {
+            real: new_real,
+            imaginary: new_imaginary,
+            unit: self.unit.clone(),
+        }
+    }
+
     /// Returns the absolute value of the number.
     /// Does not consider unit.
     ///
@@ -201,9 +229,9 @@ impl Value {
                 self.unit.exponent -= 1;
             }
         } else {
-                self.real *= 100;
-                self.imaginary *= 100;
-                self.unit.exponent -= 2;
+            self.real *= 100;
+            self.imaginary *= 100;
+            self.unit.exponent -= 2;
 
             while self.unit.exponent < -30
                 || (subunit_exponent != 0 && self.unit.exponent % (3 * subunit_exponent) != 0)

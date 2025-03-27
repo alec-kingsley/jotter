@@ -8,7 +8,7 @@ use std::hash::{Hash, Hasher};
 use std::num::NonZero;
 use std::ops::*;
 
-static SIGNIFICANT_DIGITS: u32 = 20;
+static SIGNIFICANT_DIGITS: u32 = 10;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Number {
@@ -87,6 +87,34 @@ const fn lcm(x: u64, y: u64) -> (u64, bool) {
 impl Number {
     pub const ZERO: Number = Number::Rational(0, NonZero::new(1u64));
     pub const ONE: Number = Number::Rational(1, NonZero::new(1u64));
+
+    /// Attempts to convert a Number::Approximate to a Number::Rational.
+    /// Returns None iff it failed to do so.
+    ///
+    /// # Requires
+    /// `self` is a Number::Approximate
+    ///
+    pub fn rationalize(&self) -> Option<Self> {
+        if let &Number::Approximate(decimal) = self {
+            const MAX_TEST: u64 = 1000;
+            let mut result = None;
+            for i in 1..MAX_TEST + 1 {
+                let test = decimal * Decimal::from(i);
+                if test.round_dp(SIGNIFICANT_DIGITS).is_integer() {
+                    let numerator = i64::try_from(test.round_dp(SIGNIFICANT_DIGITS));
+                    if numerator.is_ok() {
+                        result = Some(
+                            Number::Rational(numerator.unwrap(), NonZero::new(i)).reduce_rational(),
+                        );
+                    }
+                    break;
+                }
+            }
+            result
+        } else {
+            panic!("rationalize called with Rational number");
+        }
+    }
 
     /// Reduces a Rational number to its simplest form.
     ///

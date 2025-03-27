@@ -141,6 +141,15 @@ impl Polynomial {
             }
         }
 
+        // rationalize anything that is sufficiently rational
+        for i in 0..roots.len() {
+            let rationalized = roots[i].rationalize();
+            let evaluated = self.evaluate(&rationalized);
+            if evaluated.is_exact() {
+                roots[i] = rationalized;
+            }
+        }
+
         roots.into_iter().collect()
     }
 }
