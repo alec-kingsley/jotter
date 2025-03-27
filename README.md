@@ -5,6 +5,10 @@ Its syntax is very familiar to real math.
 
 Jotter is not meant to be a full programming language. It won't support complex string manipulation or data structures. Its goal is just to make life easier and solve problems quickly.
 
+## Prerequisites
+
+- [Rust](https://doc.rust-lang.org/book/ch01-01-installation.html) 
+
 ## Usage
 
 `cargo run` - open an interactive Jotter terminal
