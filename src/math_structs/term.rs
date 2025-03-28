@@ -390,9 +390,7 @@ impl Neg for Term {
 
     fn neg(self) -> Self {
         let mut result = self.clone();
-        result
-            .numerator
-            .push(Factor::Number(-Value::one()));
+        result.numerator.push(Factor::Number(-Value::one()));
         result
     }
 }
@@ -808,10 +806,8 @@ mod tests {
 
     #[test]
     fn test_simplify_3() {
-        let knowns: HashMap<Identifier, Value> = HashMap::from([(
-            Identifier::new("a").unwrap(),
-            Value::from(2),
-        )]);
+        let knowns: HashMap<Identifier, Value> =
+            HashMap::from([(Identifier::new("a").unwrap(), Value::from(2))]);
         let model = Model::new(0);
         let force_retrieve = false;
         let result = ast::parse_term("3a", &mut 0)

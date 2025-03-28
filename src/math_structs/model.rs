@@ -346,6 +346,7 @@ impl Model {
             }
             lonely_groups.push(lonely_rows);
         }
+
         // for each lonely group with > 1 element, generate any possible equations
         let mut new_equations: Vec<(Expression, Expression)> = Vec::new();
         for col in 0..(col_ct - 1) {
@@ -518,8 +519,8 @@ impl Model {
                 for col in 0..(col_ct - 1) {
                     let constant_result =
                         self.augmented_matrix[row][col].simplify_whole_as_constants(&self);
-                    if constant_result.as_ref().is_ok_and(|numbers| {
-                        numbers.len() == 1 && !numbers.iter().next().unwrap().is_zero()
+                    if constant_result.as_ref().is_ok_and(|values| {
+                        values.len() == 1 && !values.iter().next().unwrap().is_zero()
                     }) {
                         if lonely_col_option.is_none() {
                             lonely_col_option = Some((
@@ -529,6 +530,8 @@ impl Model {
                         } else {
                             too_many_non_zero_constants = true;
                         }
+                    } else {
+                        too_many_non_zero_constants = true;
                     }
                 }
                 if !too_many_non_zero_constants && lonely_col_option.is_some() {
@@ -824,21 +827,24 @@ mod test {
         let mut model = Model::new(0);
         model
             .add_matrix_row(
-                ast::parse_expression("3x + 2y + z", &mut 0).expect("ast::parse_expression - failure"),
+                ast::parse_expression("3x + 2y + z", &mut 0)
+                    .expect("ast::parse_expression - failure"),
                 ast::parse_expression("26", &mut 0).expect("ast::parse_expression - failure"),
             )
             .unwrap();
         println!("ADDED: `3x + 2y + z = 26`. MODEL: {model}");
         model
             .add_matrix_row(
-                ast::parse_expression("4x - 5y - z", &mut 0).expect("ast::parse_expression - failure"),
+                ast::parse_expression("4x - 5y - z", &mut 0)
+                    .expect("ast::parse_expression - failure"),
                 ast::parse_expression("3", &mut 0).expect("ast::parse_expression - failure"),
             )
             .unwrap();
         println!("ADDED: `4x - 5y - z = 3`. MODEL: {model}");
         model
             .add_matrix_row(
-                ast::parse_expression("x + 2y + 3z", &mut 0).expect("ast::parse_expression - failure"),
+                ast::parse_expression("x + 2y + 3z", &mut 0)
+                    .expect("ast::parse_expression - failure"),
                 ast::parse_expression("30", &mut 0).expect("ast::parse_expression - failure"),
             )
             .unwrap();
@@ -862,6 +868,56 @@ mod test {
         assert_eq!(
             Value::from(7),
             Expression::from_identifier(Identifier::new("z").unwrap())
+                .simplify_whole_loose(&model)
+                .unwrap()
+                .as_value()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_retrieval_1() {
+        let mut model = Model::new(0);
+        model
+            .add_matrix_row(
+                ast::parse_expression("a", &mut 0).expect("ast::parse_expression - failure"),
+                ast::parse_expression("3", &mut 0).expect("ast::parse_expression - failure"),
+            )
+            .unwrap();
+        println!("ADDED: `a = 3`. MODEL: {model}");
+        model
+            .add_matrix_row(
+                ast::parse_expression("ax + 2y", &mut 0).expect("ast::parse_expression - failure"),
+                ast::parse_expression("19", &mut 0).expect("ast::parse_expression - failure"),
+            )
+            .unwrap();
+        println!("ADDED: `ax + 2y = 19`. MODEL: {model}");
+        model
+            .add_matrix_row(
+                ast::parse_expression("8x - 10y", &mut 0).expect("ast::parse_expression - failure"),
+                ast::parse_expression("20", &mut 0).expect("ast::parse_expression - failure"),
+            )
+            .unwrap();
+        println!("ADDED: `8x - 10y = 20`. MODEL: {model}");
+        assert_eq!(
+            Value::from(4),
+            Expression::from_identifier(Identifier::new("a").unwrap())
+                .simplify_whole_loose(&model)
+                .unwrap()
+                .as_value()
+                .unwrap()
+        );
+        assert_eq!(
+            Value::from(5),
+            Expression::from_identifier(Identifier::new("x").unwrap())
+                .simplify_whole_loose(&model)
+                .unwrap()
+                .as_value()
+                .unwrap()
+        );
+        assert_eq!(
+            Value::from(2),
+            Expression::from_identifier(Identifier::new("y").unwrap())
                 .simplify_whole_loose(&model)
                 .unwrap()
                 .as_value()
