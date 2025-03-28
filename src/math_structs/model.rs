@@ -302,7 +302,7 @@ impl Model {
     /// This new information can then be used to further develop augmented matrix.
     ///
     fn make_less_lonely(&mut self) -> Result<(), String> {
-        let row_ct = self.augmented_matrix.len();
+        let mut row_ct = self.augmented_matrix.len();
         let col_ct = if row_ct == 0 {
             1
         } else {
@@ -367,13 +367,29 @@ impl Model {
                         .iter()
                         .next()
                         .unwrap();
-                    for left_idx in 0..lonely_groups[col].len() {
-                        let left_row_idx = lonely_groups[col][left_idx];
-                        new_equations.push((
-                            self.augmented_matrix[left_row_idx][col].clone()
-                                * Expression::from_value(value.clone()),
-                            self.augmented_matrix[left_row_idx][col_ct - 1].clone(),
-                        ));
+                    for row in (0..row_ct).rev() {
+                        if !self.augmented_matrix[row][col]
+                            .simplify_whole_as_constants(&self)
+                            .is_ok_and(|values| {
+                                values.len() == 1 && values.iter().next().unwrap().is_zero()
+                            })
+                        {
+                            let mut new_left = Expression::new();
+                            for cell_col in 0..col_ct - 1 {
+                                new_left += self.augmented_matrix[row][cell_col].clone()
+                                    * if cell_col == col {
+                                        Expression::from_value(value.clone())
+                                    } else {
+                                        Expression::from_identifier(
+                                            self.variables[cell_col].clone(),
+                                        )
+                                    };
+                            }
+                            new_equations
+                                .push((new_left, self.augmented_matrix[row][col_ct - 1].clone()));
+                            self.augmented_matrix.remove(row);
+                            row_ct -= 1;
+                        }
                     }
                 } else if lonely_groups[col].len() > 1 {
                     for right_idx in 1..lonely_groups[col].len() {
@@ -900,7 +916,7 @@ mod test {
             .unwrap();
         println!("ADDED: `8x - 10y = 20`. MODEL: {model}");
         assert_eq!(
-            Value::from(4),
+            Value::from(3),
             Expression::from_identifier(Identifier::new("a").unwrap())
                 .simplify_whole_loose(&model)
                 .unwrap()
