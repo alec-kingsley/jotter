@@ -546,7 +546,8 @@ impl Model {
                         } else {
                             too_many_non_zero_constants = true;
                         }
-                    } else {
+                    } else if constant_result.is_err() {
+                        // if there's anything that's not a constant we can't remove it yet either
                         too_many_non_zero_constants = true;
                     }
                 }
@@ -915,6 +916,56 @@ mod test {
             )
             .unwrap();
         println!("ADDED: `8x - 10y = 20`. MODEL: {model}");
+        assert_eq!(
+            Value::from(3),
+            Expression::from_identifier(Identifier::new("a").unwrap())
+                .simplify_whole_loose(&model)
+                .unwrap()
+                .as_value()
+                .unwrap()
+        );
+        assert_eq!(
+            Value::from(5),
+            Expression::from_identifier(Identifier::new("x").unwrap())
+                .simplify_whole_loose(&model)
+                .unwrap()
+                .as_value()
+                .unwrap()
+        );
+        assert_eq!(
+            Value::from(2),
+            Expression::from_identifier(Identifier::new("y").unwrap())
+                .simplify_whole_loose(&model)
+                .unwrap()
+                .as_value()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_retrieval_2() {
+        let mut model = Model::new(0);
+        model
+            .add_matrix_row(
+                ast::parse_expression("ax + 2y", &mut 0).expect("ast::parse_expression - failure"),
+                ast::parse_expression("19", &mut 0).expect("ast::parse_expression - failure"),
+            )
+            .unwrap();
+        println!("ADDED: `ax + 2y = 19`. MODEL: {model}");
+        model
+            .add_matrix_row(
+                ast::parse_expression("8x - 10y", &mut 0).expect("ast::parse_expression - failure"),
+                ast::parse_expression("20", &mut 0).expect("ast::parse_expression - failure"),
+            )
+            .unwrap();
+        println!("ADDED: `8x - 10y = 20`. MODEL: {model}");
+        model
+            .add_matrix_row(
+                ast::parse_expression("a", &mut 0).expect("ast::parse_expression - failure"),
+                ast::parse_expression("3", &mut 0).expect("ast::parse_expression - failure"),
+            )
+            .unwrap();
+        println!("ADDED: `a = 3`. MODEL: {model}");
         assert_eq!(
             Value::from(3),
             Expression::from_identifier(Identifier::new("a").unwrap())
