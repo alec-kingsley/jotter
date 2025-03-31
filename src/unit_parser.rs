@@ -10,7 +10,7 @@ use std::collections::HashMap;
 /// * `code` - A string representing the user program.
 /// * `i` - An index within `code` representing a point after the last token processed.
 ///
-/// " Examples
+/// # Examples
 ///
 /// ```
 /// let code = "[kilogram / second ^ 2]";
