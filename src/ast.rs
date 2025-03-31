@@ -12,7 +12,7 @@ use std::collections::HashMap;
 /// * `code` - A string representing the user program.
 /// * `i` - An index within `code` representing a point after the last token processed.
 ///
-/// " Examples
+/// # Examples
 ///
 /// ```
 /// let code = "3x + 2 = 7";
@@ -63,7 +63,7 @@ pub fn parse_statement(code: &str, i: &mut usize) -> Result<Statement, String> {
 /// * `code` - A string representing the user program.
 /// * `i` - An index within `code` representing a point after the last token processed.
 ///
-/// " Examples
+/// # Examples
 ///
 /// ```
 /// let code = "f(x) = 3x + 2";
@@ -145,7 +145,7 @@ pub fn parse_function(code: &str, i: &mut usize) -> Result<Statement, String> {
 /// * `code` - A string representing the user program.
 /// * `i` - An index within `code` representing a point after the last token processed.
 ///
-/// " Examples
+/// # Examples
 ///
 /// ```
 /// let code = "2y + 7 = 3x + 2";
@@ -191,7 +191,7 @@ pub fn parse_relation(code: &str, i: &mut usize) -> Result<Relation, String> {
 /// * `code` - A string representing the user program.
 /// * `i` - An index within `code` representing a point after the last token processed.
 ///
-/// " Examples
+/// # Examples
 ///
 /// ```
 /// let code = "32x + 2ab";
@@ -234,7 +234,7 @@ pub fn parse_expression(code: &str, i: &mut usize) -> Result<Expression, String>
 /// * `code` - A string representing the user program.
 /// * `i` - An index within `code` representing a point after the last token processed.
 ///
-/// " Examples
+/// # Examples
 ///
 /// ```
 /// let code = "32x / 5 * 2";
@@ -303,7 +303,7 @@ pub fn parse_term(code: &str, i: &mut usize) -> Result<Term, String> {
 /// * "Unexpected ')'" - A ) was found while not parsing a parenthetical
 /// * "Unclosed '('" - End of input reached and no closing ')' found
 ///
-/// " Examples
+/// # Examples
 ///
 /// ```
 /// let code = "(3x + 2)";
