@@ -44,7 +44,6 @@ impl Factor {
                     let sub_term = expression.into_iter().next().unwrap();
                     if sub_term.len() == 1 && !sub_term.has_denominator() {
                         // if the parenthetical is just a factor, return it
-                        // TODO - write expression extract_factor function
                         sub_term.numerator_ref()[0].clone()
                     } else {
                         Factor::Parenthetical(Expression::from_term(sub_term.simplify(

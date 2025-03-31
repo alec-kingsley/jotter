@@ -107,6 +107,9 @@ impl Polynomial {
         //
         // TODO - on a serious note this is problematic bc if the max coefficient
         // is smaller than this then it will probably not find it. Oopsies!
+        //
+        // Article with info on starting numbers: (See (11))
+        // https://link.springer.com/article/10.1007/BF02207694
         let super_special_number =
             (Value::from(0.4) + Value::from(0.9).i()).with_unit(unit.clone());
         let mut roots: Vec<Value> = Vec::with_capacity(degree);
