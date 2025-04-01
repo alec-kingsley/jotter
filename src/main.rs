@@ -67,8 +67,8 @@ fn interpret_as_whole(model: &mut Model, code: &str, i: &mut usize, tab_ct: usiz
 fn spawn_jotter_terminal(model: &mut Model, tab_ct: usize) {
     let mut user_code = String::new();
     let mut overwrite = true;
+    let prompt = &String::from(std::iter::repeat('>').take(tab_ct + 1).collect::<String>() + " ");
     loop {
-        let prompt = std::iter::repeat('>').take(tab_ct + 1).collect::<String>() + " ";
         print!("{}", prompt);
         io::stdout().flush().unwrap();
         if overwrite {
@@ -83,7 +83,7 @@ fn spawn_jotter_terminal(model: &mut Model, tab_ct: usize) {
                 break;
             }
             Ok(_) => {
-                user_code = user_code.to_string();
+                user_code = user_code.trim_end().to_string();
                 match parse_statement(user_code.as_str(), &mut 0) {
                     Ok(Statement::Prompt(relation)) => process_prompt(model, relation),
                     Ok(Statement::Equation(relation)) => {
@@ -100,6 +100,7 @@ fn spawn_jotter_terminal(model: &mut Model, tab_ct: usize) {
                                 SetForegroundColor(Color::Green),
                                 Print(user_code.clone()),
                                 ResetColor,
+                                Print("\n"),
                             )
                             .unwrap();
                         }
