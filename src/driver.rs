@@ -66,7 +66,11 @@ pub fn process_function(
 /// * `model` - The program model for the state of the program.
 /// * `equation` - A `Relation` representing the relation to evaluate.
 ///
-pub fn process_equation(model: &mut Model, relation: Relation) {
+/// # Returns
+/// true iff something was stored
+///
+pub fn process_equation(model: &mut Model, relation: Relation) -> bool {
+    let mut something_stored = false;
     // loop through operators
     for (left, operator, right) in relation.into_iter() {
         // if equality, call add_matrix_row
@@ -75,10 +79,14 @@ pub fn process_equation(model: &mut Model, relation: Relation) {
             if equal_result.is_err() {
                 eprintln!("ERROR - {}", equal_result.unwrap_err());
                 process::exit(0);
+            } else {
+                something_stored = true;
             }
         } else {
             // else, call add_relation
             model.add_relation(left.clone(), operator.clone(), right.clone());
+            something_stored = true;
         }
     }
+    something_stored
 }

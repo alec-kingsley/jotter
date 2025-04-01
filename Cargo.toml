@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+crossterm = "0.28.1"
 regex = "1.8"
 rust_decimal = { version = "1.36.0", features = ["maths"] }
 rust_decimal_macros = "1.36.0"

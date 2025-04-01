@@ -1,7 +1,11 @@
+use crossterm::{
+    cursor, execute,
+    style::{Color, Print, ResetColor, SetForegroundColor},
+    terminal::{Clear, ClearType},
+};
 use std::env;
 use std::fs;
-use std::io;
-use std::io::*;
+use std::io::{self, Write};
 
 mod ast;
 mod math_structs;
@@ -36,7 +40,9 @@ fn interpret_as_whole(model: &mut Model, code: &str, i: &mut usize, tab_ct: usiz
                 );
                 process_prompt(model, relation)
             }
-            Ok(Statement::Equation(relation)) => process_equation(model, relation),
+            Ok(Statement::Equation(relation)) => {
+                process_equation(model, relation);
+            }
             Ok(Statement::FunctionDefinition(name, arguments, definition)) => {
                 process_function(model, name, arguments, definition)
             }
@@ -62,12 +68,8 @@ fn spawn_jotter_terminal(model: &mut Model, tab_ct: usize) {
     let mut user_code = String::new();
     let mut overwrite = true;
     loop {
-        print!(
-            "{} ",
-            std::iter::repeat('>')
-                .take(tab_ct + 1)
-                .collect::<String>()
-        );
+        let prompt = std::iter::repeat('>').take(tab_ct + 1).collect::<String>() + " ";
+        print!("{}", prompt);
         io::stdout().flush().unwrap();
         if overwrite {
             user_code.clear();
@@ -81,10 +83,27 @@ fn spawn_jotter_terminal(model: &mut Model, tab_ct: usize) {
                 break;
             }
             Ok(_) => {
-                user_code = user_code.trim().to_string();
+                user_code = user_code.to_string();
                 match parse_statement(user_code.as_str(), &mut 0) {
                     Ok(Statement::Prompt(relation)) => process_prompt(model, relation),
-                    Ok(Statement::Equation(relation)) => process_equation(model, relation),
+                    Ok(Statement::Equation(relation)) => {
+                        if process_equation(model, relation) {
+                            execute!(
+                                io::stdout(),
+                                cursor::MoveUp(1),
+                                Clear(ClearType::CurrentLine)
+                            )
+                            .unwrap();
+                            execute!(
+                                io::stdout(),
+                                Print(prompt),
+                                SetForegroundColor(Color::Green),
+                                Print(user_code.clone()),
+                                ResetColor,
+                            )
+                            .unwrap();
+                        }
+                    }
                     Ok(Statement::FunctionDefinition(name, arguments, definition)) => {
                         process_function(model, name, arguments, definition)
                     }
