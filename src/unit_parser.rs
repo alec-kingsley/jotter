@@ -179,8 +179,8 @@ pub fn parse_base_unit(
     ];
     let base_unit_suffix_abbreviations = vec![
         "m", "in", "ft", "ft", "yd", "mi", "l", "c", "pt", "qt", "gal", "g", "lb", "s", "min", "h",
-        "d", "A", "K", "mol", "cd", "rad", "sr", "Hz", "N", "Pa", "J", "W", "C", "V", "F", "Ω",
-        "S", "Wb", "T", "H", "lm", "lx", "Bq", "Gy", "Sv", "kat",
+        "d", "A", "K", "mol", "cd", "Hz", "N", "Pa", "J", "W", "C", "V", "F", "Ω", "S", "Wb", "T",
+        "H", "lm", "lx", "Bq", "Gy", "Sv", "kat",
     ];
     // vec of constituents paired with order
     let base_units: Vec<(HashMap<BaseUnit, i8>, Number)> = vec![
