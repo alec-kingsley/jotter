@@ -36,8 +36,8 @@ y ?
 Expected output:
 
 ```
-x ≡ 3
-y ≡ -1
+x = 3
+y = -1
 ```
 
 Jotter will also simplify expressions for you. As an example:
@@ -49,7 +49,7 @@ Jotter will also simplify expressions for you. As an example:
 Expected output:
 
 ```
-(a + b)(a + b) ≡ aa + 2ab + bb
+(a + b)(a + b) = aa + 2ab + bb
 ```
 
 ## Units
@@ -65,7 +65,7 @@ tv ?
 Expected output:
 
 ```
-tv ≡ 600 [μm]
+tv = 600 [μm]
 ```
 
 Units can also have different powers and sub-units. So
@@ -99,9 +99,9 @@ Example:
 (3 + 2i)(1 - 5i)?
 
 Expected output:
-(23i - 15)/(5 + 2i) ≡ -1 + 5i
-(25 - 60i)/(8 - i) ≡ 4 - 7i
-(3 + 2i)(1 - 5i) ≡ 13 - 13i
+(23i - 15)/(5 + 2i) = -1 + 5i
+(25 - 60i)/(8 - i) = 4 - 7i
+(3 + 2i)(1 - 5i) = 13 - 13i
 ```
 
 Note that it will initially parse all imaginary and real numbers independently, hence why it would display `23i - 15` instead of the more standard `-15 + 23i`. It will combine these in the simplification process, so by itself,
@@ -110,7 +110,7 @@ Note that it will initially parse all imaginary and real numbers independently, 
  -15 + 23i?
 
  yields:
- 23i - 15 ≡ -15 + 23i
+ 23i - 15 = -15 + 23i
  ```
 
  A consequence of this is that units work weirdly with imaginary numbers. You can either specify the unit after each term, or multiply by the unit you want. For example,
@@ -120,7 +120,7 @@ Note that it will initially parse all imaginary and real numbers independently, 
 
  Expected output:
  (3 + 2i)*1 [km] = 3 [km] + 2i [km] ≡ True
- 3 [km] + 2i [km] ≡ (3 + 2i) [km]
+ 3 [km] + 2i [km] = (3 + 2i) [km]
  ```
 
 ## Comments
@@ -156,8 +156,8 @@ x + y ?
 Expected output:
 
 ```
-x + y ≡ 5
-x + y ≡ x + 3
+x + y = 5
+x + y = x + 3
 ```
 
 Each context can have its own contexts as children. You may think of the `>` as a way to just
@@ -171,10 +171,10 @@ To leave a context in a terminal, one can also use `Ctrl+d`. The above usage in 
 > >
 >> x = 2
 >> x + y ?
-x + y ≡ 5
+x + y = 5
 >>
 > x + y ? (* Ctrl+d pressed before this *)
-x + y ≡ x + 3
+x + y = x + 3
 ```
 
 When only one `>` is remaining as the prompt for the interactive Jotter terminal, `Ctrl+d` will end the session.
@@ -197,8 +197,8 @@ g(4) ?
 Expected output:
 
 ```
-f(1) ≡ 5
-g(4) ≡ 8
+f(1) = 5
+g(4) = 8
 ```
 
 Note that any comments within a multi-line function definition must be in the (\*\*) format.
@@ -227,7 +227,7 @@ Expected output: a/a: a/a
 
 a > 0
 a/a?
-Expected output: a/a ≡ 1
+Expected output: a/a = 1
 (it can now safely perform this operation)
 ```
 

@@ -19,7 +19,12 @@ pub fn process_prompt(model: &Model, prompt: Relation) {
                 println!("{prompt} ≡ False");
             }
         } else if simplified.len() == 1 {
-            println!("{prompt} ≡ {}", simplified.iter().next().unwrap());
+            let result = simplified.iter().next().unwrap();
+            if result.len() == 1 {
+                println!("{prompt} = {}", result);
+            }  else {
+                println!("{prompt} ≡ {}", result);
+            }
         } else {
             println!(
                 "{prompt} ∈ {{{}}}",
