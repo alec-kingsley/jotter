@@ -365,10 +365,6 @@ For piecewise functions, the relations are evaluated top-to-bottom, with the fir
 
 - candela (cd)
 
-#### Unitless
-
-- radian (rad), steradian (sr)
-
 #### Frequency
 
 - hertz (Hz)
@@ -446,8 +442,6 @@ For piecewise functions, the relations are evaluated top-to-bottom, with the fir
 - katal (kat)
 
 All units support all SI prefixes. This includes the US customary units, so "kilofoot" is equivalent to 1000 feet. (This will likely be changed)
-
-Currently, quantity units are treated as though they were unitless. Technically this may be true, but it is not useful for display purposes, and so it will likely be updated. (if I say `1 [rad / s]?` it should print `1 [rad / s]`, whereas it currently prints `1 [1 / s]`).
 
 ### Polynomial Solver
 

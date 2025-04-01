@@ -157,8 +157,6 @@ pub fn parse_base_unit(
         "kelvin",
         "mole",
         "candela",
-        "radian",
-        "steradian",
         "hertz",
         "newton",
         "pascal",
@@ -231,8 +229,6 @@ pub fn parse_base_unit(
         (HashMap::from([(BaseUnit::Kelvin, 1)]), Number::ONE),
         (HashMap::from([(BaseUnit::Mole, 1)]), Number::ONE),
         (HashMap::from([(BaseUnit::Candela, 1)]), Number::ONE),
-        (HashMap::from([]), Number::ONE),
-        (HashMap::from([]), Number::ONE),
         (HashMap::from([(BaseUnit::Second, -1)]), Number::ONE),
         (
             HashMap::from([
