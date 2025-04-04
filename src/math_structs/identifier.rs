@@ -28,7 +28,7 @@ impl Identifier {
     /// * "Invalid identifier: {value}" - identifier did not match regex.
     ///
     pub fn new(value: &str) -> Result<Self, String> {
-        if Regex::new(r"^([a-zA-Zα-ωΑ-Ω]|'[a-zA-Z0-9_ ]+')$")
+        if Regex::new(r"^([a-zA-Zα-ωΑ-Ω]|'.+')$")
             .unwrap()
             .is_match(value)
         {
