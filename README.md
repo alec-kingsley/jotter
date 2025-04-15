@@ -447,18 +447,3 @@ All units support all SI prefixes. This includes the US customary units, so "kil
 
 The polynomial solver uses the Aberth method. In the previous examples, note that the output was in the form of rational numbers, even though the Aberth method uses iterative approximation. This is because once the polynomial solver finds its results, it guesses a close rational number and plugs that back into the original polynomial. If that yields an exact solution, then the rational number is returned instead of the approximate one.
 
-## Planned Features
-
-### Units
-
-* Ability to add user-defined units
-
-### Solver
-
-* Ability to solve non-linear systems of equations (this can use polynomial solver)
-* Add common math functions such as `sin`, `cos`, `tan`, `log`, `mod`
-
-### Functions
-
-* Add integrals and derivatives, as well as a differential equation solver
-
