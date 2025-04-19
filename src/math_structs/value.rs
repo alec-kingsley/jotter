@@ -181,6 +181,12 @@ impl Value {
         self.real.is_zero() && self.imaginary.is_zero()
     }
 
+    /// Returns true iff the number has an exact value of 0.
+    ///
+    pub fn is_exact_zero(&self) -> bool {
+        self.real.is_exact_zero() && self.imaginary.is_exact_zero()
+    }
+
     /// Returns true iff the number is in the real set.
     ///
     pub fn is_real(&self) -> bool {
@@ -814,6 +820,21 @@ mod tests {
     #[test]
     fn test_is_zero_3() {
         assert!(Value::from(0).is_zero());
+    }
+
+    #[test]
+    fn test_is_exact_zero_1() {
+        assert!(Value::zero().is_exact_zero());
+    }
+
+    #[test]
+    fn test_is_exact_zero_2() {
+        assert!(!Value::one().is_exact_zero());
+    }
+
+    #[test]
+    fn test_is_exact_zero_3() {
+        assert!(!Value::from(0f64).is_exact_zero());
     }
 
     #[test]
