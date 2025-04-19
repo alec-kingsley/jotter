@@ -1012,6 +1012,19 @@ mod tests {
     }
 
     #[test]
+    fn test_simplify_4() {
+        let knowns: HashMap<Identifier, Value> = HashMap::new();
+        let model = Model::new(0);
+        let force_retrieve = false;
+        let result = ast::parse_expression("0.0", &mut 0)
+            .expect("ast::parse_expression - failure")
+            .simplify(&knowns, &model, force_retrieve)
+            .unwrap();
+        let expected = ast::parse_expression("0.0", &mut 0).expect("ast::parse_expression - failure");
+        assert_eq!(expected, result);
+    }
+
+    #[test]
     fn test_simplify_whole_1() {
         let mut model = Model::new(0);
         model

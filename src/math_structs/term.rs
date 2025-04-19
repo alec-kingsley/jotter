@@ -817,4 +817,17 @@ mod tests {
         let expected = ast::parse_term("3*2", &mut 0).expect("ast::parse_term - failure");
         assert_eq!(expected, result);
     }
+
+    #[test]
+    fn test_simplify_4() {
+        let knowns: HashMap<Identifier, Value> = HashMap::new();
+        let model = Model::new(0);
+        let force_retrieve = false;
+        let result = ast::parse_term("0.0", &mut 0)
+            .expect("ast::parse_term - failure")
+            .simplify(&knowns, &model, force_retrieve)
+            .unwrap();
+        let expected = ast::parse_term("0.0", &mut 0).expect("ast::parse_term - failure");
+        assert_eq!(expected, result);
+    }
 }
