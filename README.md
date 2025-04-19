@@ -11,11 +11,11 @@ Jotter is not meant to be a full programming language. It won't support complex 
 
 ## Usage
 
-`cargo run` - open an interactive Jotter terminal
+`cargo run --release` - open an interactive Jotter terminal
 
-`cargo run example.jt` - run a Jotter program from a file
+`cargo run --release example.jt` - run a Jotter program from a file
 
-After a Jotter program is ran from a file, it will kill all its sub-contexts before opening a new terminal with the same state.
+After a Jotter program is run from a file, it will kill all its sub-contexts before opening a new terminal with the same state.
 
 ## Basics
 
