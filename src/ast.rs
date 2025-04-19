@@ -438,6 +438,33 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_relation_2() {
+        let code = "5 < 8";
+        let mut i: usize = 0;
+        let relation = parse_relation(code, &mut i).unwrap();
+        println!("{code} < {relation}");
+        assert_eq!(i, code.chars().count());
+    }
+
+    #[test]
+    fn test_parse_relation_3() {
+        let code = "5 ≤ 8";
+        let mut i: usize = 0;
+        let relation = parse_relation(code, &mut i).unwrap();
+        println!("{code} < {relation}");
+        assert_eq!(i, code.chars().count());
+    }
+
+    #[test]
+    fn test_parse_relation_4() {
+        let code = "5≤8";
+        let mut i: usize = 0;
+        let relation = parse_relation(code, &mut i).unwrap();
+        println!("{code} < {relation}");
+        assert_eq!(i, code.chars().count());
+    }
+
+    #[test]
     fn test_parse_expression_1() {
         let code = "32x + 2ab";
         let mut i: usize = 0;

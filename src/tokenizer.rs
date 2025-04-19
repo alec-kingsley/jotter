@@ -342,6 +342,19 @@ mod tests {
     }
 
     #[test]
+    fn test_next_token_10() {
+        // no whitespace
+        let code = "5≤7";
+
+        let mut i: usize = 0;
+
+        assert_eq!(next_token(code, &mut i).unwrap(), "5");
+        assert_eq!(next_token(code, &mut i).unwrap(), "<=");
+        assert_eq!(next_token(code, &mut i).unwrap(), "7");
+    }
+
+
+    #[test]
     fn test_next_unit_token_1() {
         let code = "(* comment *) kg";
 
