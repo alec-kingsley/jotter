@@ -31,8 +31,10 @@ pub fn parse_statement(code: &str, i: &mut usize) -> Result<Statement, String> {
     } else if function_result.unwrap_err() == "Expected new line" {
         Err(String::from("Expected new line"))
     } else {
-        let token = next_token(code, i)?;
+        let mut j = i.clone();
+        let token = next_token(code, &mut j)?;
         if token == ">" || token == "<" {
+            *i = j;
             if next_token(code, i).is_err() {
                 Ok(Statement::StateSwitch(token == ">"))
             } else {
@@ -41,7 +43,6 @@ pub fn parse_statement(code: &str, i: &mut usize) -> Result<Statement, String> {
                 ))
             }
         } else {
-            *i -= token.chars().count();
             // keep i how it is, not a function definition
             let relation = parse_relation(code, i)?;
             // since it could be end of input, an Err could happen. In that case,
@@ -106,15 +107,17 @@ pub fn parse_function(code: &str, i: &mut usize) -> Result<Statement, String> {
 
     // parse definition
     let mut definition: Vec<(Expression, Relation)> = Vec::new();
-    token = next_token(code, i)?;
+    let mut j = i.clone();
+    token = next_token(code, &mut j)?;
     if token == "{" {
+        *i = j;
         if next_token(code, i).unwrap_or_default() != "\n" {
             return Err(String::from("Expected new line"));
         }
         // need to consume one more token since back tracks
-        token = next_token(code, i)?;
+        let mut j = i.clone();
+        token = next_token(code, &mut j)?;
         while token != "}" {
-            *i -= token.chars().count();
             // parse expression with comma after
             let expression = parse_expression(code, i)?;
             if next_token(code, i)? != "," {
@@ -127,10 +130,12 @@ pub fn parse_function(code: &str, i: &mut usize) -> Result<Statement, String> {
             if next_token(code, i).unwrap_or_default() != "\n" {
                 return Err(String::from("Expected new line"));
             }
-            token = next_token(code, i)?;
+            j = *i;
+            token = next_token(code, &mut j)?;
         }
+        // consume the } for i this time
+        let _ = next_token(code, i);
     } else {
-        *i -= token.chars().count();
         definition.push((parse_expression(code, i)?, get_true_relation()));
     }
 
@@ -167,18 +172,19 @@ pub fn parse_relation(code: &str, i: &mut usize) -> Result<Relation, String> {
     ]);
 
     // get each operand as long as `RelationOp`s are seen
-    let mut relation_op_string = next_token(code, i).unwrap_or_default();
+    let mut j = i.clone();
+    let mut relation_op_string = next_token(code, &mut j).unwrap_or_default();
     while relation_op_map.contains_key(&relation_op_string.as_str()) {
         result.extend(
             relation_op_map
                 .get(&relation_op_string.as_str())
                 .unwrap()
                 .clone(),
-            parse_expression(code, i)?,
+            parse_expression(code, &mut j)?,
         );
-        relation_op_string = next_token(code, i).unwrap_or_default();
+        *i = j;
+        relation_op_string = next_token(code, &mut j).unwrap_or_default();
     }
-    *i -= relation_op_string.chars().count();
 
     Ok(result)
 }
@@ -210,16 +216,17 @@ pub fn parse_expression(code: &str, i: &mut usize) -> Result<Expression, String>
     }
 
     // build minuend and subtrahend from - and + until none left seen
-    let mut token = next_token(code, i).unwrap_or_default();
+    let mut j = i.clone();
+    let mut token = next_token(code, &mut j).unwrap_or_default();
     while token == "+" || token == "-" {
         if token == "+" {
-            result += parse_term(code, i)?;
+            result += parse_term(code, &mut j)?;
         } else {
-            result -= parse_term(code, i)?;
+            result -= parse_term(code, &mut j)?;
         }
-        token = next_token(code, i).unwrap_or_default();
+        *i = j;
+        token = next_token(code, &mut j).unwrap_or_default();
     }
-    *i -= token.chars().count();
 
     Ok(result)
 }
@@ -267,9 +274,11 @@ pub fn parse_term(code: &str, i: &mut usize) -> Result<Term, String> {
             result *= factor;
         } else {
             preceding_identifier = false;
-            let token = next_token(code, i).unwrap_or_default();
+            let mut j = i.clone();
+            let token = next_token(code, &mut j).unwrap_or_default();
             if token == "*" || token == "/" {
-                let factor = parse_factor(code, i, preceding_identifier)?;
+                let factor = parse_factor(code, &mut j, preceding_identifier)?;
+                *i = j;
                 preceding_identifier = if let Factor::Identifier(_) = factor {
                     true
                 } else {
@@ -281,7 +290,6 @@ pub fn parse_term(code: &str, i: &mut usize) -> Result<Term, String> {
                     result /= factor;
                 }
             } else {
-                *i -= token.chars().count();
                 break;
             }
         }
