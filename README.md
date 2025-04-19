@@ -15,6 +15,8 @@ Jotter is not meant to be a full programming language. It won't support complex 
 
 `cargo run example.jt` - run a Jotter program from a file
 
+After a Jotter program is ran from a file, it will kill all its sub-contexts before opening a new terminal with the same state.
+
 ## Basics
 
 Any syntactically invalid lines are assumed to just be comments.

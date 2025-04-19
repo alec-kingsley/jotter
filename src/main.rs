@@ -145,7 +145,9 @@ fn main() {
 
         // setup state variables
         let code = fs::read_to_string(src).expect("Failed to read from file.");
-        interpret_as_whole(&mut Model::new(0), code.as_str(), &mut 0, 0);
+        let mut model = Model::new(0);
+        interpret_as_whole(&mut model, code.as_str(), &mut 0, 0);
+        spawn_jotter_terminal(&mut model, 0);
     } else {
         println!("Running Jotter");
         spawn_jotter_terminal(&mut Model::new(0), 0);
