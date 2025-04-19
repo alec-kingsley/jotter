@@ -243,7 +243,7 @@ impl Expression {
         // restore self
         let one = Value::one();
 
-        let zero = one.clone() - one.clone();
+        let zero = Value::zero();
 
         self.minuend.clear();
         self.subtrahend.clear();
@@ -261,7 +261,7 @@ impl Expression {
                 self.minuend.push(operand);
             } else if number < zero.clone() {
                 self.subtrahend.push(operand);
-            } else if !number.is_zero() {
+            } else if !number.is_exact_zero() {
                 // it's complex
                 self.minuend.push(operand);
             }
