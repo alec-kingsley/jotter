@@ -198,6 +198,13 @@ impl Number {
         self.is_exact() && self == &Number::from(1)
     }
 
+    /// Returns true iff the number has an exact value of 0.
+    ///
+    pub fn is_exact_zero(&self) -> bool {
+        self.is_exact() && self == &Number::from(0)
+    }
+
+
     /// Returns true iff the number has a value of 0.
     ///
     pub fn is_zero(&self) -> bool {
