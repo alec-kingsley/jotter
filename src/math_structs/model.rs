@@ -991,4 +991,24 @@ mod test {
                 .unwrap()
         );
     }
+
+    #[test]
+    fn test_retrieval_3() {
+        let mut model = Model::new(0);
+        model
+            .add_matrix_row(
+                ast::parse_expression("(x+1)/3", &mut 0).expect("ast::parse_expression - failure"),
+                ast::parse_expression("1", &mut 0).expect("ast::parse_expression - failure"),
+            )
+            .unwrap();
+        println!("ADDED: `(x + 1)/3 = 1`. MODEL: {model}");
+        assert_eq!(
+            Value::from(2),
+            Expression::from_identifier(Identifier::new("x").unwrap())
+                .simplify_whole_loose(&model)
+                .unwrap()
+                .as_value()
+                .unwrap()
+        );
+    }
 }

@@ -943,6 +943,15 @@ mod tests {
     }
 
     #[test]
+    fn test_div_3() {
+        let op1 = ast::parse_expression("x + 1", &mut 0).expect("ast::parse_expression - failure");
+        let op2 = ast::parse_expression("3", &mut 0).expect("ast::parse_expression - failure");
+        let expected = ast::parse_expression("x/(3) + 1/(3)", &mut 0)
+            .expect("ast::parse_expression - failure");
+        assert_eq!(expected, op1 / op2);
+    }
+
+    #[test]
     fn test_divassign_1() {
         let mut val =
             ast::parse_expression("a + b", &mut 0).expect("ast::parse_expression - failure");
@@ -1020,7 +1029,40 @@ mod tests {
             .expect("ast::parse_expression - failure")
             .simplify(&knowns, &model, force_retrieve)
             .unwrap();
-        let expected = ast::parse_expression("0.0", &mut 0).expect("ast::parse_expression - failure");
+        let expected =
+            ast::parse_expression("0.0", &mut 0).expect("ast::parse_expression - failure");
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_simplify_5() {
+        let knowns: HashMap<Identifier, Value> = HashMap::new();
+        let model = Model::new(0);
+        let force_retrieve = false;
+        let result = ast::parse_expression("(x + 1)/3", &mut 0)
+            .expect("ast::parse_expression - failure")
+            .simplify(&knowns, &model, force_retrieve)
+            .unwrap();
+        let expected = ast::parse_expression("x/3 + 1/3", &mut 0)
+            .expect("ast::parse_expression - failure")
+            .simplify(&knowns, &model, force_retrieve)
+            .unwrap();
+        println!("Checking: `{result}` = `{expected}`");
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_simplify_6() {
+        let knowns: HashMap<Identifier, Value> = HashMap::new();
+        let model = Model::new(0);
+        let force_retrieve = false;
+        let result = ast::parse_expression("3(x + 1)", &mut 0)
+            .expect("ast::parse_expression - failure")
+            .simplify(&knowns, &model, force_retrieve)
+            .unwrap();
+        let expected =
+            ast::parse_expression("3x + 3", &mut 0).expect("ast::parse_expression - failure");
+        println!("Checking: `{result}` = `{expected}`");
         assert_eq!(expected, result);
     }
 

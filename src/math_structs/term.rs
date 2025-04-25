@@ -161,12 +161,20 @@ impl Term {
         &self.denominator
     }
 
-    /// If `self` is just a Parenthetical, return the inner `Expression`. Otherwise `None`.
+    /// If `self`'s numerator is just a Parenthetical, return the inner `Expression` divided by the denominator. Otherwise `None`.
     ///
     pub fn collapse_parenthetical(&self) -> Option<Expression> {
         if self.numerator.len() == 1 {
             if let Factor::Parenthetical(expression) = self.numerator[0].clone() {
-                Some(expression)
+                if self.denominator.is_empty() {
+                    Some(expression)
+                } else {
+                    let mut new_expression = expression;
+                    for factor in self.denominator.clone() {
+                        new_expression /= Expression::from_factor(factor);
+                    }
+                    Some(new_expression)
+                }
             } else {
                 None
             }
@@ -444,9 +452,9 @@ impl Mul<Factor> for Term {
 impl MulAssign<Factor> for Term {
     fn mul_assign(&mut self, rhs: Factor) {
         if let Factor::Number(_) = rhs {
-            self.numerator.insert(0, rhs.clone());
+            self.numerator.insert(0, rhs);
         } else {
-            self.numerator.push(rhs.clone());
+            self.numerator.push(rhs);
         }
     }
 }
@@ -489,9 +497,9 @@ impl Div<Factor> for Term {
     fn div(self, rhs: Factor) -> Term {
         let mut result = self.clone();
         if let Factor::Number(_) = rhs {
-            result.denominator.insert(0, rhs.clone());
+            result.denominator.insert(0, rhs);
         } else {
-            result.denominator.push(rhs.clone());
+            result.denominator.push(rhs);
         }
         result
     }
@@ -754,6 +762,23 @@ mod tests {
         let expected = ast::parse_term("a/c/b", &mut 0).expect("ast::parse_term - failure");
         assert_eq!(expected, op1 / op2);
     }
+
+    #[test]
+    fn test_div_factor_3() {
+        let op1 = ast::parse_term("(x+1)", &mut 0).expect("ast::parse_term - failure");
+        let op2 = ast::parse_factor("3", &mut 0, false).expect("ast::parse_factor - failure");
+        let expected = ast::parse_term("(x+1)/3", &mut 0).expect("ast::parse_term - failure");
+        assert_eq!(expected, op1 / op2);
+    }
+
+    #[test]
+    fn test_div_factor_4() {
+        let op1 = ast::parse_term("(x+1)", &mut 0).expect("ast::parse_term - failure");
+        let op2 = ast::parse_factor("(3)", &mut 0, false).expect("ast::parse_factor - failure");
+        let expected = ast::parse_term("(x+1)/(3)", &mut 0).expect("ast::parse_term - failure");
+        assert_eq!(expected, op1 / op2);
+    }
+
 
     #[test]
     fn test_divassign_factor_1() {
