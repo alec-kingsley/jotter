@@ -55,7 +55,9 @@ impl Polynomial {
     fn evaluate_derivative(&self, x: &Value) -> Value {
         let mut result = Value::zero();
         for degree in 1..self.coefficients.len() {
-            result += self.coefficients[degree].clone() * x.powi(degree as i32 - 1) * Value::from(Decimal::from(degree));
+            result += self.coefficients[degree].clone()
+                * x.powi(degree as i32 - 1)
+                * Value::from(Decimal::from(degree));
         }
         result
     }
@@ -119,7 +121,7 @@ impl Polynomial {
         // rationalize anything that is sufficiently rational
         for i in 0..roots.len() {
             let rationalized = roots[i].rationalize();
-            
+
             // check that rationalized value is 0 of polynomial
             let evaluated = self.evaluate(&rationalized);
             if evaluated.is_exact() && evaluated.is_zero() {

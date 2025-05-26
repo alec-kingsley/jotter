@@ -204,7 +204,6 @@ impl Number {
         self.is_exact() && self == &Number::from(0)
     }
 
-
     /// Returns true iff the number has a value of 0.
     ///
     pub fn is_zero(&self) -> bool {

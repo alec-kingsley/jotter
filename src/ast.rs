@@ -159,7 +159,7 @@ pub fn parse_function(code: &str, i: &mut usize) -> Result<Statement, String> {
 /// ```
 ///
 pub fn parse_relation(code: &str, i: &mut usize) -> Result<Relation, String> {
-    let mut result = Relation::from_expression(parse_expression(code, i)?);
+    let mut result = Relation::from(parse_expression(code, i)?);
 
     // setup map for `RelationOp`s
     let relation_op_map = HashMap::from([
