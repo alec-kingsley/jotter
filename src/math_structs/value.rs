@@ -11,7 +11,7 @@ use std::ops::*;
 use crate::math_structs::number::*;
 use crate::math_structs::unit::*;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Value {
     /// Real component of numeric literal.
     real: Number,
