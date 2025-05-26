@@ -407,8 +407,8 @@ impl Display for Value {
 
         // if unitless or whatever, put the prefix in the number
         if !processed_prefix {
-            self_clone.real *= Number::from(10).powi(self_clone.unit.get_exponent() as i32);
-            self_clone.imaginary *= Number::from(10).powi(self_clone.unit.get_exponent() as i32);
+            self_clone.real *= Number::from(10).powi(self_clone.unit.get_exponent().try_into().unwrap());
+            self_clone.imaginary *= Number::from(10).powi(self_clone.unit.get_exponent().try_into().unwrap());
         }
 
         // write final result depending on numerator/denominator contents
@@ -489,12 +489,12 @@ impl Add for Value {
             let mut other_clone = other.clone();
             let exp_diff = other_clone.unit.get_exponent() - self.unit.get_exponent();
             other_clone.unit.add_exponent(-exp_diff);
-            other_clone.real = other_clone.real * Number::from(10).powi(exp_diff as i32);
-            other_clone.imaginary = other_clone.imaginary * Number::from(10).powi(exp_diff as i32);
+            other_clone.real = other_clone.real * Number::from(10).powi(exp_diff.try_into().unwrap());
+            other_clone.imaginary = other_clone.imaginary * Number::from(10).powi(exp_diff.try_into().unwrap());
             other_clone.real *= Number::from(10)
-                .powi((other.unit.get_exponent() - self.unit.get_exponent()) as i32);
+                .powi((other.unit.get_exponent() - self.unit.get_exponent()).try_into().unwrap());
             other_clone.imaginary *= Number::from(10)
-                .powi((other.unit.get_exponent() - self.unit.get_exponent()) as i32);
+                .powi((other.unit.get_exponent() - self.unit.get_exponent()).try_into().unwrap());
             Self {
                 real: self.real + other_clone.real,
                 imaginary: self.imaginary + other_clone.imaginary,
@@ -551,12 +551,12 @@ impl Sub for Value {
             let mut other_clone = other.clone();
             let exp_diff = other_clone.unit.get_exponent() - self.unit.get_exponent();
             other_clone.unit.add_exponent(-exp_diff);
-            other_clone.real = other_clone.real * Number::from(10).powi(exp_diff as i32);
-            other_clone.imaginary = other_clone.imaginary * Number::from(10).powi(exp_diff as i32);
+            other_clone.real = other_clone.real * Number::from(10).powi(exp_diff.try_into().unwrap());
+            other_clone.imaginary = other_clone.imaginary * Number::from(10).powi(exp_diff.try_into().unwrap());
             other_clone.real *= Number::from(10)
-                .powi((other.unit.get_exponent() - self.unit.get_exponent()) as i32);
+                .powi((other.unit.get_exponent() - self.unit.get_exponent()).try_into().unwrap());
             other_clone.imaginary *= Number::from(10)
-                .powi((other.unit.get_exponent() - self.unit.get_exponent()) as i32);
+                .powi((other.unit.get_exponent() - self.unit.get_exponent()).try_into().unwrap());
             Self {
                 real: self.real - other_clone.real,
                 imaginary: self.imaginary - other_clone.imaginary,

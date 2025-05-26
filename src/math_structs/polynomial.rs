@@ -42,7 +42,7 @@ impl Polynomial {
     fn evaluate(&self, x: &Value) -> Value {
         let mut result = self.coefficients[0].clone();
         for degree in 1..self.coefficients.len() {
-            result += self.coefficients[degree].clone() * x.powi(degree as i32);
+            result += self.coefficients[degree].clone() * x.powi(degree.try_into().unwrap());
         }
         result
     }
@@ -89,7 +89,7 @@ impl Polynomial {
         let mut roots: Vec<Value> = Vec::with_capacity(degree);
         for deg in 0..degree {
             // multiply by 1.0 to ensure inexact if 1 is solution
-            roots.push(super_special_number.clone().powi(deg as i32) * Value::from(1.0));
+            roots.push(super_special_number.clone().powi(deg.try_into().unwrap()) * Value::from(1.0));
         }
 
         let mut sufficient = false;

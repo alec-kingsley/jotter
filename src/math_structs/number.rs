@@ -123,7 +123,10 @@ impl Number {
     ///
     fn reduce_rational(&self) -> Self {
         if let &Number::Rational(numerator, denominator) = self {
-            let gcd = gcd(numerator.abs() as u64, denominator.unwrap().get());
+            let gcd = gcd(
+                numerator.abs().try_into().unwrap(),
+                denominator.unwrap().get(),
+            );
             Number::Rational(
                 numerator / gcd as i64,
                 NonZero::new(denominator.unwrap().get() / gcd),
@@ -153,26 +156,29 @@ impl Number {
             &Number::Rational(numerator, denominator) => {
                 if pow >= 0 {
                     Number::Rational(
-                        numerator.pow(pow as u32),
-                        NonZero::new(denominator.unwrap().get().pow(pow as u32)),
+                        numerator.pow(pow.try_into().unwrap()),
+                        NonZero::new(denominator.unwrap().get().pow(pow.try_into().unwrap())),
                     )
                 } else {
                     if denominator.unwrap().get() > i64::MAX as u64 {
-                        Number::from(Decimal::from(self.clone()).powi(pow as i64))
+                        Number::from(Decimal::from(self.clone()).powi(pow.try_into().unwrap()))
                     } else {
                         Number::Rational(
-                            (denominator.unwrap().get() as i64).pow(pow.abs() as u32) as i64
+                            (denominator.unwrap().get() as i64).pow(pow.abs().try_into().unwrap())
+                                as i64
                                 * if pow.abs() % 2 != 0 && numerator.signum() == -1 {
                                     -1
                                 } else {
                                     1
                                 },
-                            NonZero::new(numerator.abs().pow(pow.abs() as u32) as u64),
+                            NonZero::new(numerator.abs().pow(pow.abs() as u32).try_into().unwrap()),
                         )
                     }
                 }
             }
-            &Number::Approximate(decimal) => Number::Approximate(decimal.powi(pow as i64)),
+            &Number::Approximate(decimal) => {
+                Number::Approximate(decimal.powi(pow.try_into().unwrap()))
+            }
         }
     }
 
@@ -445,12 +451,12 @@ impl Mul for Number {
             Number::Rational(self_numerator, self_denominator) => match other {
                 Number::Rational(other_numerator, other_denominator) => {
                     let down_gcd = gcd(
-                        self_numerator.abs() as u64,
+                        self_numerator.abs().try_into().unwrap(),
                         other_denominator.unwrap().get(),
                     );
                     let up_gcd = gcd(
                         self_denominator.unwrap().get(),
-                        other_numerator.abs() as u64,
+                        other_numerator.abs().try_into().unwrap(),
                     );
                     let (new_numerator, numerator_overflow) = (self_numerator.abs() as u64
                         / down_gcd)
@@ -511,7 +517,7 @@ impl Mul<i64> for Number {
     fn mul(self, rhs: i64) -> Self {
         match self {
             Number::Rational(numerator, denominator) => {
-                let gcd = gcd(denominator.unwrap().get(), rhs.abs() as u64);
+                let gcd = gcd(denominator.unwrap().get(), rhs.abs().try_into().unwrap());
                 Number::Rational(
                     numerator * (rhs.abs() as u64 / gcd) as i64 * rhs.signum(),
                     NonZero::new(denominator.unwrap().get() / gcd),
@@ -537,7 +543,10 @@ impl Div for Number {
         match self {
             Number::Rational(self_numerator, self_denominator) => match other {
                 Number::Rational(other_numerator, other_denominator) => {
-                    let down_gcd = gcd(self_numerator.abs() as u64, other_numerator.abs() as u64);
+                    let down_gcd = gcd(
+                        self_numerator.abs().try_into().unwrap(),
+                        other_numerator.abs().try_into().unwrap(),
+                    );
                     let up_gcd = gcd(
                         self_denominator.unwrap().get(),
                         other_denominator.unwrap().get(),
@@ -605,7 +614,10 @@ impl Div<i64> for Number {
     fn div(self, rhs: i64) -> Self {
         match self {
             Number::Rational(numerator, denominator) => {
-                let gcd = gcd(numerator.abs() as u64, rhs.abs() as u64);
+                let gcd = gcd(
+                    numerator.abs().try_into().unwrap(),
+                    rhs.abs().try_into().unwrap(),
+                );
                 Number::Rational(
                     (numerator.abs() as u64 / gcd) as i64 * numerator.signum() * rhs.signum(),
                     NonZero::new(denominator.unwrap().get() * (rhs.abs() as u64 / gcd)),
