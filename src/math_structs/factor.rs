@@ -46,7 +46,7 @@ impl Factor {
                         // if the parenthetical is just a factor, return it
                         sub_term.numerator_ref()[0].clone()
                     } else {
-                        Factor::Parenthetical(Expression::from_term(sub_term.simplify(
+                        Factor::Parenthetical(Expression::from(sub_term.simplify(
                             knowns,
                             model,
                             force_retrieve,
@@ -150,14 +150,12 @@ impl Mul for Factor {
                 if let Factor::Parenthetical(other_expression) = other {
                     Factor::Parenthetical(self_expression * other_expression)
                 } else {
-                    Factor::Parenthetical(self_expression * Expression::from_factor(other))
+                    Factor::Parenthetical(self_expression * Expression::from(other))
                 }
             } else if let Factor::Parenthetical(other_expression) = other {
-                Factor::Parenthetical(other_expression * Expression::from_factor(self))
+                Factor::Parenthetical(other_expression * Expression::from(self))
             } else {
-                Factor::Parenthetical(
-                    Expression::from_factor(self) * Expression::from_factor(other),
-                )
+                Factor::Parenthetical(Expression::from(self) * Expression::from(other))
             });
         }
         result.unwrap()
@@ -197,14 +195,12 @@ impl Div for Factor {
                 if let Factor::Parenthetical(other_expression) = other {
                     Factor::Parenthetical(self_expression / other_expression)
                 } else {
-                    Factor::Parenthetical(self_expression / Expression::from_factor(other))
+                    Factor::Parenthetical(self_expression / Expression::from(other))
                 }
             } else if let Factor::Parenthetical(other_expression) = other.clone() {
-                Factor::Parenthetical(Expression::from_factor(other) / other_expression)
+                Factor::Parenthetical(Expression::from(other) / other_expression)
             } else {
-                Factor::Parenthetical(
-                    Expression::from_factor(self) / Expression::from_factor(other),
-                )
+                Factor::Parenthetical(Expression::from(self) / Expression::from(other))
             });
         }
         result.unwrap()
@@ -255,10 +251,10 @@ mod tests {
 
     #[test]
     fn test_mul_1() {
-        let two = Factor::Parenthetical(Expression::from_value(Value::from(2)));
-        let a = Factor::Parenthetical(Expression::from_identifier(Identifier::new("a").unwrap()));
-        let resulting_expression = Expression::from_value(Value::from(2))
-            * Expression::from_identifier(Identifier::new("a").unwrap());
+        let two = Factor::Parenthetical(Expression::from(Value::from(2)));
+        let a = Factor::Parenthetical(Expression::from(Identifier::new("a").unwrap()));
+        let resulting_expression = Expression::from(Value::from(2))
+            * Expression::from(Identifier::new("a").unwrap());
         let expected = Factor::Parenthetical(resulting_expression);
         assert_eq!(expected, two * a);
     }
@@ -273,11 +269,11 @@ mod tests {
 
     #[test]
     fn test_mul_3() {
-        let a = Factor::Parenthetical(Expression::from_identifier(Identifier::new("a").unwrap()));
-        let b = Factor::Parenthetical(Expression::from_identifier(Identifier::new("b").unwrap()));
+        let a = Factor::Parenthetical(Expression::from(Identifier::new("a").unwrap()));
+        let b = Factor::Parenthetical(Expression::from(Identifier::new("b").unwrap()));
         let expected = Factor::Parenthetical(
-            Expression::from_identifier(Identifier::new("a").unwrap())
-                * Expression::from_identifier(Identifier::new("b").unwrap()),
+            Expression::from(Identifier::new("a").unwrap())
+                * Expression::from(Identifier::new("b").unwrap()),
         );
         assert_eq!(expected, a * b);
     }

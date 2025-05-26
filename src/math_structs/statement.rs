@@ -80,7 +80,13 @@ impl Display for Statement {
                     )
                 )
             ),
-            Statement::StateSwitch(state) => if *state { write!(f,">") } else { write!(f, "<") },
+            Statement::StateSwitch(state) => {
+                if *state {
+                    write!(f, ">")
+                } else {
+                    write!(f, "<")
+                }
+            }
         }
     }
 }

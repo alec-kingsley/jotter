@@ -6,8 +6,8 @@ use crate::math_structs::expression::*;
 use crate::math_structs::factor::*;
 use crate::math_structs::identifier::*;
 use crate::math_structs::model::*;
-use crate::math_structs::value::*;
 use crate::math_structs::term::*;
+use crate::math_structs::value::*;
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
 pub struct Relation {
@@ -23,51 +23,6 @@ pub struct Relation {
 }
 
 impl Relation {
-    /// Construct a `Relation` from an `Expression`.
-    ///
-    pub fn from_expression(expression: Expression) -> Self {
-        Self {
-            operands: vec![expression],
-            operators: Vec::new(),
-        }
-    }
-
-    /// Construct a `Relation` from a `Term`.
-    ///
-    pub fn from_term(term: Term) -> Self {
-        Self {
-            operands: vec![Expression::from_term(term)],
-            operators: Vec::new(),
-        }
-    }
-
-    /// Construct a `Relation` from a `Factor`.
-    ///
-    pub fn from_factor(factor: Factor) -> Self {
-        Self {
-            operands: vec![Expression::from_factor(factor)],
-            operators: Vec::new(),
-        }
-    }
-
-    /// Construct a `Relation` from a `Value`.
-    ///
-    pub fn from_value(value: Value) -> Self {
-        Self {
-            operands: vec![Expression::from_value(value)],
-            operators: Vec::new(),
-        }
-    }
-
-    /// Construct a `Relation` from an `Identifier`.
-    ///
-    pub fn from_identifier(identifier: Identifier) -> Self {
-        Self {
-            operands: vec![Expression::from_identifier(identifier)],
-            operators: Vec::new(),
-        }
-    }
-
     /// Get the # of operands in `self`.
     ///
     pub fn len(&self) -> usize {
@@ -90,9 +45,9 @@ impl Relation {
     /// If it is a representation of a boolean, extract as such.
     ///
     pub fn as_bool(&self) -> Option<bool> {
-        if self == &Relation::from_term(Term::new()) {
+        if self == &Relation::from(Term::new()) {
             Some(true)
-        } else if self == &Relation::from_expression(Expression::new()) {
+        } else if self == &Relation::from(Expression::new()) {
             Some(false)
         } else {
             None
@@ -236,13 +191,13 @@ impl Relation {
 
         Ok(if has_false {
             // return false
-            Relation::from_expression(Expression::new())
+            Relation::from(Expression::new())
         } else if all_true {
             // return true
-            Relation::from_term(Term::new())
+            Relation::from(Term::new())
         } else {
             // return relation as simplified as it can be
-            let mut new_relation = Relation::from_expression(self.first_operand().simplify(
+            let mut new_relation = Relation::from(self.first_operand().simplify(
                 knowns,
                 model,
                 force_retrieve,
@@ -256,6 +211,51 @@ impl Relation {
             }
             new_relation
         })
+    }
+}
+
+impl From<Expression> for Relation {
+    fn from(expression: Expression) -> Self {
+        Self {
+            operands: vec![expression],
+            operators: Vec::new(),
+        }
+    }
+}
+
+impl From<Term> for Relation {
+    fn from(term: Term) -> Self {
+        Self {
+            operands: vec![Expression::from(term)],
+            operators: Vec::new(),
+        }
+    }
+}
+
+impl From<Factor> for Relation {
+    fn from(factor: Factor) -> Self {
+        Self {
+            operands: vec![Expression::from(factor)],
+            operators: Vec::new(),
+        }
+    }
+}
+
+impl From<Value> for Relation {
+    fn from(value: Value) -> Self {
+        Self {
+            operands: vec![Expression::from(value)],
+            operators: Vec::new(),
+        }
+    }
+}
+
+impl From<Identifier> for Relation {
+    fn from(identifier: Identifier) -> Self {
+        Self {
+            operands: vec![Expression::from(identifier)],
+            operators: Vec::new(),
+        }
     }
 }
 
@@ -309,7 +309,7 @@ impl Display for Relation {
 /// get a general true relation
 ///
 pub fn get_true_relation() -> Relation {
-    let zero = Expression::from_value(Value::zero());
+    let zero = Expression::from(Value::zero());
     Relation {
         operands: vec![zero.clone(), zero.clone()],
         operators: vec![RelationOp::Equal],
@@ -356,10 +356,10 @@ mod test {
     use crate::*;
 
     #[test]
-    fn test_from_expression_1() {
+    fn test_from_1() {
         let expected =
             ast::parse_relation("3x + 2y", &mut 0).expect("ast::parse_relation - failure");
-        let actual = Relation::from_expression(
+        let actual = Relation::from(
             ast::parse_expression("3x + 2y", &mut 0).expect("ast::parse_expression - failure"),
         );
         assert_eq!(expected, actual);
@@ -368,28 +368,28 @@ mod test {
     #[test]
     fn test_from_term_1() {
         let expected = ast::parse_relation("3", &mut 0).expect("ast::parse_relation - failure");
-        let actual = Relation::from_term(Term::from_value(Value::from(3)));
+        let actual = Relation::from(Term::from(Value::from(3)));
         assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_from_factor_1() {
         let expected = ast::parse_relation("3", &mut 0).expect("ast::parse_relation - failure");
-        let actual = Relation::from_factor(Factor::Number(Value::from(3)));
+        let actual = Relation::from(Factor::Number(Value::from(3)));
         assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_from_value_1() {
         let expected = ast::parse_relation("3", &mut 0).expect("ast::parse_relation - failure");
-        let actual = Relation::from_value(Value::from(3));
+        let actual = Relation::from(Value::from(3));
         assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_from_identifier_1() {
         let expected = ast::parse_relation("a", &mut 0).expect("ast::parse_expression - failure");
-        let actual = Relation::from_identifier(Identifier::new("a").unwrap());
+        let actual = Relation::from(Identifier::new("a").unwrap());
         assert_eq!(expected, actual);
     }
 
@@ -426,7 +426,7 @@ mod test {
     fn test_extend_1() {
         let expected = ast::parse_relation("3x + 2 < 8 = 17 - 3 + y", &mut 0)
             .expect("ast::parse_relation - failure");
-        let mut actual = Relation::from_expression(
+        let mut actual = Relation::from(
             ast::parse_expression("3x + 2", &mut 0).expect("ast::parse_expression - failure"),
         );
         actual.extend(
@@ -442,17 +442,14 @@ mod test {
 
     #[test]
     fn test_as_bool_1() {
-        assert_eq!(
-            Some(false),
-            Relation::from_expression(Expression::new()).as_bool()
-        );
+        assert_eq!(Some(false), Relation::from(Expression::new()).as_bool());
     }
 
     #[test]
     fn test_as_bool_2() {
         assert_eq!(
             Some(true),
-            Relation::from_expression(Expression::from_term(Term::new())).as_bool()
+            Relation::from(Expression::from(Term::new())).as_bool()
         );
     }
 
@@ -460,17 +457,14 @@ mod test {
     fn test_as_bool_3() {
         assert_eq!(
             None,
-            Relation::from_expression(Expression::from_value(Value::one())).as_bool()
+            Relation::from(Expression::from(Value::one())).as_bool()
         );
     }
 
     #[test]
     fn test_as_value_1() {
         let relation = ast::parse_relation("3", &mut 0).expect("ast::parse_relation - failure");
-        assert_eq!(
-            Some(Value::from(3)),
-            relation.as_value()
-        );
+        assert_eq!(Some(Value::from(3)), relation.as_value());
     }
 
     #[test]
@@ -501,25 +495,21 @@ mod test {
             .expect("ast::parse_relation - failure")
             .simplify(&knowns, &model, force_retrieve)
             .unwrap();
-        let expected =
-            ast::parse_relation("5a", &mut 0).expect("ast::parse_relation - failure");
+        let expected = ast::parse_relation("5a", &mut 0).expect("ast::parse_relation - failure");
         assert_eq!(expected, result);
     }
 
     #[test]
     fn test_simplify_3() {
-        let knowns: HashMap<Identifier, Value> = HashMap::from([(
-            Identifier::new("a").unwrap(),
-            Value::from(3),
-        )]);
+        let knowns: HashMap<Identifier, Value> =
+            HashMap::from([(Identifier::new("a").unwrap(), Value::from(3))]);
         let model = Model::new(0);
         let force_retrieve = false;
         let result = ast::parse_relation("3a + 2a", &mut 0)
             .expect("ast::parse_relation - failure")
             .simplify(&knowns, &model, force_retrieve)
             .unwrap();
-        let expected =
-            ast::parse_relation("15", &mut 0).expect("ast::parse_relation - failure");
+        let expected = ast::parse_relation("15", &mut 0).expect("ast::parse_relation - failure");
         assert_eq!(expected, result);
     }
 
@@ -533,5 +523,4 @@ mod test {
         assert!(compare(1, &RelationOp::GreaterEqual, 1));
         assert!(compare(2, &RelationOp::Greater, 1));
     }
-
 }

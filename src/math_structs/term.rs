@@ -110,33 +110,6 @@ impl Term {
         }
     }
 
-    /// Construct a `Term` from a `Factor`.
-    ///
-    pub fn from_factor(factor: Factor) -> Self {
-        Self {
-            numerator: vec![factor],
-            denominator: Vec::new(),
-        }
-    }
-
-    /// Construct a `Term` from a `Value`.
-    ///
-    pub fn from_value(value: Value) -> Self {
-        Self {
-            numerator: vec![Factor::Number(value)],
-            denominator: Vec::new(),
-        }
-    }
-
-    /// Construct a `Term` from an `Identifier`.
-    ///
-    pub fn from_identifier(identifier: Identifier) -> Self {
-        Self {
-            numerator: vec![Factor::Identifier(identifier)],
-            denominator: Vec::new(),
-        }
-    }
-
     /// Get the # of terms in `self`.
     ///
     pub fn len(&self) -> usize {
@@ -171,7 +144,7 @@ impl Term {
                 } else {
                     let mut new_expression = expression;
                     for factor in self.denominator.clone() {
-                        new_expression /= Expression::from_factor(factor);
+                        new_expression /= Expression::from(factor);
                     }
                     Some(new_expression)
                 }
@@ -393,6 +366,33 @@ impl Term {
     }
 }
 
+impl From<Factor> for Term {
+    fn from(factor: Factor) -> Self {
+        Self {
+            numerator: vec![factor],
+            denominator: Vec::new(),
+        }
+    }
+}
+
+impl From<Value> for Term {
+    fn from(value: Value) -> Self {
+        Self {
+            numerator: vec![Factor::Number(value)],
+            denominator: Vec::new(),
+        }
+    }
+}
+
+impl From<Identifier> for Term {
+    fn from(identifier: Identifier) -> Self {
+        Self {
+            numerator: vec![Factor::Identifier(identifier)],
+            denominator: Vec::new(),
+        }
+    }
+}
+
 impl Neg for Term {
     type Output = Self;
 
@@ -529,21 +529,21 @@ mod tests {
     #[test]
     fn test_from_factor_1() {
         let expected = ast::parse_term("3", &mut 0).expect("ast::parse_term - failure");
-        let actual = Term::from_factor(Factor::Number(Value::from(3)));
+        let actual = Term::from(Factor::Number(Value::from(3)));
         assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_from_value_1() {
         let expected = ast::parse_term("3", &mut 0).expect("ast::parse_term - failure");
-        let actual = Term::from_value(Value::from(3));
+        let actual = Term::from(Value::from(3));
         assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_from_identifier_1() {
         let expected = ast::parse_term("a", &mut 0).expect("ast::parse_term - failure");
-        let actual = Term::from_identifier(Identifier::new("a").unwrap());
+        let actual = Term::from(Identifier::new("a").unwrap());
         assert_eq!(expected, actual);
     }
 
@@ -779,7 +779,6 @@ mod tests {
         assert_eq!(expected, op1 / op2);
     }
 
-
     #[test]
     fn test_divassign_factor_1() {
         let mut val = ast::parse_term("2", &mut 0).expect("ast::parse_term - failure");
@@ -803,9 +802,9 @@ mod tests {
         let knowns: HashMap<Identifier, Value> = HashMap::new();
         let mut model = Model::new(0);
         model.add_relation(
-            Expression::from_identifier(Identifier::new("a").unwrap()),
+            Expression::from(Identifier::new("a").unwrap()),
             RelationOp::NotEqual,
-            Expression::from_value(Value::zero()),
+            Expression::from(Value::zero()),
         );
         let force_retrieve = false;
         let result = ast::parse_term("3a/a", &mut 0)

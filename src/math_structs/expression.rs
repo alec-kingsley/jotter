@@ -112,42 +112,6 @@ impl Expression {
         }
     }
 
-    /// Construct an `Expression` from a `Term`.
-    ///
-    pub fn from_term(term: Term) -> Self {
-        Self {
-            minuend: vec![term],
-            subtrahend: Vec::new(),
-        }
-    }
-
-    /// Construct an `Expression` from a `Factor`.
-    ///
-    pub fn from_factor(factor: Factor) -> Self {
-        Self {
-            minuend: vec![Term::from_factor(factor)],
-            subtrahend: Vec::new(),
-        }
-    }
-
-    /// Construct an `Expression` from a `Value`.
-    ///
-    pub fn from_value(value: Value) -> Self {
-        Self {
-            minuend: vec![Term::from_value(value)],
-            subtrahend: Vec::new(),
-        }
-    }
-
-    /// Construct an `Expression` from an `Identifier`.
-    ///
-    pub fn from_identifier(identifier: Identifier) -> Self {
-        Self {
-            minuend: vec![Term::from_identifier(identifier)],
-            subtrahend: Vec::new(),
-        }
-    }
-
     /// Get the # of terms in `self`.
     ///
     pub fn len(&self) -> usize {
@@ -463,6 +427,42 @@ impl Expression {
     }
 }
 
+impl From<Term> for Expression {
+    fn from(term: Term) -> Self {
+        Self {
+            minuend: vec![term],
+            subtrahend: Vec::new(),
+        }
+    }
+}
+
+impl From<Factor> for Expression {
+    fn from(factor: Factor) -> Self {
+        Self {
+            minuend: vec![Term::from(factor)],
+            subtrahend: Vec::new(),
+        }
+    }
+}
+
+impl From<Value> for Expression {
+    fn from(value: Value) -> Self {
+        Self {
+            minuend: vec![Term::from(value)],
+            subtrahend: Vec::new(),
+        }
+    }
+}
+
+impl From<Identifier> for Expression {
+    fn from(identifier: Identifier) -> Self {
+        Self {
+            minuend: vec![Term::from(identifier)],
+            subtrahend: Vec::new(),
+        }
+    }
+}
+
 impl Add for Expression {
     type Output = Self;
 
@@ -673,28 +673,28 @@ mod tests {
     #[test]
     fn test_from_term_1() {
         let expected = ast::parse_expression("3", &mut 0).expect("ast::parse_expression - failure");
-        let actual = Expression::from_term(Term::from_value(Value::from(3)));
+        let actual = Expression::from(Term::from(Value::from(3)));
         assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_from_factor_1() {
         let expected = ast::parse_expression("3", &mut 0).expect("ast::parse_expression - failure");
-        let actual = Expression::from_factor(Factor::Number(Value::from(3)));
+        let actual = Expression::from(Factor::Number(Value::from(3)));
         assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_from_value_1() {
         let expected = ast::parse_expression("3", &mut 0).expect("ast::parse_expression - failure");
-        let actual = Expression::from_value(Value::from(3));
+        let actual = Expression::from(Value::from(3));
         assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_from_identifier_1() {
         let expected = ast::parse_expression("a", &mut 0).expect("ast::parse_expression - failure");
-        let actual = Expression::from_identifier(Identifier::new("a").unwrap());
+        let actual = Expression::from(Identifier::new("a").unwrap());
         assert_eq!(expected, actual);
     }
 

@@ -144,7 +144,7 @@ impl Model {
         if value_col_result.is_none() {
             // TODO - we don't need to give up here. Try to find some term in the augmented matrix
             // which uses this. There could be something.
-            Ok(Expression::from_identifier(name))
+            Ok(Expression::from(name))
         } else {
             let value_col = value_col_result.unwrap();
             let row_ct = self.augmented_matrix.len();
@@ -185,14 +185,14 @@ impl Model {
             }
 
             if best_row == None {
-                Ok(Expression::from_identifier(name))
+                Ok(Expression::from(name))
             } else {
                 // build resulting formula
                 let mut result = self.augmented_matrix[best_row.unwrap()][col_ct - 1].clone();
                 for col in 0..(col_ct - 1) {
                     if col != value_col {
                         result -= self.augmented_matrix[best_row.unwrap()][col].clone()
-                            * Expression::from_identifier(self.variables[col].clone());
+                            * Expression::from(self.variables[col].clone());
                     }
                 }
                 result /= self.augmented_matrix[best_row.unwrap()][value_col].clone();
@@ -378,11 +378,9 @@ impl Model {
                             for cell_col in 0..col_ct - 1 {
                                 new_left += self.augmented_matrix[row][cell_col].clone()
                                     * if cell_col == col {
-                                        Expression::from_value(value.clone())
+                                        Expression::from(value.clone())
                                     } else {
-                                        Expression::from_identifier(
-                                            self.variables[cell_col].clone(),
-                                        )
+                                        Expression::from(self.variables[cell_col].clone())
                                     };
                             }
                             new_equations
@@ -479,7 +477,7 @@ impl Model {
                 }
                 if lonely_row {
                     let zero_equivalent = (self.augmented_matrix[row][col].clone()
-                        * Expression::from_identifier(self.variables[col].clone())
+                        * Expression::from(self.variables[col].clone())
                         - self.augmented_matrix[row][col_ct - 1].clone())
                     .simplify_whole(&self, false);
                     if zero_equivalent.is_ok() {
@@ -726,7 +724,7 @@ impl Model {
     ///
     pub fn add_relation(&mut self, left: Expression, operator: RelationOp, right: Expression) {
         // TODO - for variables with multiple solutions, this should check if it can remove some
-        let mut new_relation = Relation::from_expression(left);
+        let mut new_relation = Relation::from(left);
         new_relation.extend(operator, right);
         self.relations.push(new_relation);
     }
@@ -823,7 +821,7 @@ mod test {
         println!("ADDED: `8x - 10y = 20`. MODEL: {model}");
         assert_eq!(
             Value::from(5),
-            Expression::from_identifier(Identifier::new("x").unwrap())
+            Expression::from(Identifier::new("x").unwrap())
                 .simplify_whole_loose(&model)
                 .unwrap()
                 .as_value()
@@ -831,7 +829,7 @@ mod test {
         );
         assert_eq!(
             Value::from(2),
-            Expression::from_identifier(Identifier::new("y").unwrap())
+            Expression::from(Identifier::new("y").unwrap())
                 .simplify_whole_loose(&model)
                 .unwrap()
                 .as_value()
@@ -868,7 +866,7 @@ mod test {
         println!("ADDED: `x + 2y + 3z = 30`. MODEL: {model}");
         assert_eq!(
             Value::from(5),
-            Expression::from_identifier(Identifier::new("x").unwrap())
+            Expression::from(Identifier::new("x").unwrap())
                 .simplify_whole_loose(&model)
                 .unwrap()
                 .as_value()
@@ -876,7 +874,7 @@ mod test {
         );
         assert_eq!(
             Value::from(2),
-            Expression::from_identifier(Identifier::new("y").unwrap())
+            Expression::from(Identifier::new("y").unwrap())
                 .simplify_whole_loose(&model)
                 .unwrap()
                 .as_value()
@@ -884,7 +882,7 @@ mod test {
         );
         assert_eq!(
             Value::from(7),
-            Expression::from_identifier(Identifier::new("z").unwrap())
+            Expression::from(Identifier::new("z").unwrap())
                 .simplify_whole_loose(&model)
                 .unwrap()
                 .as_value()
@@ -918,7 +916,7 @@ mod test {
         println!("ADDED: `8x - 10y = 20`. MODEL: {model}");
         assert_eq!(
             Value::from(3),
-            Expression::from_identifier(Identifier::new("a").unwrap())
+            Expression::from(Identifier::new("a").unwrap())
                 .simplify_whole_loose(&model)
                 .unwrap()
                 .as_value()
@@ -926,7 +924,7 @@ mod test {
         );
         assert_eq!(
             Value::from(5),
-            Expression::from_identifier(Identifier::new("x").unwrap())
+            Expression::from(Identifier::new("x").unwrap())
                 .simplify_whole_loose(&model)
                 .unwrap()
                 .as_value()
@@ -934,7 +932,7 @@ mod test {
         );
         assert_eq!(
             Value::from(2),
-            Expression::from_identifier(Identifier::new("y").unwrap())
+            Expression::from(Identifier::new("y").unwrap())
                 .simplify_whole_loose(&model)
                 .unwrap()
                 .as_value()
@@ -968,7 +966,7 @@ mod test {
         println!("ADDED: `a = 3`. MODEL: {model}");
         assert_eq!(
             Value::from(3),
-            Expression::from_identifier(Identifier::new("a").unwrap())
+            Expression::from(Identifier::new("a").unwrap())
                 .simplify_whole_loose(&model)
                 .unwrap()
                 .as_value()
@@ -976,7 +974,7 @@ mod test {
         );
         assert_eq!(
             Value::from(5),
-            Expression::from_identifier(Identifier::new("x").unwrap())
+            Expression::from(Identifier::new("x").unwrap())
                 .simplify_whole_loose(&model)
                 .unwrap()
                 .as_value()
@@ -984,7 +982,7 @@ mod test {
         );
         assert_eq!(
             Value::from(2),
-            Expression::from_identifier(Identifier::new("y").unwrap())
+            Expression::from(Identifier::new("y").unwrap())
                 .simplify_whole_loose(&model)
                 .unwrap()
                 .as_value()
@@ -1004,7 +1002,7 @@ mod test {
         println!("ADDED: `(x + 1)/3 = 1`. MODEL: {model}");
         assert_eq!(
             Value::from(2),
-            Expression::from_identifier(Identifier::new("x").unwrap())
+            Expression::from(Identifier::new("x").unwrap())
                 .simplify_whole_loose(&model)
                 .unwrap()
                 .as_value()

@@ -6,8 +6,8 @@ use std::hash::Hash;
 use crate::math_structs::expression::*;
 use crate::math_structs::identifier::*;
 use crate::math_structs::model::*;
-use crate::math_structs::value::*;
 use crate::math_structs::statement::*;
+use crate::math_structs::value::*;
 
 #[derive(Hash, Debug, Clone)]
 pub struct Call {
@@ -64,7 +64,7 @@ impl Call {
                     test_model
                         .add_matrix_row(
                             simplified_expression,
-                            Expression::from_identifier(arguments[i].clone()),
+                            Expression::from(arguments[i].clone()),
                         )
                         .unwrap();
                 }
