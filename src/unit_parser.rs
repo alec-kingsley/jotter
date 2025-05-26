@@ -2,7 +2,6 @@ use crate::math_structs::number::*;
 use crate::math_structs::unit::*;
 
 use crate::tokenizer::*;
-use std::collections::HashMap;
 
 /// Parse unit into `Unit`.
 ///
@@ -41,26 +40,22 @@ pub fn parse_unit(code: &str, i: &mut usize) -> Result<(Unit, Number), String> {
                     return Err(format!("Unexpected token: `{token}`"));
                 }
                 sub_unit_power = i8_result.unwrap();
-                sub_unit.exponent *= sub_unit_power;
+                sub_unit.multiply_exponent(sub_unit_power);
                 token = next_unit_token(code, i)?;
             }
             if numerator {
-                unit.exponent += sub_unit.exponent;
+                unit.add_exponent(sub_unit.get_exponent());
                 factor *= sub_factor;
-                for (base_unit, power) in sub_unit.constituents {
-                    unit.constituents
-                        .entry(base_unit)
-                        .and_modify(|pwr| *pwr += power * sub_unit_power)
-                        .or_insert(power * sub_unit_power);
+                for base_unit in BaseUnit::ALL {
+                    let power = sub_unit[base_unit];
+                    unit[base_unit] += power * sub_unit_power;
                 }
             } else {
-                unit.exponent -= sub_unit.exponent;
+                unit.add_exponent(-sub_unit.get_exponent());
                 factor /= sub_factor;
-                for (base_unit, power) in sub_unit.constituents {
-                    unit.constituents
-                        .entry(base_unit)
-                        .and_modify(|pwr| *pwr -= power * sub_unit_power)
-                        .or_insert(-power * sub_unit_power);
+                for base_unit in BaseUnit::ALL {
+                    let power = sub_unit[base_unit];
+                    unit[base_unit] -= power * sub_unit_power;
                 }
             }
         } else if token == "1" {
@@ -69,13 +64,9 @@ pub fn parse_unit(code: &str, i: &mut usize) -> Result<(Unit, Number), String> {
             // base unit expected. parse accordingly.
             let mut abbreviated = false;
             let (sub_unit, sub_factor, prefix) = parse_base_unit(token.as_str(), &mut abbreviated)?;
-            let constituents = &mut unit.constituents;
 
-            let mut exponent = parse_unit_prefix(prefix.as_str(), abbreviated)?
-                - 3 * sub_unit
-                    .constituents
-                    .get(&BaseUnit::Kilogram)
-                    .unwrap_or_else(|| &0i8);
+            let mut exponent =
+                parse_unit_prefix(prefix.as_str(), abbreviated)? - 3 * sub_unit[BaseUnit::Kilogram];
 
             token = next_unit_token(code, i)?;
             let mut power = 1;
@@ -97,10 +88,11 @@ pub fn parse_unit(code: &str, i: &mut usize) -> Result<(Unit, Number), String> {
 
             factor *= sub_factor.powi(power as i32);
 
-            for (base_unit, sub_power) in sub_unit.constituents {
-                *constituents.entry(base_unit).or_insert(0) += power * sub_power;
+            for base_unit in BaseUnit::ALL {
+                let sub_power = sub_unit[base_unit];
+                unit[base_unit] += power * sub_power;
             }
-            unit.exponent += exponent;
+            unit.add_exponent(exponent);
         }
         if token == "*" {
             numerator = true;
@@ -183,167 +175,143 @@ pub fn parse_base_unit(
         "H", "lm", "lx", "Bq", "Gy", "Sv", "kat",
     ];
     // vec of constituents paired with order
-    let base_units: Vec<(HashMap<BaseUnit, i8>, Number)> = vec![
-        (HashMap::from([(BaseUnit::Meter, 1)]), Number::ONE),
-        (HashMap::from([(BaseUnit::Meter, 1)]), Number::from(0.0254)),
-        (HashMap::from([(BaseUnit::Meter, 1)]), Number::from(0.3048)),
-        (HashMap::from([(BaseUnit::Meter, 1)]), Number::from(0.3048)),
-        (HashMap::from([(BaseUnit::Meter, 1)]), Number::from(0.9144)),
+    let base_units: Vec<(Vec<(BaseUnit, i8)>, Number)> = vec![
+        (vec![(BaseUnit::Meter, 1)], Number::ONE),
+        (vec![(BaseUnit::Meter, 1)], Number::from(0.0254)),
+        (vec![(BaseUnit::Meter, 1)], Number::from(0.3048)),
+        (vec![(BaseUnit::Meter, 1)], Number::from(0.3048)),
+        (vec![(BaseUnit::Meter, 1)], Number::from(0.9144)),
+        (vec![(BaseUnit::Meter, 1)], Number::from(1609.344)),
+        (vec![(BaseUnit::Meter, 3)], Number::from(0.001)),
+        (vec![(BaseUnit::Meter, 3)], Number::from(0.0002365882365)),
+        (vec![(BaseUnit::Meter, 3)], Number::from(0.000473176473)),
+        (vec![(BaseUnit::Meter, 3)], Number::from(0.000946352946)),
+        (vec![(BaseUnit::Meter, 3)], Number::from(0.003785411784)),
+        (vec![(BaseUnit::Kilogram, 1)], Number::ONE),
+        (vec![(BaseUnit::Kilogram, 1)], Number::from(0.45359237)),
+        (vec![(BaseUnit::Second, 1)], Number::ONE),
+        (vec![(BaseUnit::Second, 1)], Number::from(60)),
+        (vec![(BaseUnit::Second, 1)], Number::from(60 * 60)),
+        (vec![(BaseUnit::Second, 1)], Number::from(60 * 60 * 24)),
+        (vec![(BaseUnit::Ampere, 1)], Number::ONE),
+        (vec![(BaseUnit::Kelvin, 1)], Number::ONE),
+        (vec![(BaseUnit::Mole, 1)], Number::ONE),
+        (vec![(BaseUnit::Candela, 1)], Number::ONE),
+        (vec![(BaseUnit::Second, -1)], Number::ONE),
         (
-            HashMap::from([(BaseUnit::Meter, 1)]),
-            Number::from(1609.344),
-        ),
-        (HashMap::from([(BaseUnit::Meter, 3)]), Number::from(0.001)),
-        (
-            HashMap::from([(BaseUnit::Meter, 3)]),
-            Number::from(0.0002365882365),
-        ),
-        (
-            HashMap::from([(BaseUnit::Meter, 3)]),
-            Number::from(0.000473176473),
-        ),
-        (
-            HashMap::from([(BaseUnit::Meter, 3)]),
-            Number::from(0.000946352946),
-        ),
-        (
-            HashMap::from([(BaseUnit::Meter, 3)]),
-            Number::from(0.003785411784),
-        ),
-        (HashMap::from([(BaseUnit::Kilogram, 1)]), Number::ONE),
-        (
-            HashMap::from([(BaseUnit::Kilogram, 1)]),
-            Number::from(0.45359237),
-        ),
-        (HashMap::from([(BaseUnit::Second, 1)]), Number::ONE),
-        (HashMap::from([(BaseUnit::Second, 1)]), Number::from(60)),
-        (
-            HashMap::from([(BaseUnit::Second, 1)]),
-            Number::from(60 * 60),
-        ),
-        (
-            HashMap::from([(BaseUnit::Second, 1)]),
-            Number::from(60 * 60 * 24),
-        ),
-        (HashMap::from([(BaseUnit::Ampere, 1)]), Number::ONE),
-        (HashMap::from([(BaseUnit::Kelvin, 1)]), Number::ONE),
-        (HashMap::from([(BaseUnit::Mole, 1)]), Number::ONE),
-        (HashMap::from([(BaseUnit::Candela, 1)]), Number::ONE),
-        (HashMap::from([(BaseUnit::Second, -1)]), Number::ONE),
-        (
-            HashMap::from([
+            vec![
                 (BaseUnit::Kilogram, 1),
                 (BaseUnit::Meter, 1),
                 (BaseUnit::Second, -2),
-            ]),
+            ],
             Number::ONE,
         ),
         (
-            HashMap::from([
+            vec![
                 (BaseUnit::Kilogram, 1),
                 (BaseUnit::Meter, -1),
                 (BaseUnit::Second, -2),
-            ]),
+            ],
             Number::ONE,
         ),
         (
-            HashMap::from([
+            vec![
                 (BaseUnit::Kilogram, 1),
                 (BaseUnit::Meter, 2),
                 (BaseUnit::Second, -2),
-            ]),
+            ],
             Number::ONE,
         ),
         (
-            HashMap::from([
+            vec![
                 (BaseUnit::Kilogram, 1),
                 (BaseUnit::Meter, 2),
                 (BaseUnit::Second, -3),
-            ]),
+            ],
             Number::ONE,
         ),
         (
-            HashMap::from([(BaseUnit::Second, 1), (BaseUnit::Ampere, 1)]),
+            vec![(BaseUnit::Second, 1), (BaseUnit::Ampere, 1)],
             Number::ONE,
         ),
         (
-            HashMap::from([
+            vec![
                 (BaseUnit::Kilogram, 1),
                 (BaseUnit::Meter, 2),
                 (BaseUnit::Second, -3),
                 (BaseUnit::Ampere, -1),
-            ]),
+            ],
             Number::ONE,
         ),
         (
-            HashMap::from([
+            vec![
                 (BaseUnit::Kilogram, -1),
                 (BaseUnit::Meter, -2),
                 (BaseUnit::Second, 4),
                 (BaseUnit::Ampere, 2),
-            ]),
+            ],
             Number::ONE,
         ),
         (
-            HashMap::from([
+            vec![
                 (BaseUnit::Kilogram, 1),
                 (BaseUnit::Meter, 2),
                 (BaseUnit::Second, -3),
                 (BaseUnit::Ampere, -2),
-            ]),
+            ],
             Number::ONE,
         ),
         (
-            HashMap::from([
+            vec![
                 (BaseUnit::Kilogram, -1),
                 (BaseUnit::Meter, -2),
                 (BaseUnit::Second, 3),
                 (BaseUnit::Ampere, 2),
-            ]),
+            ],
             Number::ONE,
         ),
         (
-            HashMap::from([
+            vec![
                 (BaseUnit::Kilogram, 1),
                 (BaseUnit::Meter, 2),
                 (BaseUnit::Second, -2),
                 (BaseUnit::Ampere, -1),
-            ]),
+            ],
             Number::ONE,
         ),
         (
-            HashMap::from([
+            vec![
                 (BaseUnit::Kilogram, 1),
                 (BaseUnit::Second, -2),
                 (BaseUnit::Ampere, -1),
-            ]),
+            ],
             Number::ONE,
         ),
         (
-            HashMap::from([
+            vec![
                 (BaseUnit::Kilogram, 1),
                 (BaseUnit::Meter, 2),
                 (BaseUnit::Second, -2),
                 (BaseUnit::Ampere, -2),
-            ]),
+            ],
             Number::ONE,
         ),
-        (HashMap::from([(BaseUnit::Candela, 1)]), Number::ONE),
+        (vec![(BaseUnit::Candela, 1)], Number::ONE),
         (
-            HashMap::from([(BaseUnit::Candela, 1), (BaseUnit::Meter, -2)]),
+            vec![(BaseUnit::Candela, 1), (BaseUnit::Meter, -2)],
             Number::ONE,
         ),
-        (HashMap::from([(BaseUnit::Second, -1)]), Number::ONE),
+        (vec![(BaseUnit::Second, -1)], Number::ONE),
         (
-            HashMap::from([(BaseUnit::Meter, 2), (BaseUnit::Second, -2)]),
-            Number::ONE,
-        ),
-        (
-            HashMap::from([(BaseUnit::Meter, 2), (BaseUnit::Second, -2)]),
+            vec![(BaseUnit::Meter, 2), (BaseUnit::Second, -2)],
             Number::ONE,
         ),
         (
-            HashMap::from([(BaseUnit::Mole, 1), (BaseUnit::Second, -1)]),
+            vec![(BaseUnit::Meter, 2), (BaseUnit::Second, -2)],
+            Number::ONE,
+        ),
+        (
+            vec![(BaseUnit::Mole, 1), (BaseUnit::Second, -1)],
             Number::ONE,
         ),
     ];
@@ -393,10 +361,7 @@ pub fn parse_base_unit(
     }
     let (constituents, factor) = base_units.get(base_unit_option.unwrap()).unwrap().clone();
     Ok((
-        Unit {
-            exponent: 0i8,
-            constituents,
-        },
+        Unit::from(constituents),
         factor,
         prefix,
     ))
@@ -467,10 +432,7 @@ mod tests {
         let mut i: usize = 0;
         let (unit, _) = parse_unit(code, &mut i).unwrap();
         assert_eq!(i, code.chars().count());
-        let unit_expected = Unit {
-            exponent: 0,
-            constituents: HashMap::from([(BaseUnit::Meter, 1)]),
-        };
+        let unit_expected = Unit::from(vec![(BaseUnit::Meter, 1)]);
         assert_eq!(unit_expected, unit);
     }
 
@@ -480,10 +442,7 @@ mod tests {
         let mut i: usize = 0;
         let (unit, _) = parse_unit(code, &mut i).unwrap();
         assert_eq!(i, code.chars().count());
-        let unit_expected = Unit {
-            exponent: 0,
-            constituents: HashMap::from([(BaseUnit::Meter, 1)]),
-        };
+        let unit_expected = Unit::from(vec![(BaseUnit::Meter, 1)]);
         assert_eq!(unit_expected, unit);
     }
 
@@ -493,10 +452,8 @@ mod tests {
         let mut i: usize = 0;
         let (unit, _) = parse_unit(code, &mut i).unwrap();
         assert_eq!(i, code.chars().count());
-        let unit_expected = Unit {
-            exponent: 3,
-            constituents: HashMap::from([(BaseUnit::Meter, 1)]),
-        };
+        let mut unit_expected = Unit::from(vec![(BaseUnit::Meter, 1)]);
+        unit_expected.add_exponent(3);
         assert_eq!(unit_expected, unit);
     }
 
@@ -506,10 +463,8 @@ mod tests {
         let mut i: usize = 0;
         let (unit, _) = parse_unit(code, &mut i).unwrap();
         assert_eq!(i, code.chars().count());
-        let unit_expected = Unit {
-            exponent: -3,
-            constituents: HashMap::from([(BaseUnit::Meter, 1)]),
-        };
+        let mut unit_expected = Unit::from(vec![(BaseUnit::Meter, 1)]);
+        unit_expected.add_exponent(-3);
         assert_eq!(unit_expected, unit);
     }
 
@@ -519,10 +474,7 @@ mod tests {
         let mut i: usize = 0;
         let (unit, _) = parse_unit(code, &mut i).unwrap();
         assert_eq!(i, code.chars().count());
-        let unit_expected = Unit {
-            exponent: 0,
-            constituents: HashMap::from([(BaseUnit::Kilogram, 1), (BaseUnit::Second, -1)]),
-        };
+        let unit_expected = Unit::from(vec![(BaseUnit::Kilogram, 1), (BaseUnit::Second, -1)]);
         assert_eq!(unit_expected, unit);
     }
 
@@ -532,10 +484,7 @@ mod tests {
         let mut i: usize = 0;
         let (unit, _) = parse_unit(code, &mut i).unwrap();
         assert_eq!(i, code.chars().count());
-        let unit_expected = Unit {
-            exponent: 0,
-            constituents: HashMap::from([(BaseUnit::Kilogram, 1), (BaseUnit::Second, -2)]),
-        };
+        let unit_expected = Unit::from(vec![(BaseUnit::Kilogram, 1), (BaseUnit::Second, -2)]);
         assert_eq!(unit_expected, unit);
     }
 
@@ -545,10 +494,7 @@ mod tests {
         let mut i: usize = 0;
         let (unit, _) = parse_unit(code, &mut i).unwrap();
         assert_eq!(i, code.chars().count());
-        let unit_expected = Unit {
-            exponent: 0,
-            constituents: HashMap::from([(BaseUnit::Kilogram, 1), (BaseUnit::Second, -2)]),
-        };
+        let unit_expected = Unit::from(vec![(BaseUnit::Kilogram, 1), (BaseUnit::Second, -2)]);
         assert_eq!(unit_expected, unit);
     }
 
@@ -558,10 +504,7 @@ mod tests {
         let mut i: usize = 0;
         let (unit, _) = parse_unit(code, &mut i).unwrap();
         assert_eq!(i, code.chars().count());
-        let unit_expected = Unit {
-            exponent: 0,
-            constituents: HashMap::from([(BaseUnit::Second, -2)]),
-        };
+        let unit_expected = Unit::from(vec![(BaseUnit::Kilogram, 2), (BaseUnit::Second, -2)]);
         assert_eq!(unit_expected, unit);
     }
 
@@ -571,10 +514,7 @@ mod tests {
         let mut i: usize = 0;
         let (unit, _) = parse_unit(code, &mut i).unwrap();
         assert_eq!(i, code.chars().count());
-        let unit_expected = Unit {
-            exponent: 0,
-            constituents: HashMap::from([(BaseUnit::Meter, 2), (BaseUnit::Second, -2)]),
-        };
+        let unit_expected = Unit::from(vec![(BaseUnit::Meter, 2), (BaseUnit::Second, -2)]);
         assert_eq!(unit_expected, unit);
     }
 }

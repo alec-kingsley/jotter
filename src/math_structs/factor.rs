@@ -56,10 +56,10 @@ impl Factor {
                     Factor::Number(Value::zero())
                 }
             }
-            Factor::Number(number) => Factor::Number(number.clone()),
+            Factor::Number(number) => Factor::Number(*number),
             Factor::Identifier(identifier) => {
                 if knowns.contains_key(&identifier) {
-                    Factor::Number(knowns.get(&identifier).unwrap().clone())
+                    Factor::Number(*knowns.get(&identifier).unwrap())
                 } else if force_retrieve {
                     Factor::Parenthetical(model.force_build_expression(identifier.clone())?)
                 } else {
@@ -140,27 +140,25 @@ impl Mul for Factor {
             result = Some(other.clone());
         } else if other.clone().is_unitless_one() {
             result = Some(self.clone());
-        } else if let Factor::Number(self_number) = self.clone() {
-            if let Factor::Number(other_number) = other.clone() {
+        } else if let Factor::Number(self_number) = self {
+            if let Factor::Number(other_number) = other {
                 result = Some(Factor::Number(self_number * other_number));
             }
         }
         if result == None {
-            result = Some(
-                if let Factor::Parenthetical(self_expression) = self.clone() {
-                    if let Factor::Parenthetical(other_expression) = other.clone() {
-                        Factor::Parenthetical(self_expression * other_expression)
-                    } else {
-                        Factor::Parenthetical(self_expression * Expression::from_factor(other))
-                    }
-                } else if let Factor::Parenthetical(other_expression) = other.clone() {
-                    Factor::Parenthetical(other_expression * Expression::from_factor(self))
+            result = Some(if let Factor::Parenthetical(self_expression) = self {
+                if let Factor::Parenthetical(other_expression) = other {
+                    Factor::Parenthetical(self_expression * other_expression)
                 } else {
-                    Factor::Parenthetical(
-                        Expression::from_factor(self) * Expression::from_factor(other),
-                    )
-                },
-            );
+                    Factor::Parenthetical(self_expression * Expression::from_factor(other))
+                }
+            } else if let Factor::Parenthetical(other_expression) = other {
+                Factor::Parenthetical(other_expression * Expression::from_factor(self))
+            } else {
+                Factor::Parenthetical(
+                    Expression::from_factor(self) * Expression::from_factor(other),
+                )
+            });
         }
         result.unwrap()
     }
@@ -195,21 +193,19 @@ impl Div for Factor {
             }
         }
         if result == None {
-            result = Some(
-                if let Factor::Parenthetical(self_expression) = self.clone() {
-                    if let Factor::Parenthetical(other_expression) = other.clone() {
-                        Factor::Parenthetical(self_expression / other_expression)
-                    } else {
-                        Factor::Parenthetical(self_expression / Expression::from_factor(other))
-                    }
-                } else if let Factor::Parenthetical(other_expression) = other.clone() {
-                    Factor::Parenthetical(Expression::from_factor(other) / other_expression)
+            result = Some(if let Factor::Parenthetical(self_expression) = self {
+                if let Factor::Parenthetical(other_expression) = other {
+                    Factor::Parenthetical(self_expression / other_expression)
                 } else {
-                    Factor::Parenthetical(
-                        Expression::from_factor(self) / Expression::from_factor(other),
-                    )
-                },
-            );
+                    Factor::Parenthetical(self_expression / Expression::from_factor(other))
+                }
+            } else if let Factor::Parenthetical(other_expression) = other.clone() {
+                Factor::Parenthetical(Expression::from_factor(other) / other_expression)
+            } else {
+                Factor::Parenthetical(
+                    Expression::from_factor(self) / Expression::from_factor(other),
+                )
+            });
         }
         result.unwrap()
     }
