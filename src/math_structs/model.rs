@@ -3,6 +3,7 @@ use std::cmp;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::Display;
+use std::mem;
 use std::process;
 
 /// Model for program.
@@ -638,6 +639,9 @@ impl Model {
                     }
                 }
             }
+            if !all_true {
+                break;
+            }
         }
         all_true
     }
@@ -722,11 +726,58 @@ impl Model {
     /// * `right` - The right-hand side of the relation.
     /// * `operator` - The operator between the relation elements.
     ///
-    pub fn add_relation(&mut self, left: Expression, operator: RelationOp, right: Expression) {
-        // TODO - for variables with multiple solutions, this should check if it can remove some
+    pub fn add_relation(
+        &mut self,
+        left: Expression,
+        operator: RelationOp,
+        right: Expression,
+    ) -> Result<(), String> {
+        // add relation to model
         let mut new_relation = Relation::from(left);
         new_relation.extend(operator, right);
-        self.relations.push(new_relation);
+        self.relations.push(new_relation.clone());
+
+        // remove any solutions that this can no longer satisfy
+        let original_solved_variables = mem::take(&mut self.solved_variables);
+        let mut new_solved_variables = HashMap::new();
+
+        for (variable, solutions) in &original_solved_variables {
+            let mut valid_solutions = HashSet::new();
+            for solution in solutions {
+                self.solved_variables = original_solved_variables.clone();
+                self.solved_variables
+                    .insert(variable.clone(), HashSet::from([solution.clone()]));
+
+                let simplified_result = new_relation.simplify_whole(&self, false);
+
+                let mut is_valid = true;
+                if simplified_result.is_err() {
+                    is_valid = false;
+                } else {
+                    let simplified = simplified_result.unwrap();
+                    for element in simplified {
+                        if let Some(false) = element.as_bool() {
+                            is_valid = false;
+                        }
+                    }
+                }
+                if is_valid {
+                    valid_solutions.insert(solution.clone());
+                }
+            }
+            new_solved_variables.insert(variable.clone(), valid_solutions);
+        }
+        self.solved_variables = new_solved_variables;
+
+        // update augmented matrix according to new information
+        //
+        if self.augmented_matrix.len() > 0 && self.augmented_matrix[0].len() > 0 {
+            self.reduce()?;
+            if !self.assert_relations_hold() {
+                return Err(String::from("Logical error introduced"));
+            }
+        }
+        Ok(())
     }
 
     /// Add a function to the model.
@@ -1003,6 +1054,62 @@ mod test {
         assert_eq!(
             Value::from(2),
             Expression::from(Identifier::new("x").unwrap())
+                .simplify_whole_loose(&model)
+                .unwrap()
+                .as_value()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_relations_1() {
+        let mut model = Model::new(0);
+        model
+            .add_relation(
+                Expression::from(Identifier::new("a").unwrap()),
+                RelationOp::Greater,
+                Expression::from(Value::from(0)),
+            )
+            .unwrap();
+        println!("ADDED: `a > 0`. MODEL: {model}");
+        model
+            .add_matrix_row(
+                ast::parse_expression("aa", &mut 0).expect("ast::parse_expression - failure"),
+                ast::parse_expression("1", &mut 0).expect("ast::parse_expression - failure"),
+            )
+            .unwrap();
+        println!("ADDED: `aa = 1`. MODEL: {model}");
+        assert_eq!(
+            Value::from(1),
+            Expression::from(Identifier::new("a").unwrap())
+                .simplify_whole_loose(&model)
+                .unwrap()
+                .as_value()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_relations_2() {
+        let mut model = Model::new(0);
+        model
+            .add_matrix_row(
+                ast::parse_expression("aa", &mut 0).expect("ast::parse_expression - failure"),
+                ast::parse_expression("1", &mut 0).expect("ast::parse_expression - failure"),
+            )
+            .unwrap();
+        println!("ADDED: `aa = 1`. MODEL: {model}");
+        model
+            .add_relation(
+                Expression::from(Identifier::new("a").unwrap()),
+                RelationOp::Greater,
+                Expression::from(Value::from(0)),
+            )
+            .unwrap();
+        println!("ADDED: `a > 0`. MODEL: {model}");
+        assert_eq!(
+            Value::from(1),
+            Expression::from(Identifier::new("a").unwrap())
                 .simplify_whole_loose(&model)
                 .unwrap()
                 .as_value()

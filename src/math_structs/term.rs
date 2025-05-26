@@ -805,7 +805,7 @@ mod tests {
             Expression::from(Identifier::new("a").unwrap()),
             RelationOp::NotEqual,
             Expression::from(Value::zero()),
-        );
+        ).unwrap();
         let force_retrieve = false;
         let result = ast::parse_term("3a/a", &mut 0)
             .expect("ast::parse_term - failure")

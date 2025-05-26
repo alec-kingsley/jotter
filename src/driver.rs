@@ -22,7 +22,7 @@ pub fn process_prompt(model: &Model, prompt: Relation) {
             let result = simplified.iter().next().unwrap();
             if result.len() == 1 {
                 println!("{prompt} = {}", result);
-            }  else {
+            } else {
                 println!("{prompt} ≡ {}", result);
             }
         } else {
@@ -84,7 +84,9 @@ pub fn process_equation(model: &mut Model, relation: Relation) -> bool {
             }
         } else {
             // else, call add_relation
-            model.add_relation(left.clone(), operator.clone(), right.clone());
+            model
+                .add_relation(left.clone(), operator.clone(), right.clone())
+                .unwrap();
             something_stored = true;
         }
     }
