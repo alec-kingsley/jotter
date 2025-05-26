@@ -93,18 +93,13 @@ impl Value {
     ///
     pub fn powi(&self, pow: i32) -> Self {
         if self.is_real() {
+            let mut new_unit = self.unit;
+            new_unit.multiply_exponent(pow.try_into().unwrap());
+            new_unit.multiply_constituents(pow.try_into().unwrap());
             Self {
                 real: self.real.powi(pow),
                 imaginary: Number::ZERO,
-                unit: Unit {
-                    exponent: self.unit.exponent * pow as i8,
-                    constituents: self
-                        .unit
-                        .constituents
-                        .iter()
-                        .map(|(k, v)| (k.clone(), v.clone() * pow as i8))
-                        .collect(),
-                },
+                unit: new_unit,
             }
         } else {
             // TODO - this could be more efficient
@@ -215,36 +210,36 @@ impl Value {
             while self.abs() >= Decimal::TEN {
                 self.real /= 10;
                 self.imaginary /= 10;
-                self.unit.exponent += 1;
+                self.unit.add_exponent(1);
             }
         } else {
             while !self.is_zero() && self.abs() < Decimal::ONE {
                 self.real *= 10;
                 self.imaginary *= 10;
-                self.unit.exponent -= 1;
+                self.unit.add_exponent(-1);
             }
         }
 
         // ensure exponent exists
-        if self.unit.exponent > 0 {
-            while self.unit.exponent > 30
-                || (subunit_exponent != 0 && self.unit.exponent % (3 * subunit_exponent) != 0)
+        if self.unit.get_exponent() > 0 {
+            while self.unit.get_exponent() > 30
+                || (subunit_exponent != 0 && self.unit.get_exponent() % (3 * subunit_exponent) != 0)
             {
                 self.real *= 10;
                 self.imaginary *= 10;
-                self.unit.exponent -= 1;
+                self.unit.add_exponent(-1);
             }
         } else {
             self.real *= 100;
             self.imaginary *= 100;
-            self.unit.exponent -= 2;
+            self.unit.add_exponent(-2);
 
-            while self.unit.exponent < -30
-                || (subunit_exponent != 0 && self.unit.exponent % (3 * subunit_exponent) != 0)
+            while self.unit.get_exponent() < -30
+                || (subunit_exponent != 0 && self.unit.get_exponent() % (3 * subunit_exponent) != 0)
             {
                 self.real /= 10;
                 self.imaginary /= 10;
-                self.unit.exponent += 1;
+                self.unit.add_exponent(1);
             }
         }
     }
@@ -357,7 +352,8 @@ impl Display for Value {
         let mut numerator = String::new();
         let mut denominator = String::new();
         let mut processed_prefix = false;
-        for (base_unit, unit_power) in self_clone.unit.constituents.clone() {
+        for base_unit in BaseUnit::ALL {
+            let unit_power = self_clone.unit[base_unit];
             if unit_power == 0 {
                 continue;
             }
@@ -370,18 +366,18 @@ impl Display for Value {
                     if unit_power > 0i8 {
                         format!(
                             "{}g",
-                            get_si_prefix(self_clone.unit.exponent + 3, unit_power)
+                            get_si_prefix(self_clone.unit.get_exponent() + 3, unit_power)
                         )
                     } else {
                         format!(
                             "{}g",
-                            get_si_prefix(self_clone.unit.exponent - 3, unit_power)
+                            get_si_prefix(self_clone.unit.get_exponent() - 3, unit_power)
                         )
                     }
                 } else {
                     format!(
                         "{}{unit_name}",
-                        get_si_prefix(self_clone.unit.exponent, unit_power)
+                        get_si_prefix(self_clone.unit.get_exponent(), unit_power)
                     )
                 };
                 processed_prefix = true;
@@ -411,8 +407,8 @@ impl Display for Value {
 
         // if unitless or whatever, put the prefix in the number
         if !processed_prefix {
-            self_clone.real *= Number::from(10).powi(self_clone.unit.exponent as i32);
-            self_clone.imaginary *= Number::from(10).powi(self_clone.unit.exponent as i32);
+            self_clone.real *= Number::from(10).powi(self_clone.unit.get_exponent() as i32);
+            self_clone.imaginary *= Number::from(10).powi(self_clone.unit.get_exponent() as i32);
         }
 
         // write final result depending on numerator/denominator contents
@@ -484,20 +480,26 @@ impl Add for Value {
     /// Operator overload for +.
     ///
     fn add(self, other: Self) -> Self {
-        assert!(self.unit == other.unit, "Mismatched types");
-        let mut other_clone = other.clone();
-        let exp_diff = other_clone.unit.exponent - self.unit.exponent;
-        other_clone.unit.exponent -= exp_diff;
-        other_clone.real = other_clone.real * Number::from(10).powi(exp_diff as i32);
-        other_clone.imaginary = other_clone.imaginary * Number::from(10).powi(exp_diff as i32);
-        other_clone.real *=
-            Number::from(10).powi((other.unit.exponent - self.unit.exponent) as i32);
-        other_clone.imaginary *=
-            Number::from(10).powi((other.unit.exponent - self.unit.exponent) as i32);
-        Self {
-            real: self.real + other_clone.real,
-            imaginary: self.imaginary + other_clone.imaginary,
-            unit: self.unit,
+        if self.is_zero() {
+            other.clone()
+        } else if other.is_zero() {
+            self.clone()
+        } else {
+            assert!(self.unit == other.unit, "Mismatched types");
+            let mut other_clone = other.clone();
+            let exp_diff = other_clone.unit.get_exponent() - self.unit.get_exponent();
+            other_clone.unit.add_exponent(-exp_diff);
+            other_clone.real = other_clone.real * Number::from(10).powi(exp_diff as i32);
+            other_clone.imaginary = other_clone.imaginary * Number::from(10).powi(exp_diff as i32);
+            other_clone.real *= Number::from(10)
+                .powi((other.unit.get_exponent() - self.unit.get_exponent()) as i32);
+            other_clone.imaginary *= Number::from(10)
+                .powi((other.unit.get_exponent() - self.unit.get_exponent()) as i32);
+            Self {
+                real: self.real + other_clone.real,
+                imaginary: self.imaginary + other_clone.imaginary,
+                unit: self.unit,
+            }
         }
     }
 }
@@ -540,20 +542,26 @@ impl Sub for Value {
     /// Operator overload for -.
     ///
     fn sub(self, other: Self) -> Self {
-        assert!(self.unit == other.unit, "Mismatched types");
-        let mut other_clone = other.clone();
-        let exp_diff = other_clone.unit.exponent - self.unit.exponent;
-        other_clone.unit.exponent -= exp_diff;
-        other_clone.real = other_clone.real * Number::from(10).powi(exp_diff as i32);
-        other_clone.imaginary = other_clone.imaginary * Number::from(10).powi(exp_diff as i32);
-        other_clone.real *=
-            Number::from(10).powi((other.unit.exponent - self.unit.exponent) as i32);
-        other_clone.imaginary *=
-            Number::from(10).powi((other.unit.exponent - self.unit.exponent) as i32);
-        Self {
-            real: self.real - other_clone.real,
-            imaginary: self.imaginary - other_clone.imaginary,
-            unit: self.unit,
+        if self.is_zero() {
+            -other.clone()
+        } else if other.is_zero() {
+            self.clone()
+        } else {
+            assert!(self.unit == other.unit, "Mismatched types");
+            let mut other_clone = other.clone();
+            let exp_diff = other_clone.unit.get_exponent() - self.unit.get_exponent();
+            other_clone.unit.add_exponent(-exp_diff);
+            other_clone.real = other_clone.real * Number::from(10).powi(exp_diff as i32);
+            other_clone.imaginary = other_clone.imaginary * Number::from(10).powi(exp_diff as i32);
+            other_clone.real *= Number::from(10)
+                .powi((other.unit.get_exponent() - self.unit.get_exponent()) as i32);
+            other_clone.imaginary *= Number::from(10)
+                .powi((other.unit.get_exponent() - self.unit.get_exponent()) as i32);
+            Self {
+                real: self.real - other_clone.real,
+                imaginary: self.imaginary - other_clone.imaginary,
+                unit: self.unit,
+            }
         }
     }
 }
@@ -582,17 +590,15 @@ impl Mul for Value {
     /// Operator overload for *.
     ///
     fn mul(self, other: Self) -> Self {
-        let mut constituents = self.unit.constituents;
-        for (base_unit, power) in other.unit.constituents {
-            *constituents.entry(base_unit).or_insert(0) += power;
+        let mut new_unit = self.unit.clone();
+        for base_unit in BaseUnit::ALL {
+            new_unit[base_unit] += other.unit[base_unit];
         }
+        new_unit.add_exponent(other.unit.get_exponent());
         let value = Self {
             real: self.real * other.real - self.imaginary * other.imaginary,
             imaginary: self.real * other.imaginary + self.imaginary * other.real,
-            unit: Unit {
-                exponent: self.unit.exponent + other.unit.exponent,
-                constituents,
-            },
+            unit: new_unit,
         };
         value
     }
@@ -630,20 +636,18 @@ impl Div for Value {
     /// Operator overload for /.
     ///
     fn div(self, other: Self) -> Self {
-        let mut constituents = self.unit.constituents;
-        for (base_unit, power) in other.unit.constituents {
-            *constituents.entry(base_unit).or_insert(0) -= power;
+        let mut new_unit = self.unit.clone();
+        for base_unit in BaseUnit::ALL {
+            new_unit[base_unit] -= other.unit[base_unit];
         }
+        new_unit.add_exponent(-other.unit.get_exponent());
         // ain't no way I finally used the complex conjugate thing from linear alg
         let divisor = other.real * other.real + other.imaginary * other.imaginary;
 
         Self {
             real: (self.real * other.real + self.imaginary * other.imaginary) / divisor,
             imaginary: (-self.real * other.imaginary + self.imaginary * other.real) / divisor,
-            unit: Unit {
-                exponent: self.unit.exponent - other.unit.exponent,
-                constituents,
-            },
+            unit: new_unit,
         }
     }
 }
@@ -688,11 +692,12 @@ impl PartialOrd for Value {
             Some(Ordering::Equal)
         } else if self.is_real() && other.is_real() {
             let mut other_clone = other.clone();
-            let exp_diff = other_clone.unit.exponent - self.unit.exponent;
-            other_clone.unit.exponent -= exp_diff;
+            let exp_diff = other_clone.unit.get_exponent() - self.unit.get_exponent();
+            other_clone.unit.add_exponent(-exp_diff);
             other_clone.real = other_clone.real * Number::from(Decimal::TEN.powi(exp_diff as i64));
-            other_clone.real *=
-                Number::from(Decimal::TEN.powi((other.unit.exponent - self.unit.exponent) as i64));
+            other_clone.real *= Number::from(
+                Decimal::TEN.powi((other.unit.get_exponent() - self.unit.get_exponent()) as i64),
+            );
             Some(if self.real < other_clone.real {
                 Ordering::Less
             } else {
@@ -710,40 +715,24 @@ mod tests {
 
     #[test]
     fn test_get_unit_1() {
-        let unit = Unit {
-            exponent: 0i8,
-            constituents: HashMap::from([(BaseUnit::Meter, 1)]),
-        };
-
+        let unit = Unit::from(vec![(BaseUnit::Meter, 1)]);
         let value = Value::from(1).with_unit(unit.clone());
         assert_eq!(unit, value.get_unit().clone());
     }
 
     #[test]
     fn test_powi_1() {
-        let unit = Unit {
-            exponent: 0i8,
-            constituents: HashMap::from([(BaseUnit::Meter, 1)]),
-        };
-
+        let unit = Unit::from(vec![(BaseUnit::Meter, 1)]);
         let number = Value::from(2).with_unit(unit.clone()).powi(4);
 
-        let unit_expected = Unit {
-            exponent: 0i8,
-            constituents: HashMap::from([(BaseUnit::Meter, 4)]),
-        };
-
+        let unit_expected = Unit::from(vec![(BaseUnit::Meter, 4)]);
         let number_expected = Value::from(16).with_unit(unit_expected.clone());
         assert_eq!(number_expected, number);
     }
 
     #[test]
     fn test_powi_2() {
-        let unit = Unit {
-            exponent: 0i8,
-            constituents: HashMap::from([(BaseUnit::Meter, 1)]),
-        };
-
+        let unit = Unit::from(vec![(BaseUnit::Meter, 1)]);
         let number = Value::from(5).with_unit(unit.clone()).powi(0);
 
         let number_expected = Value::one();
@@ -859,46 +848,38 @@ mod tests {
 
     #[test]
     fn test_refactor_exponent_1() {
-        let mut ten_thousand_meters = Value::from(10000).with_unit(Unit {
-            exponent: 0i8,
-            constituents: HashMap::from([(BaseUnit::Meter, 1)]),
-        });
+        let mut ten_thousand_meters =
+            Value::from(10000).with_unit(Unit::from(vec![(BaseUnit::Meter, 1)]));
         ten_thousand_meters.refactor_exponent(1);
         assert_eq!(Number::from(10), ten_thousand_meters.real);
-        assert_eq!(3, ten_thousand_meters.unit.exponent);
+        assert_eq!(3, ten_thousand_meters.unit.get_exponent());
     }
 
     #[test]
     fn test_refactor_exponent_2() {
-        let mut thousand_meters = Value::from(1000).with_unit(Unit {
-            exponent: 0i8,
-            constituents: HashMap::from([(BaseUnit::Meter, 1)]),
-        });
+        let mut thousand_meters =
+            Value::from(1000).with_unit(Unit::from(vec![(BaseUnit::Meter, 1)]));
         thousand_meters.refactor_exponent(1);
         assert_eq!(Number::from(1), thousand_meters.real);
-        assert_eq!(3, thousand_meters.unit.exponent);
+        assert_eq!(3, thousand_meters.unit.get_exponent());
     }
 
     #[test]
     fn test_refactor_exponent_3() {
-        let mut thousandth_meter = (Value::from(1) / Value::from(1000)).with_unit(Unit {
-            exponent: 0i8,
-            constituents: HashMap::from([(BaseUnit::Meter, 1)]),
-        });
+        let mut thousandth_meter =
+            (Value::from(1) / Value::from(1000)).with_unit(Unit::from(vec![(BaseUnit::Meter, 1)]));
         thousandth_meter.refactor_exponent(1);
         assert_eq!(Number::from(1), thousandth_meter.real);
-        assert_eq!(-3, thousandth_meter.unit.exponent);
+        assert_eq!(-3, thousandth_meter.unit.get_exponent());
     }
 
     #[test]
     fn test_refactor_exponent_4() {
-        let mut hundredth_meter = (Value::from(1) / Value::from(100)).with_unit(Unit {
-            exponent: 0i8,
-            constituents: HashMap::from([(BaseUnit::Meter, 1)]),
-        });
+        let mut hundredth_meter =
+            (Value::from(1) / Value::from(100)).with_unit(Unit::from(vec![(BaseUnit::Meter, 1)]));
         hundredth_meter.refactor_exponent(1);
         assert_eq!(Number::from(10), hundredth_meter.real);
-        assert_eq!(-3, hundredth_meter.unit.exponent);
+        assert_eq!(-3, hundredth_meter.unit.get_exponent());
     }
 
     #[test]
@@ -949,10 +930,7 @@ mod tests {
     #[test]
     fn test_add_3() {
         let two_onei = Value::from(2) + Value::from(1).i();
-        let zero_meters = Value::zero().with_unit(Unit {
-            exponent: 0i8,
-            constituents: HashMap::from([(BaseUnit::Meter, 1)]),
-        });
+        let zero_meters = Value::zero().with_unit(Unit::from(vec![(BaseUnit::Meter, 1)]));
         assert_eq!(two_onei, two_onei.clone() + zero_meters);
     }
 

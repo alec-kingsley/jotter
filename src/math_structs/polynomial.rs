@@ -30,36 +30,8 @@ impl Polynomial {
     /// Extract the unit from the polynomial.
     ///
     pub fn extract_unit(&self) -> Result<Unit, String> {
-        let mut unit_option: Option<Unit> = None;
-        let degree = self.coefficients.len() - 1;
-        // extract unit ;)
-        for deg in 0..degree {
-            let coefficient = &self.coefficients[deg];
-            if !coefficient.is_zero() {
-                let found_unit = Unit {
-                    exponent: 0i8,
-                    constituents: coefficient
-                        .get_unit()
-                        .constituents
-                        .clone()
-                        .into_iter()
-                        .map(|(k, v)| (k, v + deg as i8))
-                        .collect(),
-                };
-                if let Some(unit) = &unit_option {
-                    if unit != &found_unit {
-                        return Err(String::from("Mismatched units"));
-                    }
-                } else {
-                    unit_option = Some(found_unit);
-                }
-            }
-        }
-        if unit_option.is_none() {
-            Err(String::from("Unit not found"))
-        } else {
-            Ok(unit_option.unwrap())
-        }
+        // TODO - ensure that all units are the same, if some are attached to other values
+        Ok(*self.coefficients[0].get_unit())
     }
 
     /// Evaluate the `Polynomial` at a point `x`.
@@ -147,6 +119,8 @@ impl Polynomial {
         // rationalize anything that is sufficiently rational
         for i in 0..roots.len() {
             let rationalized = roots[i].rationalize();
+            
+            // check that rationalized value is 0 of polynomial
             let evaluated = self.evaluate(&rationalized);
             if evaluated.is_exact() && evaluated.is_zero() {
                 roots[i] = rationalized;
@@ -159,6 +133,7 @@ impl Polynomial {
 
 #[cfg(test)]
 mod test {
+    // TODO - add tests involving units
     use super::*;
 
     fn polynomial_builder(coefficients: Vec<f64>) -> Polynomial {
