@@ -36,6 +36,14 @@ impl Factor {
         model: &Model,
         force_retrieve: bool,
     ) -> Result<Factor, String> {
+        #[cfg(debug_assertions)]
+        {
+            println!(
+                "[DEBUG] performing simplification on factor: `{}`. force_retrieve: `{}`",
+                self, force_retrieve
+            );
+        }
+
         let result = Ok(match self {
             Factor::Parenthetical(expression) => {
                 if expression.len() > 1 {
@@ -73,6 +81,12 @@ impl Factor {
             )?),
         });
 
+        #[cfg(debug_assertions)]
+        {
+            if result.is_ok() {
+                println!("[DEBUG] simplified factor to: `{}`", result.clone().unwrap());
+            }
+        }
         result
     }
 }
@@ -253,8 +267,8 @@ mod tests {
     fn test_mul_1() {
         let two = Factor::Parenthetical(Expression::from(Value::from(2)));
         let a = Factor::Parenthetical(Expression::from(Identifier::new("a").unwrap()));
-        let resulting_expression = Expression::from(Value::from(2))
-            * Expression::from(Identifier::new("a").unwrap());
+        let resulting_expression =
+            Expression::from(Value::from(2)) * Expression::from(Identifier::new("a").unwrap());
         let expected = Factor::Parenthetical(resulting_expression);
         assert_eq!(expected, two * a);
     }

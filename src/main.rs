@@ -133,6 +133,10 @@ fn spawn_jotter_terminal(model: &mut Model, tab_ct: usize) {
 /// main function for Jotter interpreter.
 ///
 fn main() {
+    #[cfg(debug_assertions)]
+    {
+        println!("[DEBUG] Debug mode enabled. Build with --release to disable these messages.");
+    }
     let args: Vec<String> = env::args().collect();
     assert!(
         args.len() <= 2,

@@ -161,7 +161,7 @@ impl Term {
     /// remove a many parentheticals as possible, such that it's just a sum of terms.
     /// combine like terms.
     ///
-    pub fn flatten(&mut self) {
+    pub fn flatten(&mut self) -> Result<(), String> {
         // initialize numerator and denominator to 1
         let mut new_term = Term {
             numerator: Vec::new(),
@@ -171,7 +171,7 @@ impl Term {
         let mut numerator_has_parenthetical = false;
         for self_factor in self.numerator.clone() {
             if let Factor::Parenthetical(mut self_expression) = self_factor.clone() {
-                self_expression.flatten();
+                self_expression.flatten()?;
                 if self_expression.len() == 1 {
                     new_term *= self_expression.into_iter().next().unwrap();
                 } else {
@@ -191,7 +191,7 @@ impl Term {
         let mut denominator_has_parenthetical = false;
         for self_factor in self.denominator.clone() {
             if let Factor::Parenthetical(mut self_expression) = self_factor.clone() {
-                self_expression.flatten();
+                self_expression.flatten()?;
                 // if it's just one term
                 if self_expression.len() == 1 {
                     new_term /= self_expression.into_iter().next().unwrap();
@@ -210,13 +210,14 @@ impl Term {
         }
 
         self.clone_from(&new_term);
+        Ok(())
     }
 
     /// Extract the numeric factor of the `Term`.
     ///
     /// This can be called before comparing terms when combining like terms.
     ///
-    pub fn extract_value(&mut self) -> Value {
+    pub fn extract_value(&mut self) -> Result<Value, String> {
         // initialize base variables
         let mut value = Value::one();
 
@@ -236,6 +237,9 @@ impl Term {
 
         for operand in self.denominator.clone() {
             if let Factor::Number(number) = operand {
+                if number.is_zero() {
+                    return Err(String::from("About to divide by 0"));
+                }
                 value /= number;
             } else {
                 new_term /= operand;
@@ -243,7 +247,7 @@ impl Term {
         }
 
         self.clone_from(&new_term);
-        value
+        Ok(value)
     }
 
     /// Get an identifier out of the numerator.
@@ -307,6 +311,16 @@ impl Term {
         model: &Model,
         force_retrieve: bool,
     ) -> Result<Term, String> {
+        #[cfg(debug_assertions)]
+        {
+            println!(
+                "[DEBUG] performing simplification on term: `{}`. force_retrieve: `{}`",
+                self, force_retrieve
+            );
+        }
+
+        // bool represents whether it could be 0. If so, it can't be simplified.
+        // isize is how many left there are to be tacked on at the end
         let mut identifier_counts: HashMap<Identifier, (bool, isize)> = HashMap::new();
 
         // simplify original factors in term and throw them back in
@@ -350,6 +364,7 @@ impl Term {
                 new_term /= operand.simplify(knowns, model, force_retrieve)?;
             }
         }
+
         // re-add reserved and cancelled terms
         for (name, (_, mut count)) in identifier_counts {
             while count > 0 {
@@ -362,6 +377,10 @@ impl Term {
             }
         }
 
+        #[cfg(debug_assertions)]
+        {
+            println!("[DEBUG] simplified term to: `{}`", new_term);
+        }
         Ok(new_term)
     }
 }
@@ -801,11 +820,13 @@ mod tests {
     fn test_simplify_1() {
         let knowns: HashMap<Identifier, Value> = HashMap::new();
         let mut model = Model::new(0);
-        model.add_relation(
-            Expression::from(Identifier::new("a").unwrap()),
-            RelationOp::NotEqual,
-            Expression::from(Value::zero()),
-        ).unwrap();
+        model
+            .add_relation(
+                Expression::from(Identifier::new("a").unwrap()),
+                RelationOp::NotEqual,
+                Expression::from(Value::zero()),
+            )
+            .unwrap();
         let force_retrieve = false;
         let result = ast::parse_term("3a/a", &mut 0)
             .expect("ast::parse_term - failure")

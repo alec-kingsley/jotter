@@ -135,16 +135,21 @@ impl Expression {
     /// remove a many parentheticals as possible, such that it's just a sum of terms.
     /// combine like terms.
     ///
-    pub fn flatten(&mut self) {
+    pub fn flatten(&mut self) -> Result<(), String> {
+        #[cfg(debug_assertions)]
+        {
+            println!("[DEBUG] flattening expression: `{}`", self);
+        }
+
         let mut father_expression = Expression {
             minuend: Vec::new(),
             subtrahend: Vec::new(),
         };
 
         for mut self_term in self.minuend.clone() {
-            self_term.flatten();
+            self_term.flatten()?;
             if let Some(mut child_expression) = self_term.collapse_parenthetical() {
-                child_expression.flatten();
+                child_expression.flatten()?;
                 for child_term in child_expression.minuend {
                     father_expression.minuend.push(child_term.clone());
                 }
@@ -157,9 +162,9 @@ impl Expression {
         }
 
         for mut self_term in self.subtrahend.clone() {
-            self_term.flatten();
+            self_term.flatten()?;
             if let Some(mut child_expression) = self_term.collapse_parenthetical() {
-                child_expression.flatten();
+                child_expression.flatten()?;
                 for child_term in child_expression.minuend {
                     father_expression.subtrahend.push(child_term.clone());
                 }
@@ -171,24 +176,29 @@ impl Expression {
             }
         }
         self.clone_from(&father_expression);
-        self.combine_like_terms();
+        self.combine_like_terms()
     }
 
     /// Combine like terms in `Expression`.
     ///
-    fn combine_like_terms(&mut self) {
+    fn combine_like_terms(&mut self) -> Result<(), String> {
+        #[cfg(debug_assertions)]
+        {
+            println!("[DEBUG] combining like terms in expression: `{}`", self);
+        }
+
         let mut numbers: Vec<Value> = Vec::new();
         let mut terms: Vec<Term> = Vec::new();
 
         // extract all terms with their numeric factor
         for mut self_term in self.minuend.clone() {
-            let number = self_term.extract_value();
+            let number = self_term.extract_value()?;
             numbers.push(number);
             terms.push(self_term);
         }
 
         for mut self_term in self.subtrahend.clone() {
-            let number = self_term.extract_value();
+            let number = self_term.extract_value()?;
             numbers.push(-number);
             terms.push(self_term);
         }
@@ -230,6 +240,7 @@ impl Expression {
                 self.minuend.push(operand);
             }
         }
+        Ok(())
     }
 
     /// Extract `Polynomial` from `self`.
@@ -343,6 +354,11 @@ impl Expression {
     /// * `model` - Program model
     ///
     pub fn simplify_whole_loose(&self, model: &Model) -> Result<Expression, String> {
+        #[cfg(debug_assertions)]
+        {
+            println!("[DEBUG] performing loose whole simplification on expression: `{}`", self);
+        }
+
         self.simplify(
             &model
                 .solved_variables
@@ -372,6 +388,11 @@ impl Expression {
         model: &Model,
         force_retrieve: bool,
     ) -> Result<HashSet<Expression>, String> {
+        #[cfg(debug_assertions)]
+        {
+            println!("[DEBUG] performing whole simplification on expression: `{}`", self);
+        }
+
         model
             .generate_possible_knowns()
             .iter()
@@ -386,6 +407,11 @@ impl Expression {
     /// * `model` - Program model
     ///
     pub fn simplify_whole_as_constants(&self, model: &Model) -> Result<HashSet<Value>, String> {
+        #[cfg(debug_assertions)]
+        {
+            println!("[DEBUG] performing whole simplification into constants on expression: `{}`", self);
+        }
+
         model
             .generate_possible_knowns()
             .iter()
@@ -409,6 +435,11 @@ impl Expression {
         model: &Model,
         force_retrieve: bool,
     ) -> Result<Expression, String> {
+        #[cfg(debug_assertions)]
+        {
+            println!("[DEBUG] performing simplification on expression: `{}`. force_retrieve: `{}`", self, force_retrieve);
+        }
+
         let mut new_expression = Expression::new();
 
         // re-add the original terms after simplifying
@@ -421,7 +452,7 @@ impl Expression {
         }
 
         // remove parentheticals and combine like terms
-        new_expression.flatten();
+        new_expression.flatten()?;
 
         Ok(new_expression)
     }

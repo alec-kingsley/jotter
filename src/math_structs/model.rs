@@ -562,6 +562,10 @@ impl Model {
                             .map(|equivalency| equivalency.clone() / constant.clone())
                             .collect::<HashSet<_>>(),
                     );
+                    #[cfg(debug_assertions)]
+                    {
+                        println!("[DEBUG] updated solved variables. model: `{}`", self);
+                    }
 
                     // that information is no longer needed!
                     self.augmented_matrix.remove(row);
@@ -676,11 +680,16 @@ impl Model {
     /// * `right` - The right-hand side of the equality.
     ///
     pub fn add_matrix_row(&mut self, left: Expression, right: Expression) -> Result<(), String> {
+        #[cfg(debug_assertions)]
+        {
+            println!("[DEBUG] add_matrix_row({}, {})", left, right);
+        }
+
         // subtract one side from the other
         let mut zero_equivalent = left.clone() - right.clone();
 
         // combine like terms
-        zero_equivalent.flatten();
+        zero_equivalent.flatten()?;
 
         // extract the terms which have no identifiers in numerator
         let mut column_vector_element = Expression::new();
@@ -768,6 +777,10 @@ impl Model {
             new_solved_variables.insert(variable.clone(), valid_solutions);
         }
         self.solved_variables = new_solved_variables;
+        #[cfg(debug_assertions)]
+        {
+            println!("[DEBUG] cleansed solved variables. model: `{}`", self);
+        }
 
         // update augmented matrix according to new information
         //
