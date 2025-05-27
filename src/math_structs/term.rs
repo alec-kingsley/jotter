@@ -633,7 +633,7 @@ mod tests {
     #[test]
     fn test_extract_value_1() {
         let mut term = ast::parse_term("3ab", &mut 0).expect("ast::parse_term - failure");
-        let number = term.extract_value();
+        let number = term.extract_value().unwrap();
         assert_eq!(Value::from(3), number);
         assert_eq!(
             ast::parse_term("ab", &mut 0).expect("ast::parse_term - failure"),
