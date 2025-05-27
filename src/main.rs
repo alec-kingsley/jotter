@@ -1,8 +1,10 @@
+#[cfg(not(debug_assertions))]
 use crossterm::{
     cursor, execute,
     style::{Color, Print, ResetColor, SetForegroundColor},
     terminal::{Clear, ClearType},
 };
+
 use std::env;
 use std::fs;
 use std::io::{self, Write};
@@ -88,21 +90,24 @@ fn spawn_jotter_terminal(model: &mut Model, tab_ct: usize) {
                     Ok(Statement::Prompt(relation)) => process_prompt(model, relation),
                     Ok(Statement::Equation(relation)) => {
                         if process_equation(model, relation) {
-                            execute!(
-                                io::stdout(),
-                                cursor::MoveUp(1),
-                                Clear(ClearType::CurrentLine)
-                            )
-                            .unwrap();
-                            execute!(
-                                io::stdout(),
-                                Print(prompt),
-                                SetForegroundColor(Color::Green),
-                                Print(user_code.clone()),
-                                ResetColor,
-                                Print("\n"),
-                            )
-                            .unwrap();
+                            #[cfg(not(debug_assertions))]
+                            {
+                                execute!(
+                                    io::stdout(),
+                                    cursor::MoveUp(1),
+                                    Clear(ClearType::CurrentLine),
+                                )
+                                .unwrap();
+                                execute!(
+                                    io::stdout(),
+                                    Print(prompt),
+                                    SetForegroundColor(Color::Green),
+                                    Print(user_code.clone()),
+                                    ResetColor,
+                                    Print("\n"),
+                                )
+                                .unwrap();
+                            }
                         }
                     }
                     Ok(Statement::FunctionDefinition(name, arguments, definition)) => {
