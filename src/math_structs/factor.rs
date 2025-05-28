@@ -84,7 +84,10 @@ impl Factor {
         #[cfg(debug_assertions)]
         {
             if result.is_ok() {
-                println!("[DEBUG] simplified factor to: `{}`", result.clone().unwrap());
+                println!(
+                    "[DEBUG] simplified factor to: `{}`",
+                    result.clone().unwrap()
+                );
             }
         }
         result
@@ -294,6 +297,17 @@ mod tests {
 
     #[test]
     fn test_mulassign_1() {
+        let mut val = Factor::Parenthetical(Expression::from(Value::from(2)));
+        let a = Factor::Parenthetical(Expression::from(Identifier::new("a").unwrap()));
+        val *= a;
+        let resulting_expression =
+            Expression::from(Value::from(2)) * Expression::from(Identifier::new("a").unwrap());
+        let expected = Factor::Parenthetical(resulting_expression);
+        assert_eq!(expected, val);
+    }
+
+    #[test]
+    fn test_mulassign_2() {
         let mut val = Factor::Number(Value::from(2));
         let three = Factor::Number(Value::from(3));
         let six = Factor::Number(Value::from(6));
@@ -301,5 +315,92 @@ mod tests {
         assert_eq!(six, val);
     }
 
-    // could further test mulassign, product, div, and divassign, however I am lazy.
+    #[test]
+    fn test_mulassign_3() {
+        let mut val = Factor::Parenthetical(Expression::from(Identifier::new("a").unwrap()));
+        let b = Factor::Parenthetical(Expression::from(Identifier::new("b").unwrap()));
+        val *= b;
+        let expected = Factor::Parenthetical(
+            Expression::from(Identifier::new("a").unwrap())
+                * Expression::from(Identifier::new("b").unwrap()),
+        );
+        assert_eq!(expected, val);
+    }
+
+    #[test]
+    fn test_product_1() {
+        if let Factor::Parenthetical(expr) = vec![
+            Factor::Identifier(Identifier::new("a").unwrap()),
+            Factor::Number(Value::from(2)),
+        ]
+        .drain(..)
+        .product()
+        {
+            assert_eq!(1, expr.len());
+            assert_eq!(2, expr.into_iter().next().unwrap().len());
+        } else {
+            panic!("Expected parenthetical as product of factors `a` and `2`");
+        }
+    }
+
+    #[test]
+    fn test_div_1() {
+        let two = Factor::Parenthetical(Expression::from(Value::from(2)));
+        let a = Factor::Parenthetical(Expression::from(Identifier::new("a").unwrap()));
+        let resulting_expression =
+            Expression::from(Value::from(2)) / Expression::from(Identifier::new("a").unwrap());
+        let expected = Factor::Parenthetical(resulting_expression);
+        assert_eq!(expected, two / a);
+    }
+
+    #[test]
+    fn test_div_2() {
+        let two = Factor::Number(Value::from(2));
+        let three = Factor::Number(Value::from(3));
+        let six = Factor::Number(Value::from(6));
+        assert_eq!(two, six / three);
+    }
+
+    #[test]
+    fn test_div_3() {
+        let a = Factor::Parenthetical(Expression::from(Identifier::new("a").unwrap()));
+        let b = Factor::Parenthetical(Expression::from(Identifier::new("b").unwrap()));
+        let expected = Factor::Parenthetical(
+            Expression::from(Identifier::new("a").unwrap())
+                / Expression::from(Identifier::new("b").unwrap()),
+        );
+        assert_eq!(expected, a / b);
+    }
+
+    #[test]
+    fn test_divassign_1() {
+        let mut val = Factor::Parenthetical(Expression::from(Value::from(2)));
+        let a = Factor::Parenthetical(Expression::from(Identifier::new("a").unwrap()));
+        val /= a;
+        let resulting_expression =
+            Expression::from(Value::from(2)) / Expression::from(Identifier::new("a").unwrap());
+        let expected = Factor::Parenthetical(resulting_expression);
+        assert_eq!(expected, val);
+    }
+
+    #[test]
+    fn test_divassign_2() {
+        let mut val = Factor::Number(Value::from(6));
+        let three = Factor::Number(Value::from(3));
+        let two = Factor::Number(Value::from(2));
+        val /= three;
+        assert_eq!(two, val);
+    }
+
+    #[test]
+    fn test_divassign_3() {
+        let mut val = Factor::Parenthetical(Expression::from(Identifier::new("a").unwrap()));
+        let b = Factor::Parenthetical(Expression::from(Identifier::new("b").unwrap()));
+        val /= b;
+        let expected = Factor::Parenthetical(
+            Expression::from(Identifier::new("a").unwrap())
+                / Expression::from(Identifier::new("b").unwrap()),
+        );
+        assert_eq!(expected, val);
+    }
 }
