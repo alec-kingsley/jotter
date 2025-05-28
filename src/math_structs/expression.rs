@@ -187,6 +187,11 @@ impl Expression {
             println!("[DEBUG] combining like terms in expression: `{}`", self);
         }
 
+        if self.len() <= 1 {
+            // nothing to combine
+            return Ok(());
+        }
+
         let mut numbers: Vec<Value> = Vec::new();
         let mut terms: Vec<Term> = Vec::new();
 
@@ -356,7 +361,10 @@ impl Expression {
     pub fn simplify_whole_loose(&self, model: &Model) -> Result<Expression, String> {
         #[cfg(debug_assertions)]
         {
-            println!("[DEBUG] performing loose whole simplification on expression: `{}`", self);
+            println!(
+                "[DEBUG] performing loose whole simplification on expression: `{}`",
+                self
+            );
         }
 
         self.simplify(
@@ -390,7 +398,10 @@ impl Expression {
     ) -> Result<HashSet<Expression>, String> {
         #[cfg(debug_assertions)]
         {
-            println!("[DEBUG] performing whole simplification on expression: `{}`", self);
+            println!(
+                "[DEBUG] performing whole simplification on expression: `{}`",
+                self
+            );
         }
 
         model
@@ -409,7 +420,7 @@ impl Expression {
     pub fn simplify_whole_as_constants(&self, model: &Model) -> Result<HashSet<Value>, String> {
         #[cfg(debug_assertions)]
         {
-            println!("[DEBUG] performing whole simplification into constants on expression: `{}`", self);
+            println!("[DEBUG] performing whole simplification into constants on expression: `{}`, with model: `{}`", self, model);
         }
 
         model
@@ -437,7 +448,10 @@ impl Expression {
     ) -> Result<Expression, String> {
         #[cfg(debug_assertions)]
         {
-            println!("[DEBUG] performing simplification on expression: `{}`. force_retrieve: `{}`", self, force_retrieve);
+            println!(
+                "[DEBUG] performing simplification on expression: `{}`. force_retrieve: `{}`",
+                self, force_retrieve
+            );
         }
 
         let mut new_expression = Expression::new();

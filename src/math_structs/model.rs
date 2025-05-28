@@ -384,8 +384,14 @@ impl Model {
                                         Expression::from(self.variables[cell_col].clone())
                                     };
                             }
-                            new_equations
-                                .push((new_left, self.augmented_matrix[row][col_ct - 1].clone()));
+
+                            // make sure there's something in there
+                            if !new_left.as_value().is_some_and(|value| value.is_zero()) {
+                                new_equations.push((
+                                    new_left,
+                                    self.augmented_matrix[row][col_ct - 1].clone(),
+                                ));
+                            }
                             self.augmented_matrix.remove(row);
                             row_ct -= 1;
                         }
@@ -416,7 +422,7 @@ impl Model {
         Ok(())
     }
 
-    /// Simplify `self.augmented_matrix` by removing meaningless rows. (which are all 0s)
+    /// Simplify `self.augmented_matrix` by removing rows which contain only 0s.
     ///
     fn remove_0s(&mut self) -> Result<(), String> {
         let row_ct = self.augmented_matrix.len();
@@ -446,6 +452,37 @@ impl Model {
             }
         }
         Ok(())
+    }
+
+    /// Simplify `self.augmented_matrix` by removing duplicate rows.
+    ///
+    fn remove_duplicates(&mut self) {
+        let row_ct = self.augmented_matrix.len();
+        let col_ct = if row_ct == 0 {
+            1
+        } else {
+            self.augmented_matrix[0].len()
+        };
+
+        for row in (0..row_ct).rev() {
+            let mut is_duplicate = false;
+            for test_row in 0..row {
+                for col in 0..col_ct {
+                    if self.augmented_matrix[row][col] != self.augmented_matrix[test_row][col] {
+                        break;
+                    };
+                    if col == col_ct - 1 {
+                        is_duplicate = true;
+                    }
+                }
+                if is_duplicate {
+                    break;
+                }
+            }
+            if is_duplicate {
+                self.augmented_matrix.remove(row);
+            }
+        }
     }
 
     /// Solve for all solutions of lonely polynomials.
@@ -614,6 +651,9 @@ impl Model {
 
         // remove expressions which are just a pivot (these are now knowns!)
         self.store_lonely_pivots();
+
+        // remove duplicate rows
+        self.remove_duplicates();
 
         // try to generate new equations with the gained info
         self.make_less_lonely()?;
