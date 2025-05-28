@@ -351,7 +351,7 @@ impl<'a> IntoIterator for &'a Relation {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use crate::*;
 

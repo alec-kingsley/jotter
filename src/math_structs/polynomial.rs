@@ -134,7 +134,7 @@ impl Polynomial {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     // TODO - add tests involving units
     use super::*;
 
