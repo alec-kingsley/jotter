@@ -186,12 +186,6 @@ impl Expression {
         {
             println!("[DEBUG] combining like terms in expression: `{}`", self);
         }
-
-        if self.len() <= 1 {
-            // nothing to combine
-            return Ok(());
-        }
-
         let mut numbers: Vec<Value> = Vec::new();
         let mut terms: Vec<Term> = Vec::new();
 
