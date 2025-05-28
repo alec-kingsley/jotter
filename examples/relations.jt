@@ -1,0 +1,31 @@
+Relations can reduce the possible solutions something may have. For example,
+
+x = xx
+x?
+
+This will print:
+x ∈ {0, 1}
+
+Yet if we introduce that x is not equal to 0:
+x ≠ 0
+x?
+
+Then this will print:
+x = 1
+
+
+Relations can also be used for further simplifications.
+a = b/b
+a?
+
+This will print
+a = b/b
+since we can't simplify it on account of b potentially being 0.
+
+If we show this isn't the case,
+b > 0
+a?
+
+Then we get
+a = 1
+
